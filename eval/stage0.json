@@ -1,0 +1,10 @@
+{
+  "sqlite_vec": {
+    "sqlite": "3.53.4",
+    "python": "3.11.16",
+    "enable_load_extension": true,
+    "loaded": true,
+    "vec_version": "v0.1.9",
+    "fallback": null
+  }
+}
