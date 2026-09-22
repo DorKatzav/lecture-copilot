@@ -1,0 +1,11 @@
+.env
+db/
+runs/
+data/lectures/
+eval/fixture_10min.m4a
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.wav
+*.m4a
+*.mp4

@@ -1,0 +1,18 @@
+---
+description: Lecture Copilot — working agreement pointer and hard rules
+globs: ["**/*"]
+alwaysApply: true
+---
+Read `CLAUDE.md` first, then the last entry of `PROJECT_LOG.md`. Spec = `DESIGN_HE.html`; contracts = `PLAN.md` §3; current milestone = `PLAN.md` §4.
+
+Hard rules (never violate):
+- Terminal/chat in English. Hebrew only in HTML reports, Obsidian, and product output (Digest, UI copy). Code, files, commits in English.
+- Build only the current milestone. No unrequested features. If a milestone runs a day over, drop the next item on the cut ladder (Zoom → LangGraph → re-rank → flashcards → mlx → digest.html).
+- Silence is a feature: nothing pops up during a lecture. Importance only sorts.
+- Audio never leaves the machine. Outbound only via `store/net.py` (Gemini, Notion), logged in `decisions`.
+- One pipeline: `ChunkSource` async iterator; no `if live:`. Disk is the recorder→worker interface. UI hydrates from SQLite.
+- Every LLM call = prompt file in `prompts/` + pydantic schema + one retry. Never inline prompts.
+- Tests next to code with `tests/stubs.py`; `pytest -q && ruff check .` before push; CI never calls providers.
+- Gate before done: `python scripts/gate.py --m N` → `GATE M<N>: PASS k/k`. Then Hebrew report `docs/reports/M<N>_HE.html`, `PROJECT_LOG.md`, Obsidian, PR; Dor approves.
+- `data/lectures/**`, `runs/**`, `db/**`, `.env` are gitignored. Secret scan must be empty.
+- ULIDs minted in Python; replay = upsert. Language per course, never per chunk. qwen3:8b live, gemma3:12b digest only.

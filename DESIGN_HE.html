@@ -1,0 +1,513 @@
+<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0">
+<title>Lecture Copilot Spec</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;800&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F6F6F2; --panel:#FFFFFF; --panel2:#EEEFEA; --ink:#1C2030; --ink2:#4D5468; --mute:#7C8398; --line:#D9DBD3;
+  --accent:#C8412F; --accent-soft:#FBE9E5; --local:#1E6F80; --local-soft:#E1F0F2; --cloud:#7A4FA8; --cloud-soft:#EFE7F8;
+  --ok:#2E7D4F; --ok-soft:#E3F2E8; --warn:#B7791F; --warn-soft:#FBF1DC; --code:#F0F1EC;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 6px 20px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+    --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+    --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+  --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+  --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Assistant',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;margin:0;direction:rtl}
+.wrap{max-width:880px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;margin-block:0 12px;padding-top:6px}
+h3{font-size:1.05rem;font-weight:700;margin-block:20px 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--ink2);max-width:62ch}
+a{color:var(--local)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+header.hero{padding-block:36px 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--mute);font-size:.9rem;margin-top:14px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;margin-bottom:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--panel2);color:var(--ink2);text-decoration:none;font-size:.88rem;font-weight:600;margin-inline-end:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section{margin-bottom:48px;scroll-margin-top:64px}
+.callout{border-inline-start:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:6px;margin:16px 0}
+.callout.local{border-color:var(--local);background:var(--local-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:480px}
+th,td{padding:10px 12px;text-align:right;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-family:'Heebo',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:700;font-family:'Heebo',sans-serif;white-space:nowrap}
+.yes{background:var(--ok-soft);color:var(--ok)} .no{background:var(--accent-soft);color:var(--accent)} .maybe{background:var(--warn-soft);color:var(--warn)}
+.loc{background:var(--local-soft);color:var(--local)} .cld{background:var(--cloud-soft);color:var(--cloud)} .mw{background:var(--panel2);color:var(--ink2)}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em;direction:ltr;unicode-bidi:embed}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;direction:ltr;text-align:left;font-size:.85rem;line-height:1.55;margin:12px 0 18px}
+pre.rtl{direction:rtl;text-align:right;font-family:'Assistant',sans-serif;font-size:.95rem;white-space:pre-wrap}
+pre code{background:none;padding:0}
+ul,ol{padding-inline-start:22px;margin:0 0 12px}
+li{margin-bottom:6px}
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:14px 0 20px}
+.step{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;box-shadow:var(--shadow)}
+.step b{display:block;font-family:'Heebo',sans-serif;font-size:.95rem}
+.step small{display:block;color:var(--mute);font-size:.82rem;line-height:1.4;margin-top:4px}
+.step.local{border-top:3px solid var(--local)} .step.cloud{border-top:3px solid var(--cloud)} .step.hot{border-top:3px solid var(--accent)} .step.mw{border-top:3px solid var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--mute);margin-top:-8px;margin-bottom:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:5px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow);margin:14px 0 20px}
+.mock .bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font-size:.85rem;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.mock .title{font-family:'Heebo',sans-serif;font-size:1.05rem;font-weight:700;color:var(--ink)}
+.mock .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media (max-width:600px){.mock .grid{grid-template-columns:1fr}}
+.mock .box{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--paper)}
+.mock .box h4{margin:0 0 10px;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--mute);font-weight:600;letter-spacing:.04em}
+.field{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.95rem}
+.field span.in{flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--panel)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.seg span{border:1px solid var(--line);border-radius:6px;padding:5px 12px;color:var(--mute);font-size:.9rem;background:var(--panel)}
+.seg span.on{border-color:var(--local);color:var(--local);background:var(--local-soft);font-weight:700}
+.recbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--accent);color:#fff;border-radius:10px;padding:16px;font-family:'Heebo',sans-serif;font-size:1.2rem;font-weight:800;margin:6px 0 8px}
+.recbtn i{width:14px;height:14px;border-radius:50%;background:#fff;display:inline-block}
+.mock .hint{color:var(--mute);font-size:.82rem}
+.mock .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.mock .row:last-child{border:0}
+.wk{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.wk .w{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.wk .w.off{background:var(--panel2);box-shadow:none;color:var(--mute)}
+.wk h4{margin:0 0 4px;font-family:'Heebo',sans-serif;font-size:1rem}
+.wk .d{color:var(--mute);font-size:.82rem;font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
+.wk ul{padding-inline-start:18px;font-size:.92rem;margin:0}
+.wk .goal{margin-top:8px;font-size:.88rem;color:var(--local);font-weight:700}
+.sources{font-size:.9rem;color:var(--ink2)}
+.sources li{margin-bottom:4px}
+.diff{font-size:.9rem;color:var(--ink2)}
+.diff b{color:var(--ink)}
+.dec{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.95rem}
+.dec b{color:var(--warn)}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">DESIGN_HE · v9 + Notion · מאושר 22.9</div>
+  <h1 style="margin-top:8px">Lecture Copilot</h1>
+  <p class="lead" style="margin-top:12px">זיכרון של קורס שלם שמאזין להרצאה. כפתור אחד מקליט, המערכת יודעת מה נאמר בשיעור 3 כשמדברים בשיעור 5, מסמנת בשקט טעויות, שאלות ו"זה במבחן" בדשבורד — בלי לקפוץ — ומגישה Digest ודף קורס שאפשר ללמוד ממנו למבחן. אין הגשה — המוצר הוא בשבילך מ-18.10.</p>
+  <div class="meta"><span>דור</span><span>עודכן: 22.9.2026</span><span>יעד: הרצאה ראשונה 18.10</span></div>
+</header>
+
+<nav class="toc" aria-label="ניווט">
+  <a href="#week">השבוע שלי</a><a href="#story">הליבה</a><a href="#flow">הזרימה</a><a href="#screens">המסכים</a><a href="#digest">Digest ודף קורס</a><a href="#notion">Notion</a><a href="#mw">מול MacWhisper</a><a href="#memory">זיכרון</a><a href="#scope">נכנס / לא</a><a href="#eng">הנדסה</a><a href="#eval">Eval</a><a href="#plan">לו"ז</a><a href="#done">סיימנו</a><a href="#checks">שלב 0</a><a href="#decisions">החלטות לאישור</a>
+</nav>
+
+<section id="week">
+  <h2>השבוע שלי, בלי מונחים</h2>
+  <p><b>ראשון, כיתה.</b> פותח את המחשב, מקליד <code>copilot</code>. זה מרים את מה שצריך ופותח טאב שאומר "מוכן". הקורס והשם כבר ממולאים. לוחץ "הקלט", מקטין את הטאב, מקשיב. שום דבר לא קופץ. כשבא לי — מציץ בטאב: מושגים, טענות מסומנות, שאלות ששווה לשאול, ★ למבחן. התנתקתי לחמש דקות? "מה פספסתי". המרצה אמר "זה יהיה במבחן" — זה מסומן לבד. בסוף לוחץ "סיום", ותוך שתי דקות יש Digest בתיקיית הקורס, בדרייב, וב-Notion בטלפון.</p>
+  <p><b>שלישי, זום.</b> עד 17.10 אין הקלטה חיה מזום. מקליט בזום (או ב-MacWhisper, שמזהה זום לבד), ואחרי השיעור גורר את הקובץ ל-Replay. אותו Digest, אותו זיכרון. הקלטה חיה מזום — אחרי 17.10.</p>
+  <p><b>חמישי, פגישת פרויקט.</b> קורס "פגישות", בדיקת עובדות כבויה. מקליט, ובסוף מקבל סיכום עם החלטות ומשימות. רוצה שמות של מי אמר מה? מייצא את התמלול מ-MacWhisper אחרי שנתתי שמות שם, וגורר ל-Replay. המשימות מקבלות בעלים.</p>
+  <p><b>לפני מבחן.</b> דף הקורס: מילון מצטבר של כל השיעורים, כל מה שהמרצה אמר וסומן כלא מדויק (בפורמט "המרצה אמר / בפועל"), שאלות פתוחות, משימות, ותיבת חיפוש "מה נאמר על CAC?".</p>
+</section>
+
+<section id="story">
+  <h2>הליבה: RAG על קורס שלם</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מה</th><th>מי</th><th>הערה</th></tr></thead>
+    <tbody>
+      <tr><td>תמלול</td><td><span class="pill mw">MacWhisper</span></td><td>ספק מאחורי <code>ASR</code> protocol. mlx-whisper כ-backend שני — אם נשאר זמן</td></tr>
+      <tr><td>שמות דוברים</td><td><span class="pill mw">MacWhisper</span></td><td>בממשק שלהם. מגיע אלינו דרך ייצוא תמלול → Replay. בלי אינטגרציה עם ה-DB הפנימי שלהם</td></tr>
+      <tr><td>אימות עובדה</td><td><span class="pill cld">Gemini Flash</span></td><td>Grounding with Google Search (5,000 חיפושים חינם בחודש) + כלי <code>get_course_context</code>. ~$0.05–0.10 להרצאה. Claude Haiku כמימוש שני מאחורי אותו <code>Verifier</code>, אם תרצה</td></tr>
+      <tr><td><b>זיכרון קורס</b>: FTS5 (BM25) + embeddings + RRF</td><td><span class="pill loc">שלנו</span></td><td>"כבר נאמר?", "סותר?", "ממשיך את", דף הקורס, חיפוש</td></tr>
+      <tr><td>Agent graph: Extractor → Memory → Verifier → Ranker</td><td><span class="pill loc">שלנו</span></td><td>4 פונקציות async, state אחד, לוג החלטות. LangGraph כעטיפה — אם נשאר זמן</td></tr>
+      <tr><td>Digest, דף קורס, כפתור, מסך הרצאה</td><td><span class="pill loc">שלנו</span></td><td>המוצר. ה-Digest נבנה מהפריטים שחולצו (map-reduce), לא מהתמלול המלא</td></tr>
+      <tr><td>Eval: baselines, ablation, sweep</td><td><span class="pill loc">שלנו</span></td><td>הטבלה שהמרצה זוכר</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="flow">
+  <h2>הזרימה</h2>
+  <div class="legend"><span><i style="background:var(--accent)"></i>אתה</span><span><i style="background:var(--local)"></i>שלנו, מקומי</span><span><i style="background:var(--mute)"></i>MacWhisper</span><span><i style="background:var(--cloud)"></i>Gemini</span></div>
+  <div class="flow">
+    <div class="step hot"><b>1. <code>copilot</code></b><small>מרים Ollama, בודק <code>mw</code>, פותח טאב. "מוכן" או "תקן"</small></div>
+    <div class="step hot"><b>2. "הקלט"</b><small>קורס, שם אוטומטי "קורס — W05", בדיקת עובדות פועל/כבוי</small></div>
+    <div class="step local"><b>3. קטעים על שקט</b><small>30–60 שנ', VAD, בלי חפיפה, לדיסק מיד</small></div>
+    <div class="step mw"><b>4. תמלול</b><small><code>mw transcribe --language he|en</code>, שפה ברמת הקורס</small></div>
+    <div class="step local"><b>5. Extractor</b><small>קריאת Ollama אחת: תקציר שורה, מושגים, טענות, שאלות, משימות, highlights + חשיבות</small></div>
+    <div class="step local"><b>6. Memory</b><small>batch embeddings אחד; FTS+vec+RRF top-5: כבר נאמר? סותר? → מתקן חשיבות</small></div>
+    <div class="step cloud"><b>7. Verifier</b><small>Gemini + חיפוש, worker נפרד, רק טענה מהותית, cache. אין רשת → "לא נבדק", אצווה בסיום</small></div>
+    <div class="step local"><b>8. Ranker</b><small>ציון חשיבות מסדר את הדשבורד וה-Digest. כלום לא קופץ</small></div>
+    <div class="step hot"><b>9. "סיום"</b><small></small></div>
+    <div class="step local"><b>10. Digest</b><small>&lt; 2 דק' מהפריטים, md + html, לתיקיית הקורס (Drive desktop מסנכרן)</small></div>
+  </div>
+  <p><b>Replay</b> = אותה זרימה משלב 3, מקובץ אודיו (<code>--pace realtime|fast</code>) או מתמלול מיוצא (מדלג על 4). זה הדמו הרשמי, ומסלול הזום והפגישות.</p>
+</section>
+
+<section id="screens">
+  <h2>המסכים</h2>
+  <p>דף web מקומי אחד, שלושה מצבים. הדף לא מחזיק state — הכל ב-SQLite.</p>
+  <h3>לפני</h3>
+  <div class="mock">
+    <div class="bar"><span class="title">Lecture Copilot</span><span>✅ מוכן · Ollama · MacWhisper · $0.00</span></div>
+    <div class="grid">
+      <div class="box">
+        <h4>הקלטה חדשה</h4>
+        <div class="field">קורס <span class="in">יזמות וחדשנות ▾ &nbsp;<span class="hint">+ חדש · פגישות</span></span></div>
+        <div class="field">שם <span class="in">יזמות וחדשנות — W05</span></div>
+        <div>בדיקת עובדות</div>
+        <div class="seg"><span class="on">פועל</span><span>כבוי</span></div>
+        <div class="recbtn"><i></i> הקלט מהמיקרופון</div>
+        <div class="hint">▶ Replay מקובץ (זום, טלפון, תמלול מ-MacWhisper) · 📂 תיקיית הקורס · 📚 דף הקורס</div>
+      </div>
+      <div class="box">
+        <h4>🔗 ממשיך את W04 · מודלים עסקיים א' · <u>החלף</u></h4>
+        <ul style="margin:0 0 8px;padding-inline-start:18px;font-size:.92rem">
+          <li>מודל עסקי = איך מייצרים, מוסרים ולוכדים ערך</li>
+          <li>LTV, Churn, Retention — השילוש שקובע אם לקוח שווה</li>
+          <li>Netflix (מנוי), Spotify (Freemium), Salesforce (SaaS)</li>
+          <li>"מודל שלא מסתדר על מפית — לא מסתדר בכלל"</li>
+        </ul>
+        <div class="seg" style="margin:0"><span class="on">נקודות</span><span>מושגים (11)</span><span>מספרים (6)</span><span>שאלות פתוחות</span><span>סיכום מלא</span></div>
+      </div>
+    </div>
+  </div>
+  <ul>
+    <li><b>לא מוכן → הכפתור נעול ו"תקן" מפעיל</b> את מה שחסר. הבדיקה רצה ב-<code>copilot</code>, לא בלחיצה.</li>
+    <li><b>10 השניות הראשונות:</b> מד עוצמה. שקט → אזהרה מיד.</li>
+    <li><b>"ממשיך את"</b> = ההרצאה האחרונה באותו קורס. "החלף" לבחירה ידנית. אין הצעות אוטומטיות באמצע שיעור. אין Digest ל-W04 → "הפק עכשיו".</li>
+    <li><b>הקלטה שלא הסתיימה</b> (שינה, קריסה) → באנר "המשך / סיים והפק Digest".</li>
+    <li><b>איחרת / שכחת ללחוץ</b> → הקלט בטלפון → Replay. זה מסלול, לא תקלה.</li>
+  </ul>
+
+  <h3>בזמן</h3>
+  <div class="mock">
+    <div class="bar">
+      <span><span style="color:var(--accent);font-weight:700">● REC</span> 00:42:13 · יזמות — W05 · $0.14</span>
+      <span>14 מושגים · 7 נבדקו (2 מסומנות) · ★ 2 · <b style="color:var(--warn)">★ סמן את זה</b> · <b style="color:var(--ink)">⏪ מה פספסתי</b> · <b style="color:var(--accent)">■ סיום</b></span>
+    </div>
+    <div class="field" style="margin-bottom:14px"><span class="in" style="color:var(--mute)">הערה / שאלה שלי… (Enter מוסיף עם חותמת זמן · ★ מסמן "למבחן")</span></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr">
+      <div class="box">
+        <h4>📖 מושגים — הסבר של שורה</h4>
+        <div class="row"><span><b>Unit Economics</b> — כמה מרוויחים או מפסידים על לקוח אחד</span><span class="hint">00:41</span></div>
+        <div class="row"><span><b>CAC</b> — כמה עולה להביא לקוח אחד</span><span class="hint">00:38</span></div>
+        <div class="row"><span><b>Freemium</b> — חינם לרוב, תשלום למיעוט</span><span class="hint">00:31</span></div>
+        <div class="hint" style="margin-top:8px">↩ נאמר ב-W04: LTV, Churn</div>
+      </div>
+      <div class="box">
+        <h4>★ למבחן / הודגש</h4>
+        <div class="row"><span>"תזכרו: CAC בלי LTV זה חצי תמונה"</span><span class="hint">00:39</span></div>
+        <div class="row"><span>שלושת סוגי ה-Freemium — "יופיע במבחן"</span><span class="hint">00:30</span></div>
+        <div class="row"><span>★ שלי: "הדוגמה של Salesforce — למה SaaS ניצח רישיונות"</span><span class="hint">00:22</span></div>
+      </div>
+      <div class="box">
+        <h4>🔍 טענות מסומנות (7 נבדקו, 4 נכונות)</h4>
+        <div class="row"><span>"OpenAI הוקמה למטרות רווח" — הוקמה כמלכ"ר ב-2015; capped-profit נוסף ב-2019 · <a href="#">מקור</a></span><span class="pill no">שגוי · 94</span></div>
+        <div class="row"><span>"ל-Spotify 40% המרה לפרימיום"</span><span class="pill maybe">לא מדויק · 61</span></div>
+        <div class="row"><span>"CAC ב-SaaS פי 3 מלפני 5 שנים"</span><span class="pill mw">בבדיקה…</span></div>
+      </div>
+      <div class="box">
+        <h4>❓ שאלות למרצה · 📌 משימות</h4>
+        <div class="row"><span>איך Freemium מסתדר עם Unit Economics שליליים?</span><span class="hint">00:33</span></div>
+        <div class="row"><span>הנתון על Spotify — ממתי? מקור?</span><span class="hint">00:29</span></div>
+        <div class="row"><span>📌 ניתוח מקרה — Unit Economics של סטארטאפ</span><span class="hint">11.11</span></div>
+      </div>
+    </div>
+  </div>
+  <ul>
+    <li><b>שום דבר לא קופץ.</b> אין כרטיסים, אין התראות macOS, אין Mute — כי אין ממה להשתיק. הדשבורד מתעדכן בשקט; מציצים כשרוצים. טעות מסומנת נשארת בפאנל עם "נאמר / בפועל / מקור", ממוינת לפי חשיבות.</li>
+    <li><b>"מה פספסתי"</b>: 5 הדקות האחרונות → קריאת Ollama אחת → 3 שורות. חזר לתוכנית כי זה הכפתור שבאמת לוחצים עליו.</li>
+    <li><b>"★ סמן את זה"</b> — לחיצה אחת (או מקש רווח כשהטאב פתוח) מסמנת את 30 השניות האחרונות כ-highlight, בלי להקליד. המערכת מצרפת את המשפט שנאמר ומעלה אותו לפאנל ★ ול-Digest. <b>Highlights אוטומטיים</b> ("תזכרו", "זה במבחן") ו-<b>הערות שלי</b> הם אותו kind — אפס עלות נוספת.</li>
+    <li><b>"בפיגור 3 דק'"</b> מופיע רק כשיש פיגור. תור ≥ 2 → מדלגים על חילוץ בקטעים שקטים ומשלימים ב-Digest.</li>
+    <li><b>פאנל טענות רק מסומנות</b> (שגוי / לא מדויק / בבדיקה); "נכון" הוא מונה. ציון החשיבות קובע את הסדר, לא אם להראות.</li>
+  </ul>
+</section>
+
+<section id="digest">
+  <h2>Digest ודף קורס — מה מקבלים</h2>
+  <p>סדר קבוע, אותו סדר בכל שיעור. <code>digest.md</code> ל-NotebookLM, <code>digest.html</code> עצמאי לטלפון. חותמות זמן רק בתמלול.</p>
+<pre class="rtl"># יזמות וחדשנות — W05 · מודלים עסקיים ב' · 4.11.2026
+
+## סיכום מנהלים (5 נקודות)         ← מה היה השיעור, במשפט לכל נקודה
+## סיכום מלא                       ← 400–600 מילים לפי נושאים, בסדר ההרצאה
+## ★ למבחן / הודגש                  ← מה שהמרצה הדגיש + מה שסימנת
+## המשך מ-W04: מה חדש · מה חזר · מה סותר
+## מושגים (13, +2 שחזרו מ-W04)   ← מושג — הסבר של שורה
+## טענות מסומנות                  ← "המרצה אמר" / בפועל / מקור / [לא נבדק — אין רשת]
+## שאלות פתוחות                   ← שלי (★) + אוטומטיות
+## משימות                         ← עם תאריך (ובעלים, בפגישות)
+## ההערות שלי
+
+קבצים לצד: transcript.txt · claims.json · flashcards.tsv (Anki, תבנית על המושגים — 0 LLM)</pre>
+  <p><b>דף הקורס</b> (<code>course.html</code> + מסך בדף): מילון מצטבר (מושג · הסבר · נראה לראשונה ב-W), כל הטענות המסומנות בקורס, ★ מכל השיעורים, שאלות פתוחות, משימות, ותיבת חיפוש "מה נאמר על CAC?" מעל אותה פונקציה שמשרתת את Claude. זה ה-Study Pack — 80% ממנו הוא תבנית על SQLite.</p>
+  <p>ה-Digest נבנה ב-map-reduce: ה-Extractor מחזיר לכל קטע גם שורת תקציר אחת (<code>chunk_summary</code>), ובסיום Gemma 3 12B מקבל ~100 שורות כאלה + הפריטים וכותב את סיכום המנהלים, הסיכום המלא ופרק ההמשך; השאר תבניות. לא קוראים את התמלול המלא — ככה "&lt; 2 דק'" ריאלי גם על שעתיים.</p>
+</section>
+
+<section id="notion">
+  <h2>Notion — הבית של הלימודים</h2>
+  <p>Notion הוא יעד פלט (<code>NotionSink</code>), לא חלק מהצנרת: אותם פריטים שנכתבים לתיקייה נכתבים גם ל-Notion. ההשראה: תבניות הסטודנטים המדורגות ב-2026 חוזרות על אותו מבנה — מסדי נתונים לקורסים, הרצאות, מטלות ומילון; גלריות עם covers; callouts להגדרות; toggles ל-active recall; relations בין הכל.</p>
+  <h3>מבנה</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מסד</th><th>שדות</th><th>תצוגות</th></tr></thead>
+    <tbody>
+      <tr><td><b>🎓 קורסים</b></td><td>שם, שפה, תיקייה, cover, סמסטר</td><td>גלריה עם cover לכל קורס; בפנים — עמוד הקורס</td></tr>
+      <tr><td><b>📚 הרצאות</b></td><td>כותרת, קורס↗, שבוע, תאריך, סטטוס, סיכום מנהלים (5 שורות בשדה), מס' טענות מהותיות, lecture_id (מוסתר)</td><td>גלריה לפי קורס (cover + שבוע + סיכום מנהלים) · טבלה לפי תאריך · לוח שנה</td></tr>
+      <tr><td><b>📖 מילון</b></td><td>מושג, הסבר של שורה, קורס↗, נראה לראשונה↗הרצאה, canonical_key, ★</td><td>טבלה מקובצת לפי קורס · "★ למבחן" · חיפוש</td></tr>
+      <tr><td><b>🔍 טענות</b></td><td>המרצה אמר, בפועל, פסיקה (select), מקור (url), חשיבות, קורס↗, הרצאה↗</td><td>טבלה מסוננת: פסיקה ≠ נכון · לפי קורס</td></tr>
+      <tr><td><b>📌 משימות</b></td><td>משימה, תאריך יעד, בוצע ☐, בעלים, קורס↗, הרצאה↗</td><td>לוח (פתוח / בוצע) · לוח שנה לפי יעד</td></tr>
+    </tbody>
+  </table></div>
+  <h3>עמוד הרצאה</h3>
+  <div class="mock">
+    <div class="bar"><span class="title">📚 יזמות וחדשנות — W05 · מודלים עסקיים ב'</span><span>4.11.2026 · 92 דק' · 13 מושגים · 2 טענות מסומנות</span></div>
+    <div class="box" style="background:var(--local-soft);border-color:var(--local)"><b>💡 סיכום מנהלים</b><ul style="margin:6px 0 0;padding-inline-start:20px;font-size:.95rem"><li>מודל עסקי ב' = מ-LTV/Churn ל-CAC ו-Freemium</li><li>Unit Economics: לקוח אחד, רווח או הפסד</li><li>שלושת סוגי ה-Freemium — ★ למבחן</li><li>Spotify, Netflix, Salesforce כדוגמאות</li><li>ניתוח מקרה להגשה עד 11.11</li></ul></div>
+    <div class="box" style="margin-top:10px"><b>▸ סיכום מלא</b> <span class="hint">(toggle — 500 מילים)</span></div>
+    <div class="box" style="margin-top:10px;background:var(--warn-soft);border-color:var(--warn)"><b>★ למבחן / הודגש</b><div class="hint" style="margin-top:4px">"CAC בלי LTV זה חצי תמונה" · שלושת סוגי ה-Freemium · ★ שלי: Salesforce — למה SaaS ניצח</div></div>
+    <div class="grid" style="margin-top:10px">
+      <div class="box"><h4>🔗 המשך מ-W04</h4><div class="hint">חדש: CAC, Freemium · חזר: LTV, Churn · סותר: אין</div></div>
+      <div class="box"><h4>📖 מושגים (13)</h4><div class="hint">שורה למושג, מקושרות למילון הקורס</div></div>
+      <div class="box"><h4>🔍 טענות מסומנות</h4><div class="hint">▸ "OpenAI הוקמה למטרות רווח" — <b>בפועל:</b> מלכ"ר 2015, capped-profit 2019 · <u>מקור</u></div></div>
+      <div class="box"><h4>❓ שאלות · 📌 משימות · 📝 הערות</h4><div class="hint">כל אחת רשימה; משימות עם ☐ ותאריך</div></div>
+    </div>
+  </div>
+  <h3>עמוד קורס</h3>
+  <p>Cover של הקורס, ואז: שורת מספרים (הרצאות · מושגים · ★ · משימות פתוחות), גלריית ההרצאות, המילון המצטבר (תצוגה מסוננת של מסד המילון), "המרצה אמר / בפועל" (תצוגה של מסד הטענות), משימות פתוחות. הכל תצוגות של המסדים — אפס עמודים ידניים.</p>
+  <h3>איך זה נבנה (יום אחד, M6)</h3>
+  <ul>
+    <li><code>cli notion-init</code> יוצר פעם אחת את העמוד "🎓 לימודים" וחמשת המסדים, ושומר את ה-id-ים ב-<code>.env</code>.</li>
+    <li>גוף עמוד ההרצאה נשלח ב-Markdown דרך ה-API של Notion (<code>POST /v1/pages</code> עם <code>markdown</code>): callout לסיכום המנהלים, <code>&lt;details&gt;</code> לסיכום המלא, H2 לכל פרק. אין המרה ידנית לבלוקים.</li>
+    <li>שורות המילון/טענות/משימות = upsert לפי <code>lecture_id</code> + <code>canonical_key</code>. סנכרון חוזר לא מכפיל.</li>
+    <li>אין טוקן → ה-Sink מדלג עם שורה בלוג, התיקייה נכתבת כרגיל. Notion לעולם לא חוסם Digest.</li>
+    <li>עיצוב: cover לכל קורס (תמונה שתבחר), אייקונים קבועים למסדים, callout כחול לסיכום, צהוב ל-★, אדום לטענות שגויות. מה שלא ניתן ב-API (widgets, progress bars) — לא בונים.</li>
+  </ul>
+  <div class="callout ok"><p><b>Obsidian:</b> יש לך vault ב-<code>~/Documents/Obsidian Vault</code>. אם <code>COURSES_ROOT</code> מצביע לתוכו, ה-md של כל הרצאה נפתח ב-Obsidian בלי שורת קוד. Notion נשאר לטלפון ולשיתוף; Obsidian לעבודה על המחשב. שניהם מאותו <code>FolderSink</code>.</p></div>
+</section>
+
+<section id="mw">
+  <h2>איך זה עובד עם MacWhisper — בפשטות</h2>
+  <p>שני מוצרים נפרדים לגמרי. הקשר היחיד ביניהם הוא פקודה אחת.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מה</th><th>מי עושה</th><th>מה אתה רואה</th></tr></thead>
+    <tbody>
+      <tr><td>הקלטה של ההרצאה</td><td><span class="pill loc">שלנו</span></td><td>הכפתור בטאב. MacWhisper לא מקליט (אלא אם תרצה גם — זה לא מפריע)</td></tr>
+      <tr><td>הפיכת אודיו לטקסט</td><td><span class="pill mw">MacWhisper</span></td><td>כלום. הקוד שלנו מריץ <code>mw transcribe chunk.wav</code> על כל קטע; האפליקציה רצה ברקע, אפילו בלי חלון פתוח. הקטעים האלה לא נשמרים ב-History שלה</td></tr>
+      <tr><td>מושגים, טענות, זיכרון, Digest</td><td><span class="pill loc">שלנו</span></td><td>הטאב, התיקייה, דף הקורס</td></tr>
+      <tr><td>שמות דוברים, עריכת תמלול, הסיכומים שלהם</td><td><span class="pill mw">MacWhisper</span></td><td>עובד באפליקציה כרגיל, על הקלטה שגררת אליה (או שהיא הקליטה בעצמה בזום). כשסיימת: ייצוא תמלול → גרירה ל-Replay אצלנו. אנחנו לא קוראים מהמסד הפנימי שלה</td></tr>
+    </tbody>
+  </table></div>
+  <p>אז כן — הוא עובד בנפרד. אנחנו משתמשים בו כמנוע תמלול דרך ה-CLI, ואתה ממשיך להשתמש בו כאפליקציה כמו היום. אם MacWhisper לא זמין, mlx-whisper עושה את אותו תפקיד (אם ייבנה).</p>
+</section>
+
+<section id="memory">
+  <h2>זיכרון קורס — המנגנון</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מתי</th><th>מה</th><th>איך</th></tr></thead>
+    <tbody>
+      <tr><td>לכל קטע</td><td>"כבר נאמר?" / "סותר?"</td><td>batch embeddings (bge-m3 דרך Ollama, רב-לשוני) → FTS5 + sqlite-vec → RRF → top-5 → החלטה בקריאת החילוץ הבאה. <code>canonical_key</code>: CAC = עלות רכישת לקוח = Customer Acquisition Cost. <b>בלי re-rank בלייב</b> (תקציב); re-rank ב-Digest ובדף הקורס — אם נשאר זמן</td></tr>
+      <tr><td>סתירה לשיעור קודם</td><td>+20 לחשיבות</td><td><code>get_course_context(topic)</code> הוא כלי של Claude — הוא רואה מה נאמר קודם לפני שהוא פוסק</td></tr>
+      <tr><td>"ממשיך את"</td><td>ההרצאה הקודמת בקורס</td><td>SQLite. "החלף" ידני</td></tr>
+      <tr><td>ב-Digest</td><td>פרק "המשך מ-W04"</td><td>שני סיכומים + הבדלים → Gemma. קישור קדימה ב-<code>index.md</code>, לא כתיבה לסיכומים ישנים</td></tr>
+      <tr><td>דף הקורס</td><td>מילון מצטבר, חיפוש</td><td>אותה פונקציה <code>search(query, course)</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="scope">
+  <h2>מה נכנס, מה לא</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>עד 17.10</th><th>סולם ויתורים (נופל לפי הסדר אם בלוק חורג ביום)</th><th>אחרי</th></tr></thead>
+    <tbody>
+      <tr><td>
+        <ul style="margin:0">
+          <li><code>copilot</code> — הרמה ובדיקת מוכנות</li>
+          <li><b>הקלטה חיה מהמיקרופון</b> — הליבה, זה מה שמשתמשים בו מ-18.10</li>
+          <li>Replay: אודיו (<code>--pace</code>) ותמלול מיוצא — לפיתוח, לזום, לפגישות</li>
+          <li>VAD, ASR protocol עם MacWhisper CLI</li>
+          <li>Extractor: מושגים, טענות, שאלות, משימות, highlights, החלטות (פגישות)</li>
+          <li>Memory: FTS5 + sqlite-vec + RRF, canonical_key</li>
+          <li>Verifier: Gemini Flash + grounding + <code>get_course_context</code>, cache, worker, אופליין</li>
+          <li>Ranker: ציון חשיבות למיון הדשבורד וה-Digest</li>
+          <li>"מה פספסתי", הערות, "★ סמן את זה"</li>
+          <li>Digest md+html, פרק המשך, דף קורס עם חיפוש</li>
+          <li>תיקיית קורס בתיקיית Drive; קורס "פגישות"</li>
+          <li>Eval מינימלי (חצי יום): דיוק פסיקות + דדופ מושגים על W(n)/W(n+1)</li>
+          <li>Zoom חי דרך BlackHole — אחרון בבלוק, נופל ראשון</li>
+          <li><b>NotionSink</b>: 5 מסדים, עמוד להרצאה, עמוד לקורס (M6, 16.10)</li>
+          <li>README קצר; סרטון דמו — אם בא לך לשלוח למרצה</li>
+        </ul>
+      </td><td>
+        <ol style="margin:0;padding-inline-start:20px">
+          <li>Zoom חי (BlackHole) — M7, רק אם נשאר יום</li>
+          <li>LangGraph כעטיפה</li>
+          <li>re-rank ב-Digest</li>
+          <li>flashcards.tsv</li>
+          <li>mlx-whisper backend</li>
+          <li>digest.html (נשאר md)</li>
+        </ol>
+      </td><td>
+        <ul style="margin:0">
+          <li>Eval מלא (baselines, ablation, sweep) — אם תרצה לפורטפוליו</li>
+          <li>יומן, Drive API</li>
+          <li>ivrit.ai ל-mlx</li>
+          <li>Debate, דירוג, כיול אוטומטי</li>
+          <li>אינטגרציה עם ה-DB של MacWhisper, <code>--persist</code></li>
+          <li>LLM-as-judge ל-Digest</li>
+          <li>Claude כ-Verifier חלופי</li>
+          <li>TUI / menu bar</li>
+        </ul>
+      </td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="eng">
+  <h2>הנדסה</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>נושא</th><th>החלטה</th></tr></thead>
+    <tbody>
+      <tr><td>מקור קטעים</td><td><code>ChunkSource</code> async iterator: <code>LiveSource</code>, <code>FileSource(pace)</code>, <code>TranscriptSource</code> (JSON של MacWhisper, מדלג על ASR). הצנרת לא יודעת מאיפה הגיע</td></tr>
+      <tr><td>חיתוך ושפה</td><td>VAD אנרגטי, 30–60 שנ', בלי חפיפה. <code>language=he</code> ברמת ההרצאה (אנגלית כאופציה)</td></tr>
+      <tr><td>תהליכים</td><td>תהליך אחד, 3 משימות asyncio. הממשק Recorder→Worker הוא הדיסק (<code>chunk_0001.wav</code> + <code>call_soon_threadsafe</code>). <code>mw</code> ב-subprocess עם timeout. Web מפרסם מ-DB ב-WebSocket, hydrate בפתיחה</td></tr>
+      <tr><td>תקציב לקטע</td><td>≤ 30 שנ' ל-45 שנ' אודיו: ASR ≤ 8 · Ollama generation אחת ≤ 15 · batch embeddings ≤ 2 · חיפוש ≤ 1. Claude מחוץ ללולאה</td></tr>
+      <tr><td>מודלים</td><td>Qwen3 8B q4 ללייב (thinking כבוי, <code>num_ctx=4096</code>); Gemma 3 12B ל-Digest; bge-m3 ל-embeddings; <b>Gemini 3.7 Flash</b> ל-Verifier (Flash-Lite אם הדיוק מספיק). כולם עברית ואנגלית. Whisper large-v3-turbo מתמלל את שתיהן; <code>language</code> ברמת הקורס</td></tr>
+      <tr><td>וקטורים</td><td><b>sqlite-vec.</b> FTS5 + וקטורים + טרנזקציה בקובץ אחד; RRF הוא JOIN. סיכון: <code>enable_load_extension</code> ב-Python של macOS → uv/Homebrew Python, נבדק בשלב 0; fallback numpy cosine ב-20 שורות</td></tr>
+      <tr><td>ID-ים</td><td>ULID מ-Python; Replay של אותה הרצאה = upsert</td></tr>
+      <tr><td>רשת</td><td>כל קריאה יוצאת דרך <code>net.py</code> אחד שרושם host + bytes ל-<code>decisions</code>. זה "לוג הרשת" של קריטריון 5</td></tr>
+      <tr><td>פלט</td><td>ממשק <code>Sink</code> אחד: <code>FolderSink</code> (md + html לתיקייה ש-Google Drive desktop מסנכרן, 0 OAuth). יעדים נוספים (Notion) = מימוש נוסף, בלי לגעת בשאר</td></tr>
+      <tr><td>פרומפטים</td><td>קבצים ב-<code>prompts/</code> עם גרסה. <b>פרומפט החילוץ v0 הוא תוצר של שלב 0</b>. עוד 3: Digest, Verifier system, "מה פספסתי"</td></tr>
+    </tbody>
+  </table></div>
+  <h3>מודל נתונים</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>טבלה</th><th>שדות</th></tr></thead>
+    <tbody>
+      <tr><td>courses</td><td>id, name, folder, language (he / en), is_meetings</td></tr>
+      <tr><td>lectures</td><td>id (ULID), course_id, week, date, title, source (mic / zoom / file / transcript), fact_check, continues_id, started_at, ended_at, audio_path, status (recording / ended / digested)</td></tr>
+      <tr><td>segments</td><td>id, lecture_id, chunk_id, t0, t1, text, speaker, asr, chunk_summary</td></tr>
+      <tr><td>items</td><td>id, lecture_id, segment_id, kind (concept / question / action / highlight / note / decision), text, explanation, canonical_key, owner, due, first_seen_lecture_id, t0, embedding</td></tr>
+      <tr><td>claims</td><td>id, lecture_id, segment_id, text, normalized, importance, status (pending / verified / skipped / unchecked), verdict, confidence, sources_json, cache_key, embedding</td></tr>
+      <tr><td>lecture_summaries</td><td>lecture_id, bullets_json, digest_md, embedding</td></tr>
+      <tr><td>fact_cache</td><td>cache_key, verdict, sources_json, checked_at</td></tr>
+      <tr><td>decisions</td><td>lecture_id, node (extractor / memory / verifier / ranker / net), input_ref, output_json, ms, tokens_in, tokens_out, cost_usd</td></tr>
+    </tbody>
+  </table></div>
+<pre><code>lecture_copilot/
+  audio/     sources.py, vad.py
+  asr/       base.py, macwhisper.py, mlx.py (if time)
+  agents/    extractor.py, memory.py, verifier.py, ranker.py, recap.py
+  store/     db.py, search.py (fts + vec + rrf), embed.py, net.py
+  output/    digest.py, course_page.py, sinks.py (FolderSink)
+  web/       app.py, index.html
+  prompts/   extract_v0.md, digest_v0.md, verifier_v0.md, recap_v0.md
+  cli.py     copilot | record | replay &lt;file|json&gt; [--pace] | digest | eval
+eval/        fixture_10min.m4a, benchmark.json, eval.py, results.md</code></pre>
+</section>
+
+<section id="eval">
+  <h2>Eval — מינימלי</h2>
+  <p>אין הגשה, אז ה-Eval נועד לדבר אחד: שתדע אם זה עובד לפני שאתה סומך על זה בשיעור. חצי יום, על שתי הרצאות רצופות מהדרייב.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מה</th><th>תיוג (בסוכות, בגיליון, ~3 שעות)</th><th>מדד</th></tr></thead>
+    <tbody>
+      <tr><td>אימות</td><td><code>verdict</code> על 30 טענות אמיתיות + 10 שגיאות מוזרקות (האמת ידועה)</td><td>דיוק</td></tr>
+      <tr><td>דירוג חשיבות</td><td><code>is_material</code></td><td>Precision@5 של "מהותי"</td></tr>
+      <tr><td>מושגים ודדופ</td><td>30 מושגים + זוגות W(n)→W(n+1)</td><td>P / R, דיוק "נאמר כבר"</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>ההרצאות:</b> <code>AI DEVELOPERS 11 / 2. Python / REC / 7-6 Lecture</code> ו-<code>9-6 Lecture</code> (רצופות, אותו מרצה). קבצי ה-<code>.vtt</code> של זום כבר שם — תמלול מוכן לתיוג בלי לחכות ל-MacWhisper. הווידאו — להוריד למחשב לתיקיית הפרויקט.</p>
+  <p>baselines, ablation, sweep — אחרי, אם תרצה לפורטפוליו. ~2 ימים.</p>
+</section>
+
+<section id="plan">
+  <h2>לו"ז — מהמינימום שעובד להרצאה הראשונה</h2>
+  <div class="wk">
+    <div class="w"><h4>23–25.9 · שלב 0</h4><div class="d">3 ימים</div>
+      <ul><li>4 בדיקות (למטה) → החלטת ASR</li><li>פרומפט חילוץ v0</li><li>מפתח Gemini (aistudio), הורדות: Qwen3 8B, Gemma 12B, bge-m3; git init; פיקסטורה 10 דק'</li><li>להוריד 7/6 + 9/6 מהדרייב</li></ul></div>
+    <div class="w off"><h4>26.9–3.10 · סוכות</h4><div class="d"></div><ul><li>תיוג בגיליון מה-.vtt (~3 שעות)</li></ul></div>
+    <div class="w"><h4>4–5.10</h4><div class="d">שלד</div>
+      <ul><li>DB, FileSource, VAD, mw → segments</li><li>Extractor + items/claims</li></ul></div>
+    <div class="w"><h4>6–7.10</h4><div class="d">Digest</div>
+      <ul><li>Digest md (מנהלים + מלא), תיקיית קורס, TranscriptSource</li></ul>
+      <div class="goal">א': הרצאה מקובץ → Digest</div></div>
+    <div class="w"><h4>8–10.10</h4><div class="d">זיכרון</div>
+      <ul><li>FTS5 + sqlite-vec + RRF, canonical_key, "נאמר ב-W04", פרק המשך, "ממשיך את"</li></ul>
+      <div class="goal">ב': זוכר את הקורס</div></div>
+    <div class="w"><h4>11–12.10</h4><div class="d">Verifier + Ranker</div>
+      <ul><li>Gemini + grounding + get_course_context, cache, worker, אופליין</li><li>Ranker</li><li>Eval מינימלי (חצי יום)</li></ul>
+      <div class="goal">ג': בודק עובדות בשקט</div></div>
+    <div class="w"><h4>13–15.10</h4><div class="d">מוצר חי</div>
+      <ul><li>LiveSource מהמיקרופון, <code>copilot</code>, מד עוצמה, באנר שחזור</li><li>דף web: לפני / בזמן, ★ סמן, הערות, "מה פספסתי"</li><li>דף קורס + חיפוש</li></ul>
+      <div class="goal">ד': סימולציה חיה של 20 דק' (הרצאה ב-YouTube מהרמקולים)</div></div>
+    <div class="w"><h4>16.10</h4><div class="d">M6 · Notion</div><ul><li><code>notion-init</code>, NotionSink, עמוד הרצאה + קורס, upsert</li></ul></div>
+    <div class="w"><h4>17.10</h4><div class="d">M7 · מרווח + Zoom</div><ul><li>צ'קליסט להרצאה הראשונה; אם יש זמן — BlackHole. אם לא — Replay לזום</li></ul></div>
+  </div>
+  <div class="callout warn"><p>~13 ימי עבודה ב-13 ימים. "אם בלוק חורג ביום, הפריט הבא בסולם נופל". ההרצאה הראשונה ב-18.10 עובדת גם אם רק א'+ב'+ד' מוכנים — Verifier וזום יכולים להגיע שבוע אחרי.</p></div>
+</section>
+
+<section id="done">
+  <h2>מתי סיימנו — חמישה דברים שמריצים</h2>
+  <ol>
+    <li><code>cli.py replay eval/fixture_10min.m4a --pace fast</code> רץ &lt; 3 דק' ומסתיים ב-Digest עם כל הפרקים.</li>
+    <li>≥ 80% מהמושגים המשותפים ל-7/6 ו-9/6 מזוהים כ"נאמר כבר"; דיוק פסיקות ≥ 80% על 40 הטענות.</li>
+    <li>סימולציה חיה של 20 דק' מהמיקרופון (הרצאה ב-YouTube מהרמקולים, מ-3 מטר): הדשבורד מתעדכן בשקט, Digest תוך 2 דק' מ"סיום", כיבוי wifi באמצע → "לא נבדק" ונבדקות בסיום.</li>
+    <li>המחשב נרדם באמצע → בפתיחה: באנר, והקטעים עד הרגע הזה בתוך ה-Digest.</li>
+    <li>עלות &lt; $0.20 להרצאה ואפס אודיו יוצא — מ-<code>decisions</code> (net).</li>
+  </ol>
+</section>
+
+<section id="checks">
+  <h2>שלב 0 — ארבע בדיקות</h2>
+  <ol>
+    <li><b>MacWhisper CLI חם או קר?</b> (שעה) קובץ 45 שנ' → 5 ריצות של <code>mw transcribe --format json --language he</code>, זמן לכל אחת; 2 במקביל; אחת בזמן שהאפליקציה עסוקה. &gt; 8 שנ' לקטע חם או תקיעה → mlx-whisper עולה מסולם הוויתורים לליבה.</li>
+    <li><b>צינור על 10 קטעים אמיתיים</b> (חצי יום, זה הקוד הראשון): ffmpeg חותך 10 קטעים מהרצאה בדרייב → <code>mw</code> → פרומפט v0 → JSON. מודדים: שגיאות בגבולות קטעים, שפה, p50/p95 של Qwen3 8B מול Gemma 12B, אחוז JSON תקין. התוצר: <code>prompts/extract_v0.md</code> ובחירת מודל.</li>
+    <li><b>sqlite-vec נטען?</b> (20 דק') <code>enable_load_extension</code> ב-Python שבשימוש. לא → numpy fallback מההתחלה.</li>
+    <li><b>המיקרופון מהמושב</b> (10 דק'): הקלטת דקה של מישהו מדבר מ-3–5 מטר (או YouTube מהרמקולים בצד השני של החדר) → <code>mw transcribe</code>. קריא → בסדר. לא קריא → יושבים בשורה הראשונה, נקודה. בלי מיקרופון חיצוני.</li>
+  </ol>
+  <p>BlackHole נבדק ב-16.10, לא עכשיו. <code>--persist</code> ירד לגמרי.</p>
+</section>
+
+<section id="decisions">
+  <h2>החלטות — אושרו 22.9</h2>
+  <div class="dec"><b>1. זום עד 17.10 = הקלטה בזום/MacWhisper → Replay.</b> הקלטה חיה מזום (BlackHole) אחרי. הביקורת: מתג "Zoom" בלי משהו מאחוריו גרוע יותר מאין מתג.</div>
+  <div class="dec"><b>2. שמות דוברים דרך ייצוא תמלול מ-MacWhisper → Replay</b>, במקום <code>--persist</code> + קריאה מה-DB הפנימי שלהם. אתה ממשיך לעבוד ב-MacWhisper כרגיל; אנחנו לא נוגעים בקרביים שלהם.</div>
+  <div class="dec"><b>3. פגישות = קורס "פגישות" + kind החלטה + בעלים למשימות.</b> שלושה דברים, לא מצב נפרד. האלטרנטיבה: להוריד פגישות לגמרי (הסיכום של MacWhisper מספיק).</div>
+  <div class="dec"><b>4. sqlite-vec במקום ChromaDB.</b> ה-one-pager אמר Chroma; בדוח: "בחנו, בחרנו sqlite-vec כי מקור אמת אחד". סיפור הנדסי טוב.</div>
+  <div class="dec"><b>5. הקלטה חיה מהמיקרופון היא הליבה</b> (בוטל: "ראשונה בסולם הוויתורים"). אין הרצאה לפני 18.10, אז הבדיקה החיה היא סימולציה של 20 דק' מהרמקולים.</div>
+  <div class="dec"><b>6. Gemini Flash ל-Verifier</b> — חיפוש חינם (5,000/חודש), ~$0.05–0.10 להרצאה, פי 4–8 זול מ-Claude Haiku. Claude כחלופה מאחורי אותו ממשק.</div>
+  <div class="dec"><b>7. אין הגשה.</b> המוצר הוא בשבילך. הקלטה חיה מהמיקרופון חזרה לליבה, Eval ירד למינימום, README/סרטון/מצגת ירדו (סרטון רק אם בא לך לשלוח למרצה).</div>
+  <div class="dec"><b>8. הקלטות לבנצ'מרק:</b> 7/6 + 9/6 מ-AI DEVELOPERS 11, עם ה-.vtt של זום כתמלול מוכן.</div>
+
+  <h3>מה השתנה ב-v9 + Notion</h3>
+  <ul class="diff"><li><b>Notion נכנס</b> כ-M6 (16.10): 5 מסדים, עמוד הרצאה דרך ה-Markdown API, upsert. Zoom עבר ל-M7 כאופציה. הערה על Obsidian כיעד חינמי.</li></ul>
+  <ul class="diff"><li><b>אין הגשה → סדר עדיפויות של מוצר:</b> מיקרופון חי בליבה, זום ב-16.10, Eval מינימלי, בלי README/מצגת.</li><li><b>Gemini Flash</b> ל-Verifier במקום Claude (מחקר מחירים: חיפוש חינם).</li><li>שפה ברמת הקורס (he/en). בדיקת מיקרופון מהמושב בשלב 0. הרצאות הבנצ'מרק נבחרו.</li></ul>
+  <h3>מה השתנה ב-v8</h3>
+  <ul class="diff"><li><b>"★ סמן את זה"</b> — לחיצה אחת מסמנת את הרגע. <b>Digest</b>: סיכום מנהלים ואז סיכום מלא, דרך <code>chunk_summary</code> לכל קטע.</li><li><b>אין התראות בכלל.</b> Gatekeeper → Ranker: ציון החשיבות ממיין את הדשבורד וה-Digest, לא מחליט אם לקפוץ. ירדו: כרטיסים, התראות macOS, Mute, סף כתנאי. ה-Eval מודד דירוג (Precision@5) במקום "החלטה להתריע".</li><li>סעיף "מול MacWhisper" בשפה פשוטה.</li></ul>
+  <h3>מה השתנה מ-v6 (סבבים 4–5)</h3>
+  <ul class="diff">
+    <li><b>מהמשתמש:</b> <code>copilot</code> להרמה; "מה פספסתי" חזר; הערות ★ ו-highlights;  פאנל ההמשך עבר ל"לפני" עם לשוניות מ-SQLite; מוקאפ Digest; <b>דף קורס עם חיפוש</b> (Study Pack); מסלול "איחרתי → טלפון → Replay".</li>
+    <li><b>סתירות שנפתרו:</b> Zoom ירד מהמוקאפ; Digest v2/persist ירדו; "סיכום כללי" הוא שלנו; "קריאה אחת" = generation + batch embeddings, בלי re-rank בלייב; "Triage" הוחלף ב-"Memory".</li>
+    <li><b>לו"ז:</b> פוצל לבלוקים של יומיים עם הערכה, סולם ויתורים כתוב, סרטון ומצגת יום שלם, 17.10 מרווח. שלב 0 ירד ל-3 בדיקות + פרומפט v0 + הורדות.</li>
+    <li><b>Eval:</b> 10 שגיאות מוזרקות (5 סתירות) כדי שה-ablation יראה משהו; זוג הרצאות רצוף חובה; LLM-judge ירד; פיקסטורה קבועה.</li>
+    <li><b>"סיימנו":</b> כל קריטריון עם קובץ, פקודה ומספר; ≤2/שעה מצומד ל-Recall.</li>
+  </ul>
+
+  <h3>מקורות</h3>
+  <ul class="sources">
+    <li><a href="https://docs.macwhisper.com/article/57-macwhisper-command-line-tool">MacWhisper CLI — תיעוד</a> · <a href="https://docs.macwhisper.com/article/30-record-meetings">הקלטת פגישות</a> · <a href="https://www.macwhisper.com/">Free / Pro</a></li>
+    <li><a href="https://github.com/insidegui/AudioCap">AudioCap — Core Audio taps</a> · <a href="https://github.com/asg017/sqlite-vec">sqlite-vec</a></li>
+    <li><a href="https://ai.google.dev/gemini-api/docs/pricing">Gemini API pricing</a> · <a href="https://platform.claude.com/docs/en/about-claude/pricing">Claude pricing</a> · <a href="https://developers.openai.com/api/docs/pricing">OpenAI pricing</a> · <a href="https://whisper.remskill.com/blog/lecture-transcription">מיקרופון בהרצאות</a></li>
+    <li><a href="https://huggingface.co/mlx-community/whisper-large-v3-turbo">mlx-community/whisper-large-v3-turbo</a> · <a href="https://huggingface.co/ivrit-ai/whisper-large-v3-turbo">ivrit-ai</a> · <a href="https://contracollective.com/blog/local-speech-to-text-whisper-parakeet-mlx-m5-max-2026">Whisper on MLX, M5</a></li>
+  </ul>
+</section>
+</div>
+</body></html>
