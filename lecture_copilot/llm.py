@@ -1,0 +1,88 @@
+"""The one Ollama JSON call: schema-constrained output, independent pydantic validation, one retry.
+
+A provider failure (HTTP error, timeout, invalid JSON twice) is returned as `JsonCall.error`, never raised —
+the caller marks the item failed and the lecture continues.
+"""
+
+import asyncio
+import time
+from dataclasses import dataclass, field
+from typing import Generic, TypeVar
+
+import httpx
+from pydantic import BaseModel, ValidationError
+
+from lecture_copilot.config import OLLAMA_NUM_CTX
+
+T = TypeVar("T", bound=BaseModel)
+MAX_ATTEMPTS = 2
+
+
+@dataclass
+class JsonCall(Generic[T]):
+    value: T | None = None
+    attempts: int = 0
+    first_valid: bool = False
+    error: str | None = None
+    raw: list[str] = field(default_factory=list)
+    ms: list[float] = field(default_factory=list)
+    load_ms: float = 0.0
+    tokens_in: int = 0
+    tokens_out: int = 0
+
+
+async def chat_json(
+    model: str,
+    system: str,
+    user: str,
+    schema: type[T],
+    *,
+    client: httpx.AsyncClient,
+    think: bool | None = None,
+    options: dict | None = None,
+    timeout_s: float = 60.0,
+    backoff_s: float = 1.0,
+) -> JsonCall[T]:
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    call: JsonCall[T] = JsonCall()
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        call.attempts = attempt
+        body = {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+            "format": schema.model_json_schema(),
+            "options": {"num_ctx": OLLAMA_NUM_CTX, **(options or {})},
+        }
+        if think is not None:
+            body["think"] = think
+        t0 = time.perf_counter()
+        try:
+            resp = await client.post("/api/chat", json=body, timeout=timeout_s)
+            resp.raise_for_status()
+            data = resp.json()
+        except (httpx.HTTPError, ValueError) as e:
+            call.ms.append((time.perf_counter() - t0) * 1000)
+            call.error = f"{type(e).__name__}: {e}"
+            if attempt < MAX_ATTEMPTS:
+                await asyncio.sleep(backoff_s)
+            continue
+        call.ms.append((time.perf_counter() - t0) * 1000)
+        if attempt == 1:
+            call.load_ms = data.get("load_duration", 0) / 1e6
+        call.tokens_in += data.get("prompt_eval_count", 0)
+        call.tokens_out += data.get("eval_count", 0)
+        content = data.get("message", {}).get("content", "")
+        call.raw.append(content)
+        try:
+            call.value = schema.model_validate_json(content)
+        except ValidationError as e:
+            call.error = f"invalid output: {e}"
+            messages = [*messages, {"role": "assistant", "content": content},
+                        {"role": "user", "content": f"Your output was invalid:\n{e}\nReturn ONLY valid JSON "
+                                                    "matching the schema."}]
+            continue
+        call.first_valid = attempt == 1
+        call.error = None
+        return call
+    return call
