@@ -24,3 +24,5 @@ Decision ids: `D-M<milestone>-<n>`. Spec-level decisions 1–8 live in `DESIGN_H
 - D-M0-6 — planning history (`lecture-copilot-pitch.html`, `Lecture-Copilot-OnePager.pdf`, `lecture-copilot-spec-v4…v9.html`) is not in PLAN §2 and the repo will be public → not committed; excluded locally in `.git/info/exclude` until Dor decides.
 - `requirements.txt` holds M0 dependencies only and grows per milestone (build only the current milestone).
 - Unverified until the CLI is installed: `mw transcribe` flags (`--format json --language he -o <dir>`) and its JSON shape; `stage0.mw_text` raises on an unknown shape instead of guessing.
+- Model pull stopped at Dor's request (not on wifi) after ~1.0 GB of `qwen3:8b`; partial blobs kept in `~/.ollama/models` — `scripts/setup_models.sh` resumes them when Dor says go. No Ollama process left running.
+- Folder tidied: the 8 planning-history files moved to `docs/history/` (still local-only per D-M0-6; `lecture-copilot-spec-v9.html` is byte-identical to `DESIGN_HE.html`), `lecture_copilot.egg-info` and empty placeholder dirs removed. Root now matches PLAN §2. Tests 66/66, gate unchanged (FAIL 2/8).
