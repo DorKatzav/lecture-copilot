@@ -5,7 +5,7 @@ docs/notes/STAGE0_HE.html reads them through <span data-metric="a.b.c"> placehol
     python scripts/stage0.py cut data/lectures/<7-6 lecture file>
     python scripts/stage0.py mw-bench [--busy] [--wav clip.wav --model engine:id --key mw_tts]
     python scripts/stage0.py extract-bench
-    python scripts/stage0.py mic data/mic_seat.m4a
+    python scripts/stage0.py mic data/mic_seat.m4a [--model engine:id]
     python scripts/stage0.py mic-verdict yes|no
     python scripts/stage0.py report
 
@@ -24,10 +24,11 @@ import time
 from pathlib import Path
 
 import httpx
+import numpy as np
 
 from lecture_copilot import prompts
 from lecture_copilot.agents.schemas import ExtractResult
-from lecture_copilot.config import BUDGET_S, DIGEST_MODEL, LIVE_MODEL, MW_BIN, MW_MODEL, OLLAMA_URL, ROOT
+from lecture_copilot.config import BUDGET_S, DIGEST_MODEL, LIVE_MODEL, MW_BIN, MW_MODEL, OLLAMA_URL, ROOT, SILENCE_DB
 from lecture_copilot.llm import chat_json
 
 RESULTS = ROOT / "eval" / "stage0.json"
@@ -94,6 +95,21 @@ def summarize_extract(calls: list[dict]) -> dict:
     }
 
 
+def segment_coverage(segments: list[dict]) -> float:
+    """Seconds of audio covered by mw segments (start/end in ms)."""
+    return round(sum(seg["end"] - seg["start"] for seg in segments) / 1000, 1)
+
+
+def level_stats(samples: np.ndarray, sr: int, floor_db: float, frame_s: float = 0.25) -> dict:
+    """Level distribution over 250 ms frames — the same window the live meter uses."""
+    f = int(sr * frame_s)
+    frames = [samples[i:i + f] for i in range(0, len(samples) - f + 1, f)]
+    db = np.array([20 * np.log10(np.sqrt(np.mean(np.square(fr, dtype=np.float64))) + 1e-12) for fr in frames])
+    p10, p50, p90 = (round(float(v), 1) for v in np.percentile(db, [10, 50, 90]))
+    return {"p10_db": p10, "p50_db": p50, "p90_db": p90, "floor_db": floor_db,
+            "share_above_floor": round(float(np.mean(db > floor_db)), 2)}
+
+
 _METRIC = re.compile(r'(<span data-metric="([^"]+)">)(.*?)(</span>)', re.DOTALL)
 
 
@@ -130,6 +146,12 @@ def ffmpeg_cut(src: Path, dst: Path, start_s: float, dur_s: float) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-ss", str(start_s), "-t", str(dur_s), "-i", str(src),
                     "-vn", "-ac", "1", "-ar", "16000", str(dst)], check=True)
+
+
+def decode_pcm(path: Path, sr: int = 16000) -> np.ndarray:
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"],
+                         capture_output=True, check=True).stdout
+    return np.frombuffer(raw, dtype=np.float32)
 
 
 def mw_cmd(audio: Path, out_json: Path, language: str, model: str = MW_MODEL, binary: str = MW_BIN) -> list[str]:
@@ -271,15 +293,25 @@ def cmd_extract_bench(_: argparse.Namespace) -> None:
 
 def cmd_mic(a: argparse.Namespace) -> None:
     src = Path(a.file)
-    out = WORK / "mic_seat.json"
-    secs = mw_run(src, out)
+    engine = a.model.split(":", 1)[0]
+    out = WORK / f"mic_seat_{engine}.json"
+    secs = mw_run(src, out, model=a.model)
     text = mw_text(out)
-    (WORK / "mic_seat.txt").write_text(text + "\n", encoding="utf-8")
-    res = {**load_results().get("mic", {}), "file": str(src.relative_to(ROOT)) if src.is_absolute() else str(src),
-           "duration_s": round(ffprobe_duration(src), 1), "asr_s": secs, "words": len(text.split())}
+    (WORK / f"mic_seat_{engine}.txt").write_text(text + "\n", encoding="utf-8")
+    res = load_results().get("mic", {})
+    for legacy in ("asr_s", "words"):
+        res.pop(legacy, None)
+    res.update({"file": str(src.relative_to(ROOT)) if src.is_absolute() else str(src),
+                "duration_s": round(ffprobe_duration(src), 1),
+                "level": level_stats(decode_pcm(src), sr=16000, floor_db=SILENCE_DB)})
+    segments = json.loads(out.read_text(encoding="utf-8"))["segments"]
+    res.setdefault("by_model", {})[a.model] = {"asr_s": secs, "words": len(text.split()),
+                                               "covered_s": segment_coverage(segments)}
     res.setdefault("readable", None)
     update_results(RESULTS, "mic", res)
-    print(f"{res['words']} words → runs/stage0/mic_seat.txt — read it, then: stage0.py mic-verdict yes|no")
+    m = res["by_model"][a.model]
+    print(f"{a.model}: {m['words']} words, {m['covered_s']}/{res['duration_s']} s covered, {secs} s "
+          f"→ runs/stage0/mic_seat_{engine}.txt — then: stage0.py mic-verdict yes|no")
 
 
 def cmd_mic_verdict(a: argparse.Namespace) -> None:
@@ -314,6 +346,7 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("extract-bench").set_defaults(fn=cmd_extract_bench)
     p = sub.add_parser("mic")
     p.add_argument("file")
+    p.add_argument("--model", default=MW_MODEL)
     p.set_defaults(fn=cmd_mic)
     p = sub.add_parser("mic-verdict")
     p.add_argument("readable", choices=["yes", "no"])

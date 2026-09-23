@@ -111,3 +111,18 @@ def test_mw_text_unknown_shape_raises(tmp_path):
 def test_mw_text_missing_file_raises(tmp_path):
     with pytest.raises(RuntimeError, match="no json"):
         stage0.mw_text(tmp_path / "nope.json")
+
+
+def test_segment_coverage_sums_spans_in_seconds():
+    segs = [{"start": 0, "end": 11400}, {"start": 11400, "end": 14500}, {"start": 30000, "end": 30600}]
+    assert stage0.segment_coverage(segs) == 15.1
+
+
+def test_level_stats_separates_floor_from_speech():
+    import numpy as np
+    sr = 16000
+    quiet = np.full(sr * 2, 10 ** (-50 / 20), dtype=np.float32)  # 2 s at -50 dBFS
+    loud = np.full(sr * 2, 10 ** (-30 / 20), dtype=np.float32)   # 2 s at -30 dBFS
+    s = stage0.level_stats(np.concatenate([quiet, loud]), sr=sr, floor_db=-40)
+    assert s["p10_db"] == -50.0 and s["p90_db"] == -30.0
+    assert s["share_above_floor"] == 0.5

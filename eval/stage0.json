@@ -52,5 +52,29 @@
       0,
       0
     ]
+  },
+  "mic": {
+    "file": "data/mic_seat.m4a",
+    "duration_s": 121.7,
+    "readable": null,
+    "level": {
+      "p10_db": -44.4,
+      "p50_db": -40.8,
+      "p90_db": -38.3,
+      "floor_db": -40,
+      "share_above_floor": 0.35
+    },
+    "by_model": {
+      "whisperkit:openai_whisper-large-v3-v20240930": {
+        "asr_s": 8.9,
+        "words": 150,
+        "covered_s": 58.7
+      },
+      "whisper-cpp:ivrit-ai-largev3": {
+        "asr_s": 16.35,
+        "words": 239,
+        "covered_s": 117.4
+      }
+    }
   }
 }
