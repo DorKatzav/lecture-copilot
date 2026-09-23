@@ -1,5 +1,5 @@
 """Stage-0 measurements (DESIGN_HE §checks). Every number lands in eval/stage0.json; the Hebrew page
-docs/notes/STAGE0_HE.html reads them through <span data-metric="a.b.c"> placeholders (`report`), never typed.
+docs/notes/STAGE0_HE.html reads them through data-metric="a.b.c" placeholders (`report`), never typed.
 
     python scripts/stage0.py sqlite
     python scripts/stage0.py cut data/lectures/<7-6 lecture file>
@@ -7,7 +7,7 @@ docs/notes/STAGE0_HE.html reads them through <span data-metric="a.b.c"> placehol
     python scripts/stage0.py extract-bench
     python scripts/stage0.py mic data/mic_seat.m4a [--model engine:id]
     python scripts/stage0.py mic-verdict yes|no
-    python scripts/stage0.py report
+    python scripts/stage0.py report [--page docs/notes/<page>_HE.html]
 
 Raw transcripts and model outputs stay in runs/stage0/ (gitignored): they are course material.
 """
@@ -110,7 +110,8 @@ def level_stats(samples: np.ndarray, sr: int, floor_db: float, frame_s: float = 
             "share_above_floor": round(float(np.mean(db > floor_db)), 2)}
 
 
-_METRIC = re.compile(r'(<span data-metric="([^"]+)">)(.*?)(</span>)', re.DOTALL)
+# any element carrying data-metric, attributes in any order: <td class="num" data-metric="a.b">…</td>
+_METRIC = re.compile(r'(<(\w+)\b[^>]*\bdata-metric="([^"]+)"[^>]*>)(.*?)(</\2>)', re.DOTALL)
 
 
 def _lookup(results: dict, path: str) -> object:
@@ -131,7 +132,7 @@ def _fmt(v: object) -> str:
 
 
 def fill_metrics(html: str, results: dict) -> str:
-    return _METRIC.sub(lambda m: m.group(1) + _fmt(_lookup(results, m.group(2))) + m.group(4), html)
+    return _METRIC.sub(lambda m: m.group(1) + _fmt(_lookup(results, m.group(3))) + m.group(5), html)
 
 
 # ---------- providers (run for real, not in tests) ----------
@@ -323,10 +324,11 @@ def cmd_mic_verdict(a: argparse.Namespace) -> None:
     print(f"mic readable: {a.readable}")
 
 
-def cmd_report(_: argparse.Namespace) -> None:
-    html = REPORT.read_text(encoding="utf-8")
-    REPORT.write_text(fill_metrics(html, load_results()), encoding="utf-8", newline="")
-    print(f"filled {len(_METRIC.findall(html))} metrics in {REPORT.relative_to(ROOT)}")
+def cmd_report(a: argparse.Namespace) -> None:
+    page = Path(a.page)
+    html = page.read_text(encoding="utf-8")
+    page.write_text(fill_metrics(html, load_results()), encoding="utf-8", newline="")
+    print(f"filled {len(_METRIC.findall(html))} metrics in {page}")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -351,7 +353,9 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("mic-verdict")
     p.add_argument("readable", choices=["yes", "no"])
     p.set_defaults(fn=cmd_mic_verdict)
-    sub.add_parser("report").set_defaults(fn=cmd_report)
+    p = sub.add_parser("report")
+    p.add_argument("--page", default=str(REPORT), help="any Hebrew page with <span data-metric> placeholders")
+    p.set_defaults(fn=cmd_report)
     a = ap.parse_args(argv)
     a.fn(a)
 

@@ -126,3 +126,12 @@ def test_level_stats_separates_floor_from_speech():
     s = stage0.level_stats(np.concatenate([quiet, loud]), sr=sr, floor_db=-40)
     assert s["p10_db"] == -50.0 and s["p90_db"] == -30.0
     assert s["share_above_floor"] == 0.5
+
+
+def test_fill_metrics_works_on_any_element_and_attribute_order():
+    results = {"mic": {"words": 150, "by_model": {"whisper-cpp:ivrit-ai-largev3": {"asr_s": 16.35}}}}
+    html = ('<td class="num" data-metric="mic.words">?</td>'
+            '<span class="num" data-metric="mic.by_model.whisper-cpp:ivrit-ai-largev3.asr_s" title="t">?</span>')
+    out = stage0.fill_metrics(html, results)
+    assert out.startswith('<td class="num" data-metric="mic.words">150</td>')
+    assert out.endswith('asr_s" title="t">16.35</span>')
