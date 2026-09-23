@@ -91,7 +91,7 @@ during a lecture.** No submission, no grade: this is a tool Dor uses from the fi
 - **MacWhisper is a provider, not a dependency.** We call `mw transcribe` on files; we never read its internal SQLite,
   never use `--persist`. Speaker names come in through an exported transcript → `TranscriptSource`.
 - **Prompts are files with versions.** Changing a prompt = new file + a line in `PROJECT_LOG.md` with before/after on the fixture.
-- Secrets only in `.env` (gitignored): `GEMINI_API_KEY`, `NOTION_TOKEN`, `NOTION_*_DB`. `git grep -iE "AIza[0-9A-Za-z_-]{30,}|ntn_[A-Za-z0-9]{20,}|secret_[A-Za-z0-9]{20,}"` must stay empty before every push.
+- Secrets only in `.env` (gitignored): `GEMINI_API_KEY`, `NOTION_TOKEN`, `NOTION_*_DB`. `git grep --untracked -iE "AIza[0-9A-Za-z_-]{30,}|AQ\.[0-9A-Za-z_.-]{40,}|ntn_[A-Za-z0-9]{20,}|secret_[A-Za-z0-9]{20,}"` must stay empty before every push (same pattern as `scripts/gate.py`; AI Studio keys come as `AIza…` or `AQ.…`).
 
 ## Environment
 

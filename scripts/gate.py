@@ -20,7 +20,7 @@ from lecture_copilot.config import DIGEST_MODEL, EMBED_MODEL, LIVE_MODEL, OLLAMA
 
 STAGE0 = ROOT / "eval" / "stage0.json"
 FIXTURE = ROOT / "eval" / "fixture_10min.m4a"
-SECRET_PATTERN = r"AIza[0-9A-Za-z_-]{30,}|ntn_[A-Za-z0-9]{20,}|secret_[A-Za-z0-9]{20,}"
+SECRET_PATTERN = r"AIza[0-9A-Za-z_-]{30,}|AQ\.[0-9A-Za-z_.-]{40,}|ntn_[A-Za-z0-9]{20,}|secret_[A-Za-z0-9]{20,}"
 
 
 @dataclass(frozen=True)

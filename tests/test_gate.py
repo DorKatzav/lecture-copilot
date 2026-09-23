@@ -6,6 +6,7 @@ from scripts import gate
 from tests.stubs import FakeOllama
 
 FAKE_GEMINI = "AIza" + "Q" * 35  # built at runtime so this file never matches the scan itself
+FAKE_GEMINI_AQ = "AQ." + "Ab8RN6-x_Z." + "k" * 39  # the newer AI Studio key format (53 chars)
 
 
 def git_repo(tmp_path, files: dict[str, str]):
@@ -27,6 +28,13 @@ def test_secret_scan_catches_untracked_key_and_never_prints_it(tmp_path):
     r = gate.check_secret_scan(root)
     assert r.status == "FAIL" and "a.py" in r.detail
     assert FAKE_GEMINI not in r.detail
+
+
+def test_secret_scan_catches_the_newer_aq_key_format(tmp_path):
+    root = git_repo(tmp_path, {".env.example": f"GEMINI_API_KEY={FAKE_GEMINI_AQ}\n"})
+    r = gate.check_secret_scan(root)
+    assert r.status == "FAIL" and ".env.example" in r.detail
+    assert FAKE_GEMINI_AQ not in r.detail
 
 
 def test_secret_scan_ignores_gitignored_env(tmp_path):
