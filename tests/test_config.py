@@ -19,5 +19,8 @@ def test_profile_defaults():
     assert p.fact_check is True and p.language == "he"
 
 
-def test_asr_model_is_explicit_not_the_app_default():
-    assert config.MW_MODEL == "whisperkit:openai_whisper-large-v3-v20240930"
+def test_asr_model_follows_course_language_d_m0_8():
+    assert config.MW_MODELS == {
+        "he": "whisper-cpp:ivrit-ai-largev3",
+        "en": "whisperkit:openai_whisper-large-v3-v20240930",
+    }

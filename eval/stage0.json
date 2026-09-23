@@ -56,7 +56,7 @@
   "mic": {
     "file": "data/mic_seat.m4a",
     "duration_s": 121.7,
-    "readable": null,
+    "readable": "yes",
     "level": {
       "p10_db": -44.4,
       "p50_db": -40.8,
@@ -75,6 +75,7 @@
         "words": 239,
         "covered_s": 117.4
       }
-    }
+    },
+    "readable_with": "whisper-cpp:ivrit-ai-largev3"
   }
 }

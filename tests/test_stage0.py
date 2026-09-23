@@ -135,3 +135,10 @@ def test_fill_metrics_works_on_any_element_and_attribute_order():
     out = stage0.fill_metrics(html, results)
     assert out.startswith('<td class="num" data-metric="mic.words">150</td>')
     assert out.endswith('asr_s" title="t">16.35</span>')
+
+
+@pytest.mark.parametrize(("language", "model"), [("he", "whisper-cpp:ivrit-ai-largev3"),
+                                                 ("en", "whisperkit:openai_whisper-large-v3-v20240930")])
+def test_mw_cmd_picks_the_model_from_the_course_language(tmp_path, language, model):
+    cmd = stage0.mw_cmd(tmp_path / "c.wav", tmp_path / "c.json", language)
+    assert cmd[cmd.index("--model") + 1] == model

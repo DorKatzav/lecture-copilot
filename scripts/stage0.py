@@ -28,7 +28,7 @@ import numpy as np
 
 from lecture_copilot import prompts
 from lecture_copilot.agents.schemas import ExtractResult
-from lecture_copilot.config import BUDGET_S, DIGEST_MODEL, LIVE_MODEL, MW_BIN, MW_MODEL, OLLAMA_URL, ROOT, SILENCE_DB
+from lecture_copilot.config import BUDGET_S, DIGEST_MODEL, LIVE_MODEL, MW_BIN, MW_MODELS, OLLAMA_URL, ROOT, SILENCE_DB
 from lecture_copilot.llm import chat_json
 
 RESULTS = ROOT / "eval" / "stage0.json"
@@ -155,8 +155,10 @@ def decode_pcm(path: Path, sr: int = 16000) -> np.ndarray:
     return np.frombuffer(raw, dtype=np.float32)
 
 
-def mw_cmd(audio: Path, out_json: Path, language: str, model: str = MW_MODEL, binary: str = MW_BIN) -> list[str]:
-    """mw 14.7: `-o` is one output file; `--model` defaults to the app's selection, so it is always passed."""
+def mw_cmd(audio: Path, out_json: Path, language: str, model: str | None = None, binary: str = MW_BIN) -> list[str]:
+    """mw 14.7: `-o` is one output file; `--model` defaults to the app's selection, so it is always passed —
+    from the course language (D-M0-8) unless a model is given explicitly."""
+    model = model or MW_MODELS[language]
     return [binary, "transcribe", str(audio), "--model", model, "--language", language, "--format", "json",
             "--no-speakers", "-o", str(out_json), "--overwrite"]
 
@@ -173,7 +175,7 @@ def mw_text(out_json: Path) -> str:
     raise RuntimeError(f"unknown mw json shape: {list(data)[:8] if isinstance(data, dict) else type(data)}")
 
 
-def mw_run(audio: Path, out_json: Path, language: str = BENCH_LANGUAGE, model: str = MW_MODEL) -> float | None:
+def mw_run(audio: Path, out_json: Path, language: str = BENCH_LANGUAGE, model: str | None = None) -> float | None:
     """Seconds for one `mw transcribe`, or None on a hang (timeout)."""
     out_json.parent.mkdir(parents=True, exist_ok=True)
     out_json.unlink(missing_ok=True)
@@ -220,6 +222,7 @@ def cmd_cut(a: argparse.Namespace) -> None:
 
 def cmd_mw_bench(a: argparse.Namespace) -> None:
     wav, out = Path(a.wav), WORK / "mw_out"
+    a.model = a.model or MW_MODELS[BENCH_LANGUAGE]
     res = load_results().get(a.key, {})
     res.update({"wav": wav.name, "model": a.model})
     if a.busy:
@@ -294,6 +297,7 @@ def cmd_extract_bench(_: argparse.Namespace) -> None:
 
 def cmd_mic(a: argparse.Namespace) -> None:
     src = Path(a.file)
+    a.model = a.model or MW_MODELS[BENCH_LANGUAGE]
     engine = a.model.split(":", 1)[0]
     out = WORK / f"mic_seat_{engine}.json"
     secs = mw_run(src, out, model=a.model)
@@ -320,6 +324,7 @@ def cmd_mic_verdict(a: argparse.Namespace) -> None:
     if not res:
         sys.exit("run `stage0.py mic <file>` first")
     res["readable"] = a.readable
+    res["readable_with"] = MW_MODELS[BENCH_LANGUAGE]
     update_results(RESULTS, "mic", res)
     print(f"mic readable: {a.readable}")
 
@@ -342,13 +347,13 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("mw-bench")
     p.add_argument("--busy", action="store_true", help="one run while the MacWhisper app is transcribing")
     p.add_argument("--wav", default=str(WORK / "bench_45s.wav"), help="clip to time (default: the lecture cut)")
-    p.add_argument("--model", default=MW_MODEL)
+    p.add_argument("--model", default=None, help="default: MW_MODELS[course language]")
     p.add_argument("--key", default="mw", help="results key; the gate reads only `mw` (the real lecture clip)")
     p.set_defaults(fn=cmd_mw_bench)
     sub.add_parser("extract-bench").set_defaults(fn=cmd_extract_bench)
     p = sub.add_parser("mic")
     p.add_argument("file")
-    p.add_argument("--model", default=MW_MODEL)
+    p.add_argument("--model", default=None, help="default: MW_MODELS[course language]")
     p.set_defaults(fn=cmd_mic)
     p = sub.add_parser("mic-verdict")
     p.add_argument("readable", choices=["yes", "no"])

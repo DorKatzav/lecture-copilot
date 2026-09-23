@@ -30,7 +30,7 @@ pytest · ruff · GitHub Actions (stubs only, no providers).
 - **Budget.** ≤ 30 s processing per 45 s chunk (ASR ≤ 8, Ollama ≤ 15, embeddings ≤ 2). Gemini outside the loop.
 - **Models.** qwen3:8b for live extraction, gemma3:12b only for `digest()`, bge-m3 embeddings, Gemini 3.7 Flash verifier. Language per course.
 - **IDs.** ULID minted in Python; upsert on replay. `lecture_id` is the partition key everywhere.
-- **MacWhisper is a provider.** `mw transcribe <file> --format json --language <he|en>`; no `--persist`, no internal DB reads.
+- **MacWhisper is a provider.** `mw transcribe <file> --model <MW_MODELS[lang]> --language <he|en> --format json --no-speakers -o <file.json>`; no `--persist`, no internal DB reads. ASR model per course language: `he` → ivrit.ai large-v3, `en` → large-v3 Turbo (D-M0-8).
 - **Recordings never modified, never committed.** `data/lectures/**` and `runs/**` gitignored.
 - **Secrets** only in `.env`; secret scan in the gate.
 - Own git repo; GitHub `DorKatzav/lecture-copilot` (public).
@@ -93,6 +93,8 @@ LIVE_MODEL, DIGEST_MODEL, EMBED_MODEL = "qwen3:8b", "gemma3:12b", "bge-m3"
 VERIFIER_MODEL = "gemini-3.7-flash"                          # google-genai, grounding on
 VERIFY_MIN_IMPORTANCE = 70; MATERIAL_MIN_IMPORTANCE = 85     # ranker labels, never alerts
 BUDGET_S = {"asr": 8, "extract": 15, "embed": 2}
+MW_BIN = os.getenv("MW_BIN", "mw")                           # MacWhisper CLI
+MW_MODELS = {"he": "whisper-cpp:ivrit-ai-largev3", "en": "whisperkit:openai_whisper-large-v3-v20240930"}  # D-M0-8
 class Profile(BaseModel): fact_check: bool = True; language: Literal["he", "en"] = "he"
 def load_env() -> None: ...                                  # .env → os.environ; raises on missing GEMINI_API_KEY only when fact_check
 ```
@@ -118,7 +120,9 @@ class Segment(BaseModel): t0: float; t1: float; text: str; speaker: str | None =
 class ASR(Protocol):
     name: str
     async def transcribe(self, wav: Path, language: str) -> list[Segment]: ...
-# macwhisper.py: asyncio.create_subprocess_exec("mw", "transcribe", wav, "--format", "json", "--language", language, "-o", out)
+# macwhisper.py: asyncio.create_subprocess_exec(MW_BIN, "transcribe", wav, "--model", MW_MODELS[language], "--language",
+#   language, "--format", "json", "--no-speakers", "-o", out_json, "--overwrite")   # verified on mw 14.7.1 (D-M0-7): -o is a FILE
+#   output: {text, segments[{id, start, end (int ms), text, words[]}]}
 #   timeout = BUDGET_S["asr"] * 3; non-zero exit or empty output → ASRError (caller marks chunk failed, continues)
 ```
 
