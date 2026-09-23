@@ -6,5 +6,51 @@
     "loaded": true,
     "vec_version": "v0.1.9",
     "fallback": null
+  },
+  "mw_tts": {
+    "wav": "tts_he.wav",
+    "model": "whisperkit:openai_whisper-large-v3-v20240930",
+    "runs_s": [
+      5.87,
+      5.14,
+      5.18,
+      5.11,
+      5.14
+    ],
+    "cold_s": 5.87,
+    "p50_s": 5.14,
+    "hangs": 0,
+    "budget_s": 8,
+    "verdict": "hot",
+    "decision": "mw",
+    "words": 112,
+    "parallel2_wall_s": 9.76,
+    "parallel2_exit": [
+      0,
+      0
+    ]
+  },
+  "mw_tts_ivrit": {
+    "wav": "tts_he.wav",
+    "model": "whisper-cpp:ivrit-ai-largev3",
+    "runs_s": [
+      7.38,
+      6.66,
+      6.65,
+      6.67,
+      6.67
+    ],
+    "cold_s": 7.38,
+    "p50_s": 6.67,
+    "hangs": 0,
+    "budget_s": 8,
+    "verdict": "hot",
+    "decision": "mw",
+    "words": 109,
+    "parallel2_wall_s": 12.77,
+    "parallel2_exit": [
+      0,
+      0
+    ]
   }
 }

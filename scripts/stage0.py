@@ -3,7 +3,7 @@ docs/notes/STAGE0_HE.html reads them through <span data-metric="a.b.c"> placehol
 
     python scripts/stage0.py sqlite
     python scripts/stage0.py cut data/lectures/<7-6 lecture file>
-    python scripts/stage0.py mw-bench [--busy]
+    python scripts/stage0.py mw-bench [--busy] [--wav clip.wav --model engine:id --key mw_tts]
     python scripts/stage0.py extract-bench
     python scripts/stage0.py mic data/mic_seat.m4a
     python scripts/stage0.py mic-verdict yes|no
@@ -27,7 +27,7 @@ import httpx
 
 from lecture_copilot import prompts
 from lecture_copilot.agents.schemas import ExtractResult
-from lecture_copilot.config import BUDGET_S, DIGEST_MODEL, LIVE_MODEL, OLLAMA_URL, ROOT
+from lecture_copilot.config import BUDGET_S, DIGEST_MODEL, LIVE_MODEL, MW_BIN, MW_MODEL, OLLAMA_URL, ROOT
 from lecture_copilot.llm import chat_json
 
 RESULTS = ROOT / "eval" / "stage0.json"
@@ -60,7 +60,7 @@ def mw_verdict(runs_s: list[float | None], budget_s: float) -> dict:
 
 def hebrew_share(text: str) -> float:
     letters = [c for c in text if c.isalpha()]
-    return sum("֐" <= c <= "׿" for c in letters) / len(letters) if letters else 0.0
+    return sum("\u0590" <= c <= "\u05ff" for c in letters) / len(letters) if letters else 0.0
 
 
 def cut_offsets(duration_s: float, n: int, chunk_s: float, margin_s: float) -> list[float]:
@@ -132,15 +132,17 @@ def ffmpeg_cut(src: Path, dst: Path, start_s: float, dur_s: float) -> None:
                     "-vn", "-ac", "1", "-ar", "16000", str(dst)], check=True)
 
 
-def mw_cmd(audio: Path, out_dir: Path, language: str) -> list[str]:
-    return ["mw", "transcribe", str(audio), "--format", "json", "--language", language, "-o", str(out_dir)]
+def mw_cmd(audio: Path, out_json: Path, language: str, model: str = MW_MODEL, binary: str = MW_BIN) -> list[str]:
+    """mw 14.7: `-o` is one output file; `--model` defaults to the app's selection, so it is always passed."""
+    return [binary, "transcribe", str(audio), "--model", model, "--language", language, "--format", "json",
+            "--no-speakers", "-o", str(out_json), "--overwrite"]
 
 
-def mw_text(out_dir: Path) -> str:
-    files = sorted(out_dir.glob("*.json"))
-    if not files:
-        raise RuntimeError(f"mw wrote no json into {out_dir}")
-    data = json.loads(files[-1].read_text(encoding="utf-8"))
+def mw_text(out_json: Path) -> str:
+    """mw 14.7 JSON: {"text": str, "segments": [{"id", "start", "end" (ms, int), "text", "words": [...]}]}."""
+    if not out_json.exists():
+        raise RuntimeError(f"mw wrote no json at {out_json}")
+    data = json.loads(out_json.read_text(encoding="utf-8"))
     if isinstance(data, dict) and isinstance(data.get("segments"), list):
         return " ".join(s.get("text", "").strip() for s in data["segments"]).strip()
     if isinstance(data, dict) and isinstance(data.get("text"), str):
@@ -148,14 +150,13 @@ def mw_text(out_dir: Path) -> str:
     raise RuntimeError(f"unknown mw json shape: {list(data)[:8] if isinstance(data, dict) else type(data)}")
 
 
-def mw_run(audio: Path, out_dir: Path, language: str = BENCH_LANGUAGE) -> float | None:
+def mw_run(audio: Path, out_json: Path, language: str = BENCH_LANGUAGE, model: str = MW_MODEL) -> float | None:
     """Seconds for one `mw transcribe`, or None on a hang (timeout)."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    for old in out_dir.glob("*.json"):
-        old.unlink()
+    out_json.parent.mkdir(parents=True, exist_ok=True)
+    out_json.unlink(missing_ok=True)
     t0 = time.perf_counter()
     try:
-        subprocess.run(mw_cmd(audio, out_dir, language), capture_output=True, text=True, check=True,
+        subprocess.run(mw_cmd(audio, out_json, language, model), capture_output=True, text=True, check=True,
                        timeout=MW_TIMEOUT_S)
     except subprocess.TimeoutExpired:
         return None
@@ -195,29 +196,28 @@ def cmd_cut(a: argparse.Namespace) -> None:
 
 
 def cmd_mw_bench(a: argparse.Namespace) -> None:
-    wav, out = WORK / "bench_45s.wav", WORK / "mw_out"
-    res = load_results().get("mw", {})
+    wav, out = Path(a.wav), WORK / "mw_out"
+    res = load_results().get(a.key, {})
+    res.update({"wav": wav.name, "model": a.model})
     if a.busy:
-        res["busy_s"] = mw_run(wav, out)
+        res["busy_s"] = mw_run(wav, out / "busy.json", model=a.model)
         print(f"busy run: {res['busy_s']} s")
     else:
         runs = []
         for i in range(5):
-            runs.append(mw_run(wav, out))
+            runs.append(mw_run(wav, out / "run.json", model=a.model))
             print(f"run {i + 1}: {runs[-1]} s")
         res.update(mw_verdict(runs, BUDGET_S["asr"]))
-        dirs = [out / f"p{i}" for i in range(2)]
-        for d in dirs:
-            d.mkdir(parents=True, exist_ok=True)
+        res["words"] = len(mw_text(out / "run.json").split())
+        outs = [out / f"p{i}.json" for i in range(2)]
         t0 = time.perf_counter()
-        procs = [subprocess.Popen(mw_cmd(wav, d, BENCH_LANGUAGE), stdout=subprocess.DEVNULL,
-                                  stderr=subprocess.DEVNULL) for d in dirs]
+        procs = [subprocess.Popen(mw_cmd(wav, o, BENCH_LANGUAGE, a.model), stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL) for o in outs]
         codes = [p.wait(timeout=MW_TIMEOUT_S * 2) for p in procs]
         res["parallel2_wall_s"] = round(time.perf_counter() - t0, 2)
         res["parallel2_exit"] = codes
-        res["words_45s"] = len(mw_text(out).split())
         print(f"2 in parallel: {res['parallel2_wall_s']} s wall, exit {codes}")
-    update_results(RESULTS, "mw", res)
+    update_results(RESULTS, a.key, res)
     print(json.dumps({k: v for k, v in res.items() if k != "runs_s"}, indent=2))
 
 
@@ -250,7 +250,7 @@ def cmd_extract_bench(_: argparse.Namespace) -> None:
         sys.exit("run `stage0.py cut <lecture>` first")
     texts, asr_s = [], []
     for wav in chunks:  # transcribe everything first: never an LLM loaded while Whisper runs
-        out = WORK / "chunks" / wav.stem
+        out = wav.with_suffix(".json")
         asr_s.append(mw_run(wav, out))
         texts.append(mw_text(out))
         (WORK / "chunks" / f"{wav.stem}.txt").write_text(texts[-1] + "\n", encoding="utf-8")
@@ -271,7 +271,7 @@ def cmd_extract_bench(_: argparse.Namespace) -> None:
 
 def cmd_mic(a: argparse.Namespace) -> None:
     src = Path(a.file)
-    out = WORK / "mic"
+    out = WORK / "mic_seat.json"
     secs = mw_run(src, out)
     text = mw_text(out)
     (WORK / "mic_seat.txt").write_text(text + "\n", encoding="utf-8")
@@ -307,6 +307,9 @@ def main(argv: list[str] | None = None) -> None:
     p.set_defaults(fn=cmd_cut)
     p = sub.add_parser("mw-bench")
     p.add_argument("--busy", action="store_true", help="one run while the MacWhisper app is transcribing")
+    p.add_argument("--wav", default=str(WORK / "bench_45s.wav"), help="clip to time (default: the lecture cut)")
+    p.add_argument("--model", default=MW_MODEL)
+    p.add_argument("--key", default="mw", help="results key; the gate reads only `mw` (the real lecture clip)")
     p.set_defaults(fn=cmd_mw_bench)
     sub.add_parser("extract-bench").set_defaults(fn=cmd_extract_bench)
     p = sub.add_parser("mic")

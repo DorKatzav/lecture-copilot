@@ -81,3 +81,33 @@ def test_fill_metrics_replaces_span_contents_in_place():
 def test_fill_metrics_unknown_key_raises():
     with pytest.raises(KeyError, match="mw.p99_s"):
         stage0.fill_metrics('<span data-metric="mw.p99_s"></span>', {"mw": {}})
+
+
+def test_mw_cmd_is_explicit_and_writes_one_json_file(tmp_path):
+    cmd = stage0.mw_cmd(tmp_path / "c.wav", tmp_path / "c.json", "he", model="whisperkit:some-model", binary="mw")
+    assert cmd[:3] == ["mw", "transcribe", str(tmp_path / "c.wav")]
+    assert cmd[cmd.index("--model") + 1] == "whisperkit:some-model"
+    assert cmd[cmd.index("--language") + 1] == "he"
+    assert cmd[cmd.index("--format") + 1] == "json"
+    assert cmd[cmd.index("-o") + 1] == str(tmp_path / "c.json")
+    assert "--no-speakers" in cmd and "--overwrite" in cmd
+
+
+def test_mw_text_reads_the_mw_14_json_shape(tmp_path):
+    out = tmp_path / "c.json"
+    out.write_text(json.dumps({"text": " alpha beta gamma ", "segments": [
+        {"id": "1", "start": 20, "end": 3880, "text": "alpha beta", "words": []},
+        {"id": "2", "start": 3900, "end": 5000, "text": "gamma", "words": []}]}))
+    assert stage0.mw_text(out) == "alpha beta gamma"
+
+
+def test_mw_text_unknown_shape_raises(tmp_path):
+    out = tmp_path / "c.json"
+    out.write_text(json.dumps({"transcript": "x"}))
+    with pytest.raises(RuntimeError, match="unknown mw json shape"):
+        stage0.mw_text(out)
+
+
+def test_mw_text_missing_file_raises(tmp_path):
+    with pytest.raises(RuntimeError, match="no json"):
+        stage0.mw_text(tmp_path / "nope.json")

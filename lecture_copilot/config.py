@@ -18,6 +18,9 @@ VERIFIER_MODEL = "gemini-3.7-flash"
 VERIFY_MIN_IMPORTANCE, MATERIAL_MIN_IMPORTANCE = 70, 85
 BUDGET_S = {"asr": 8, "extract": 15, "embed": 2}
 
+MW_BIN = os.getenv("MW_BIN", "mw")                             # MacWhisper CLI (Settings → Advanced → Install CLI)
+MW_MODEL = "whisperkit:openai_whisper-large-v3-v20240930"     # explicit: never the app's current selection
+
 OLLAMA_URL = "http://127.0.0.1:11434"
 OLLAMA_NUM_CTX = 4096
 
