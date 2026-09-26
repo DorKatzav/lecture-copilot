@@ -228,12 +228,12 @@ failure is a logged row, never an exception that stops the lecture.
 
 ## 7. Dor's manual steps (collected; never done by Claude)
 
-- [ ] M0: download `7/6 Lecture` and `9/6 Lecture` (video) from Drive `AI DEVELOPERS 11 / 2. Python / REC` into `data/lectures/`; copy their `.vtt` next to them.
+- [x] M0: download `7/6 Lecture` and `9/6 Lecture` (video) from Drive `AI DEVELOPERS 11 / 2. Python / REC` into `data/lectures/`; copy their `.vtt` next to them. (2026-09-26: no video exists for 7/6 or 9/6 — `.vtt` only; audio from the 19/6 Tirgul instead, D-M0-9. Layout: `data/lectures/<date>_<lecture|tirgul>/<original Zoom name>`.)
 - [x] M0: Gemini API key from aistudio.google.com → `.env` `GEMINI_API_KEY`. (2026-09-23)
 - [x] M0: MacWhisper → Settings → Advanced → Install CLI; confirm `mw version`. (2026-09-23, 14.7.1)
 - [x] M0: sit in the usual seat (or 3–5 m from a speaker) and record 1 minute for the mic test. (2026-09-23, speaker at 3–5 m, 2 min)
 - [ ] Sukkot: label `eval/benchmark.json` from the two `.vtt` files (~3 h): 30 real claims + verdicts, 10 injected errors (5 contradicting 7/6), 30 concepts, shared-concept pairs.
-- [ ] M2: `COURSES_ROOT` inside the Google Drive desktop folder; create course "יזמות וחדשנות" (he) and any English course (en).
+- [ ] M2: install Google Drive for desktop (not installed as of 2026-09-26); `COURSES_ROOT` inside its folder; create course "יזמות וחדשנות" (he) and any English course (en).
 - [ ] M6: Notion internal integration → `NOTION_TOKEN`; share the "🎓 לימודים" page with it; run `cli notion-init` once.
 - [ ] M7 (optional): install BlackHole 2ch; Audio MIDI Setup: Multi-Output (speakers + BlackHole), Aggregate (mic + BlackHole, drift correction on).
 - [ ] Before 18.10: run the first-lecture checklist.

@@ -41,8 +41,8 @@ during a lecture.** No submission, no grade: this is a tool Dor uses from the fi
   MacWhisper, Ollama or Gemini — they use `tests/stubs.py`.
 - **Numbers are generated, never typed.** Eval numbers come from `eval/results.json`; cost and latency from the
   `decisions` table.
-- **Provided files are sacred.** Lecture recordings in `data/lectures/` (7/6, 9/6 from the course Drive) and their
-  `.vtt` files are never modified. They are also never committed (`.gitignore`) — course material, not ours to publish.
+- **Provided files are sacred.** Course files in `data/lectures/<date>_<lecture|tirgul>/` (7/6 + 9/6 `.vtt`, 19/6 Tirgul
+  recording for audio — D-M0-9) are never modified or renamed. They are also never committed (`.gitignore`) — course material, not ours to publish.
 - **Dor owns manual steps** (keys, MacWhisper settings, BlackHole/Audio MIDI Setup, downloads). Collected in PLAN.md §7.
   Never type his passwords into a browser; never commit secrets.
 - Two review moments per milestone: Dor reads the Hebrew report, then approves the merge.
@@ -97,7 +97,8 @@ during a lecture.** No submission, no grade: this is a tool Dor uses from the fi
 
 - macOS, MacBook Pro M5 Pro, 24 GB. conda env **`copilot`** (Python 3.11, uv/Homebrew Python if conda's sqlite lacks
   `enable_load_extension` — checked in M0). Never `AI_dev` or `base`. Use `python`, not `python3`.
-- Ollama: `qwen3:8b`, `gemma3:12b`, `bge-m3`. MacWhisper Pro with the CLI installed (`mw version` works).
+- Ollama: `qwen3:8b`, `gemma3:12b`, `bge-m3` — stored in `~/Projects/_shared/models/ollama` (shared across projects;
+  `~/.ollama/models` is a symlink to it). MacWhisper Pro with the CLI installed (`mw version` works).
 - Gemini key from aistudio.google.com in `.env` as `GEMINI_API_KEY`. Notion internal integration token as `NOTION_TOKEN`.
 - Run: `python -m lecture_copilot.cli copilot` (launcher) · replay: `python -m lecture_copilot.cli replay <file|json> --pace fast`
   · tests: `pytest -q && ruff check .` · gate: `python scripts/gate.py --m N` · eval: `python -m lecture_copilot.cli eval`.
