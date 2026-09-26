@@ -15,6 +15,7 @@ Raw transcripts and model outputs stay in runs/stage0/ (gitignored): they are co
 
 import argparse
 import asyncio
+import html as html_lib
 import json
 import math
 import re
@@ -128,6 +129,16 @@ def level_stats(samples: np.ndarray, sr: int, floor_db: float, frame_s: float = 
             "share_above_floor": round(float(np.mean(db > floor_db)), 2)}
 
 
+def mic_record(old: dict, file: str, duration_s: float, level: dict, model: str, measured: dict) -> dict:
+    """Merge one mic measurement. A different recording invalidates the verdict and the other models' results."""
+    same = old.get("file") == file
+    res = {k: v for k, v in old.items() if k not in ("asr_s", "words")} if same else {}
+    res.update({"file": file, "duration_s": duration_s, "level": level})
+    res.setdefault("by_model", {})[model] = measured
+    res.setdefault("readable", None)
+    return res
+
+
 # any element carrying data-metric, attributes in any order: <td class="num" data-metric="a.b">…</td>
 _METRIC = re.compile(r'(<(\w+)\b[^>]*\bdata-metric="([^"]+)"[^>]*>)(.*?)(</\2>)', re.DOTALL)
 
@@ -150,7 +161,14 @@ def _fmt(v: object) -> str:
 
 
 def fill_metrics(html: str, results: dict) -> str:
-    return _METRIC.sub(lambda m: m.group(1) + _fmt(_lookup(results, m.group(3))) + m.group(5), html)
+    """Fill every placeholder or raise — a placeholder left unfilled would show a stale number on the page."""
+    found = len(re.findall(r"data-metric\s*=", html, re.IGNORECASE))
+    parsed = len(_METRIC.findall(html))
+    if parsed != found:
+        raise ValueError(f"{found - parsed} data-metric placeholder(s) cannot be parsed — "
+                         'write them as <tag data-metric="a.b">…</tag> with matching tag case')
+    return _METRIC.sub(lambda m: m.group(1) + html_lib.escape(_fmt(_lookup(results, m.group(3))), quote=False)
+                       + m.group(5), html)
 
 
 # ---------- providers (run for real, not in tests) ----------
@@ -333,16 +351,11 @@ def cmd_mic(a: argparse.Namespace) -> None:
     secs = mw_run(src, out, model=a.model)
     text = mw_text(out)
     (WORK / f"mic_seat_{engine}.txt").write_text(text + "\n", encoding="utf-8")
-    res = load_results().get("mic", {})
-    for legacy in ("asr_s", "words"):
-        res.pop(legacy, None)
-    res.update({"file": str(src.relative_to(ROOT)) if src.is_absolute() else str(src),
-                "duration_s": round(ffprobe_duration(src), 1),
-                "level": level_stats(decode_pcm(src), sr=16000, floor_db=SILENCE_DB)})
     segments = json.loads(out.read_text(encoding="utf-8"))["segments"]
-    res.setdefault("by_model", {})[a.model] = {"asr_s": secs, "words": len(text.split()),
-                                               "covered_s": segment_coverage(segments)}
-    res.setdefault("readable", None)
+    file = str(src.relative_to(ROOT)) if src.is_absolute() else str(src)
+    res = mic_record(load_results().get("mic", {}), file, round(ffprobe_duration(src), 1),
+                     level_stats(decode_pcm(src), sr=16000, floor_db=SILENCE_DB), a.model,
+                     {"asr_s": secs, "words": len(text.split()), "covered_s": segment_coverage(segments)})
     update_results(RESULTS, "mic", res)
     m = res["by_model"][a.model]
     print(f"{a.model}: {m['words']} words, {m['covered_s']}/{res['duration_s']} s covered, {secs} s "

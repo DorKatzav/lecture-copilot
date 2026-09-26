@@ -165,3 +165,33 @@ def test_summarize_extract_counts_foreign_script_chunks():
     base = {"first_valid": True, "valid": True, "ms": 1000, "hebrew": 1.0, "concepts": 0, "claims": 0}
     s = stage0.summarize_extract([{**base, "foreign": True}, {**base, "foreign": False}, {**base, "foreign": True}])
     assert s["foreign_script_chunks"] == 2
+
+
+@pytest.mark.parametrize("html", [
+    "<td data-metric='mw.p50_s'>?</td>",                      # single-quoted attribute
+    '<TD data-metric="mw.p50_s">?</td>',                      # tag case mismatch
+    '<span title="a>b" data-metric="mw.p50_s">?</span>',      # '>' inside an earlier attribute
+])
+def test_fill_metrics_refuses_placeholders_it_cannot_fill(html):
+    with pytest.raises(ValueError, match="placeholder"):
+        stage0.fill_metrics(html, {"mw": {"p50_s": 4.2}})
+
+
+def test_fill_metrics_escapes_values():
+    out = stage0.fill_metrics('<span data-metric="sqlite_vec.error">?</span>', {"sqlite_vec": {"error": "a<b & c"}})
+    assert out == '<span data-metric="sqlite_vec.error">a&lt;b &amp; c</span>'
+
+
+OLD_MIC = {"file": "data/mic_seat.m4a", "readable": "yes", "readable_with": "whisper-cpp:ivrit-ai-largev3",
+           "by_model": {"whisperkit:x": {"words": 150}}}
+
+
+def test_mic_record_same_file_keeps_verdict_and_other_models():
+    r = stage0.mic_record(OLD_MIC, "data/mic_seat.m4a", 121.7, {"p50_db": -40.8}, "whisper-cpp:y", {"words": 239})
+    assert r["readable"] == "yes" and set(r["by_model"]) == {"whisperkit:x", "whisper-cpp:y"}
+
+
+def test_mic_record_new_recording_needs_a_new_verdict():
+    r = stage0.mic_record(OLD_MIC, "data/mic_seat_v2.m4a", 60.0, {"p50_db": -35.0}, "whisper-cpp:y", {"words": 99})
+    assert r["readable"] is None and "readable_with" not in r
+    assert r["by_model"] == {"whisper-cpp:y": {"words": 99}} and r["file"] == "data/mic_seat_v2.m4a"
