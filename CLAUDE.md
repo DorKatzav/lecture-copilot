@@ -85,8 +85,8 @@ during a lecture.** No submission, no grade: this is a tool Dor uses from the fi
   Gemini runs in a separate worker (semaphore 2) and never in the chunk loop. `queue_depth ≥ 2` → skip extraction on
   low-speech chunks, catch up in the Digest.
 - **Language is per course** (`courses.language` he|en), never auto-detected per chunk. Digest prose is Hebrew.
-- **One local model for live, one for Digest:** Qwen3 8B q4 (thinking off, `num_ctx=4096`) for extraction; Gemma 3 12B
-  only in `digest()`. Never both loaded while Whisper is running. 24 GB is the budget.
+- **One local LLM for live and Digest:** Gemma 3 12B (`num_ctx=4096`) for extraction and `digest()` (D-M0-10 — qwen3:8b
+  leaked Cyrillic/Arabic into Hebrew in stage 0). Every extraction output passes a foreign-script check. 24 GB is the budget.
 - **IDs are ULIDs minted in Python before any write.** Replaying the same lecture is an upsert, never a duplicate.
 - **MacWhisper is a provider, not a dependency.** We call `mw transcribe` on files; we never read its internal SQLite,
   never use `--persist`. Speaker names come in through an exported transcript → `TranscriptSource`.
@@ -97,7 +97,7 @@ during a lecture.** No submission, no grade: this is a tool Dor uses from the fi
 
 - macOS, MacBook Pro M5 Pro, 24 GB. conda env **`copilot`** (Python 3.11, uv/Homebrew Python if conda's sqlite lacks
   `enable_load_extension` — checked in M0). Never `AI_dev` or `base`. Use `python`, not `python3`.
-- Ollama: `qwen3:8b`, `gemma3:12b`, `bge-m3` — stored in `~/Projects/_shared/models/ollama` (shared across projects;
+- Ollama: `gemma3:12b`, `bge-m3` (`qwen3:8b` kept only from the stage-0 comparison) — stored in `~/Projects/_shared/models/ollama` (shared across projects;
   `~/.ollama/models` is a symlink to it). MacWhisper Pro with the CLI installed (`mw version` works).
 - Gemini key from aistudio.google.com in `.env` as `GEMINI_API_KEY`. Notion internal integration token as `NOTION_TOKEN`.
 - Run: `python -m lecture_copilot.cli copilot` (launcher) · replay: `python -m lecture_copilot.cli replay <file|json> --pace fast`

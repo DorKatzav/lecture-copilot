@@ -13,7 +13,8 @@ PROMPTS_DIR = ROOT / "prompts"
 COURSES_ROOT = Path(os.getenv("COURSES_ROOT", "~/Google Drive/My Drive/Lecture-Copilot")).expanduser()
 
 CHUNK_MIN_S, CHUNK_MAX_S, SILENCE_DB = 30, 60, -40
-LIVE_MODEL, DIGEST_MODEL, EMBED_MODEL = "qwen3:8b", "gemma3:12b", "bge-m3"
+# one local LLM for live extraction and the Digest (D-M0-10: qwen3:8b leaked foreign scripts into Hebrew)
+LIVE_MODEL, DIGEST_MODEL, EMBED_MODEL = "gemma3:12b", "gemma3:12b", "bge-m3"
 VERIFIER_MODEL = "gemini-3.7-flash"
 VERIFY_MIN_IMPORTANCE, MATERIAL_MIN_IMPORTANCE = 70, 85
 BUDGET_S = {"asr": 8, "extract": 15, "embed": 2}

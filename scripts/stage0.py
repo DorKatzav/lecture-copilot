@@ -29,7 +29,7 @@ import numpy as np
 
 from lecture_copilot import prompts
 from lecture_copilot.agents.schemas import ExtractResult
-from lecture_copilot.config import BUDGET_S, DIGEST_MODEL, LIVE_MODEL, MW_BIN, MW_MODELS, OLLAMA_URL, ROOT, SILENCE_DB
+from lecture_copilot.config import BUDGET_S, MW_BIN, MW_MODELS, OLLAMA_URL, ROOT, SILENCE_DB
 from lecture_copilot.llm import chat_json
 
 RESULTS = ROOT / "eval" / "stage0.json"
@@ -37,6 +37,7 @@ WORK = ROOT / "runs" / "stage0"
 REPORT = ROOT / "docs" / "notes" / "STAGE0_HE.html"
 MW_TIMEOUT_S = BUDGET_S["asr"] * 3  # PLAN §3.3: a run longer than this is a hang
 BENCH_COURSE, BENCH_LECTURE, BENCH_LANGUAGE = "AI Developers — Python", "7/6 Lecture", "he"
+BENCH_MODELS = ("qwen3:8b", "gemma3:12b")  # the stage-0 comparison behind D-M0-10; not the live config
 
 
 # ---------- pure helpers (tested) ----------
@@ -266,7 +267,7 @@ def cmd_mw_bench(a: argparse.Namespace) -> None:
 
 async def _extract_model(model: str, texts: list[str], client: httpx.AsyncClient) -> tuple[dict, list[dict]]:
     prompt = prompts.load("extract_v0")
-    think = False if model == LIVE_MODEL else None
+    think = False if model.startswith("qwen3") else None  # thinking off; gemma has no thinking mode
 
     def render(i: int, text: str) -> tuple[str, str]:
         return prompt.render(language=BENCH_LANGUAGE, course_name=BENCH_COURSE, lecture_title=BENCH_LECTURE,
@@ -303,7 +304,7 @@ def cmd_extract_bench(_: argparse.Namespace) -> None:
 
     async def go() -> None:
         async with httpx.AsyncClient(base_url=OLLAMA_URL) as client:
-            for model in (LIVE_MODEL, DIGEST_MODEL):
+            for model in BENCH_MODELS:
                 res[model], raw = await _extract_model(model, texts, client)
                 with (WORK / f"extract_{model.replace(':', '_')}.jsonl").open("w", encoding="utf-8") as f:
                     f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in raw)
@@ -316,7 +317,7 @@ def cmd_extract_bench(_: argparse.Namespace) -> None:
 def cmd_rescore(_: argparse.Namespace) -> None:
     """Recompute output-quality metrics from the saved raw outputs, without calling the models again."""
     res = load_results().get("extract", {})
-    for model in (LIVE_MODEL, DIGEST_MODEL):
+    for model in BENCH_MODELS:
         path = WORK / f"extract_{model.replace(':', '_')}.jsonl"
         outs = [json.loads(json.loads(line)["raw"][-1]) for line in path.open(encoding="utf-8")]
         res[model]["foreign_script_chunks"] = sum(any(has_foreign_script(t) for t in output_texts(o)) for o in outs)

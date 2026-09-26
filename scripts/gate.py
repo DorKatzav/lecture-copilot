@@ -51,7 +51,8 @@ def check_mw_version(cmd: tuple[str, ...] = ("mw", "version")) -> Result:
 
 
 def check_ollama_models(client: httpx.Client | None = None,
-                        required: tuple[str, ...] = (LIVE_MODEL, DIGEST_MODEL, EMBED_MODEL)) -> Result:
+                        required: tuple[str, ...] = tuple(dict.fromkeys((LIVE_MODEL, DIGEST_MODEL, EMBED_MODEL)))
+                        ) -> Result:
     client = client or httpx.Client(base_url=OLLAMA_URL, timeout=5)
     try:
         names = {m["name"].removesuffix(":latest") for m in client.get("/api/tags").json()["models"]}

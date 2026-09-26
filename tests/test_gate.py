@@ -2,6 +2,7 @@ import subprocess
 
 import httpx
 
+from lecture_copilot.config import LIVE_MODEL
 from scripts import gate
 from tests.stubs import FakeOllama
 
@@ -137,17 +138,17 @@ def test_mw_bench_fails_with_four_runs():
 
 
 def test_extract_bench_nine_of_ten_passes():
-    r = gate.check_extract_bench({"extract": {"qwen3:8b": {"n": 10, "valid_first": 9}}})
+    r = gate.check_extract_bench({"extract": {LIVE_MODEL: {"n": 10, "valid_first": 9}}})
     assert r.status == "PASS"
 
 
 def test_extract_bench_eight_of_ten_fails():
-    r = gate.check_extract_bench({"extract": {"qwen3:8b": {"n": 10, "valid_first": 8}}})
+    r = gate.check_extract_bench({"extract": {LIVE_MODEL: {"n": 10, "valid_first": 8}}})
     assert r.status == "FAIL" and "8/10" in r.detail
 
 
 def test_extract_bench_too_few_chunks_fails():
-    assert gate.check_extract_bench({"extract": {"qwen3:8b": {"n": 5, "valid_first": 5}}}).status == "FAIL"
+    assert gate.check_extract_bench({"extract": {LIVE_MODEL: {"n": 5, "valid_first": 5}}}).status == "FAIL"
 
 
 def test_mic_verdict_recorded_and_file_present(tmp_path):
@@ -192,3 +193,8 @@ def test_crashing_check_is_a_named_fail_not_a_crash(monkeypatch, capsys):
     monkeypatch.setitem(gate.CHECKS, 0, [("fixture", boom)])
     [r] = gate.run(0)
     assert (r.name, r.status) == ("fixture", "FAIL") and "disk on fire" in r.detail
+
+
+def test_ollama_required_models_are_deduplicated():
+    r = gate.check_ollama_models(client=FakeOllama(models=["gemma3:12b", "bge-m3:latest"]).client())
+    assert r.status == "PASS" and r.detail == "gemma3:12b, bge-m3"

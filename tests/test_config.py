@@ -6,8 +6,8 @@ def test_root_is_the_repo():
     assert config.DB_PATH == config.ROOT / "db" / "copilot.sqlite"
 
 
-def test_models_are_explicit():
-    assert (config.LIVE_MODEL, config.DIGEST_MODEL, config.EMBED_MODEL) == ("qwen3:8b", "gemma3:12b", "bge-m3")
+def test_one_local_llm_for_live_and_digest_d_m0_10():
+    assert (config.LIVE_MODEL, config.DIGEST_MODEL, config.EMBED_MODEL) == ("gemma3:12b", "gemma3:12b", "bge-m3")
 
 
 def test_budget_matches_spec():
