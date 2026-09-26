@@ -142,3 +142,26 @@ def test_fill_metrics_works_on_any_element_and_attribute_order():
 def test_mw_cmd_picks_the_model_from_the_course_language(tmp_path, language, model):
     cmd = stage0.mw_cmd(tmp_path / "c.wav", tmp_path / "c.json", language)
     assert cmd[cmd.index("--model") + 1] == model
+
+
+@pytest.mark.parametrize(("text", "expected"), [
+    ("המרצה הסביר את CAC ו-Git.", False),        # Hebrew + ASCII is the normal case
+    ("שמירת שינוי במערכת контроль גרסה", True),  # Cyrillic leaked in
+    ("ההשפעה ותأثيرן על הציון", True),            # Arabic leaked in
+    ("חלק מה trảiיה", True),                      # Vietnamese Latin-extended leaked in
+    ("123 — ok!", False),
+])
+def test_has_foreign_script(text, expected):
+    assert stage0.has_foreign_script(text) is expected
+
+
+def test_output_texts_collects_every_free_text_field():
+    out = {"chunk_summary": "s", "concepts": [{"term": "t", "explanation": "e", "canonical_key": "k"}],
+           "claims": [{"text": "c", "normalized": "n", "importance": 5}], "items": [{"kind": "note", "text": "i"}]}
+    assert sorted(stage0.output_texts(out)) == ["c", "e", "i", "k", "n", "s", "t"]
+
+
+def test_summarize_extract_counts_foreign_script_chunks():
+    base = {"first_valid": True, "valid": True, "ms": 1000, "hebrew": 1.0, "concepts": 0, "claims": 0}
+    s = stage0.summarize_extract([{**base, "foreign": True}, {**base, "foreign": False}, {**base, "foreign": True}])
+    assert s["foreign_script_chunks"] == 2

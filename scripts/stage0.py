@@ -5,6 +5,7 @@ docs/notes/STAGE0_HE.html reads them through data-metric="a.b.c" placeholders (`
     python scripts/stage0.py cut data/lectures/<7-6 lecture file>
     python scripts/stage0.py mw-bench [--busy] [--wav clip.wav --model engine:id --key mw_tts]
     python scripts/stage0.py extract-bench
+    python scripts/stage0.py rescore
     python scripts/stage0.py mic data/mic_seat.m4a [--model engine:id]
     python scripts/stage0.py mic-verdict yes|no
     python scripts/stage0.py report [--page docs/notes/<page>_HE.html]
@@ -64,6 +65,21 @@ def hebrew_share(text: str) -> float:
     return sum("\u0590" <= c <= "\u05ff" for c in letters) / len(letters) if letters else 0.0
 
 
+def has_foreign_script(text: str) -> bool:
+    """A letter that is neither Hebrew nor ASCII — e.g. Cyrillic or Arabic tokens leaking into Hebrew output."""
+    return any(c.isalpha() and not c.isascii() and not "\u0590" <= c <= "\u05ff" for c in text)
+
+
+def output_texts(out: dict) -> list[str]:
+    """Every free-text field of an ExtractResult dict."""
+    texts = [out.get("chunk_summary", "")]
+    texts += [c[k] for c in out.get("concepts", []) for k in ("term", "explanation", "canonical_key")]
+    texts += [c[k] for c in out.get("claims", []) for k in ("text", "normalized")]
+    texts += [v for it in out.get("items", []) for v in (it.get("text"), it.get("owner"), it.get("due"))
+              if isinstance(v, str)]
+    return texts
+
+
 def cut_offsets(duration_s: float, n: int, chunk_s: float, margin_s: float) -> list[float]:
     end = duration_s - margin_s - chunk_s
     if n * chunk_s > duration_s - 2 * margin_s:
@@ -92,6 +108,7 @@ def summarize_extract(calls: list[dict]) -> dict:
         "p50_ms": percentile(ms, 50), "p95_ms": percentile(ms, 95),
         "hebrew_summaries": sum(c["hebrew"] >= 0.5 for c in calls),
         "concepts": sum(c["concepts"] for c in calls), "claims": sum(c["claims"] for c in calls),
+        "foreign_script_chunks": sum(c.get("foreign", False) for c in calls),
     }
 
 
@@ -262,8 +279,9 @@ async def _extract_model(model: str, texts: list[str], client: httpx.AsyncClient
         v = call.value
         rows.append({"first_valid": call.first_valid, "valid": v is not None, "ms": round(call.ms[0]),
                      "hebrew": hebrew_share(v.chunk_summary) if v else 0.0,
-                     "concepts": len(v.concepts) if v else 0, "claims": len(v.claims) if v else 0})
-        raw.append({"chunk": i, "attempts": call.attempts, "error": call.error, "raw": call.raw,
+                     "concepts": len(v.concepts) if v else 0, "claims": len(v.claims) if v else 0,
+                     "foreign": any(has_foreign_script(t) for t in output_texts(v.model_dump())) if v else False})
+        raw.append({"chunk": i, "attempts": call.attempts, "error": call.error, "raw": call.raw, "ms": call.ms,
                     "tokens_in": call.tokens_in, "tokens_out": call.tokens_out})
         print(f"{model} chunk {i:02d}: valid_first={call.first_valid} {call.ms[0] / 1000:.1f} s")
     await client.post("/api/generate", json={"model": model, "keep_alive": 0})  # unload before the next model
@@ -293,6 +311,17 @@ def cmd_extract_bench(_: argparse.Namespace) -> None:
     asyncio.run(go())
     update_results(RESULTS, "extract", res)
     print(json.dumps(res, indent=2))
+
+
+def cmd_rescore(_: argparse.Namespace) -> None:
+    """Recompute output-quality metrics from the saved raw outputs, without calling the models again."""
+    res = load_results().get("extract", {})
+    for model in (LIVE_MODEL, DIGEST_MODEL):
+        path = WORK / f"extract_{model.replace(':', '_')}.jsonl"
+        outs = [json.loads(json.loads(line)["raw"][-1]) for line in path.open(encoding="utf-8")]
+        res[model]["foreign_script_chunks"] = sum(any(has_foreign_script(t) for t in output_texts(o)) for o in outs)
+        print(f"{model}: foreign script in {res[model]['foreign_script_chunks']}/{len(outs)} chunks")
+    update_results(RESULTS, "extract", res)
 
 
 def cmd_mic(a: argparse.Namespace) -> None:
@@ -351,6 +380,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--key", default="mw", help="results key; the gate reads only `mw` (the real lecture clip)")
     p.set_defaults(fn=cmd_mw_bench)
     sub.add_parser("extract-bench").set_defaults(fn=cmd_extract_bench)
+    sub.add_parser("rescore").set_defaults(fn=cmd_rescore)
     p = sub.add_parser("mic")
     p.add_argument("file")
     p.add_argument("--model", default=None, help="default: MW_MODELS[course language]")
