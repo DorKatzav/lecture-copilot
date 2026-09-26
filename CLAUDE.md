@@ -86,7 +86,9 @@ during a lecture.** No submission, no grade: this is a tool Dor uses from the fi
   low-speech chunks, catch up in the Digest.
 - **Language is per course** (`courses.language` he|en), never auto-detected per chunk. Digest prose is Hebrew.
 - **One local LLM for live and Digest:** Gemma 3 12B (`num_ctx=4096`) for extraction and `digest()` (D-M0-10 — qwen3:8b
-  leaked Cyrillic/Arabic into Hebrew in stage 0). Every extraction output passes a foreign-script check. 24 GB is the budget.
+  leaked Cyrillic/Arabic into Hebrew in stage 0). Only one LLM loaded at a time; MacWhisper + Gemma + bge-m3 must fit
+  24 GB together — peak memory is measured in M1. Every extraction output passes a foreign-script check that lists
+  forbidden scripts explicitly (Cyrillic, Arabic, CJK, Latin Extended Additional); accented Latin (é, ü) is allowed.
 - **IDs are ULIDs minted in Python before any write.** Replaying the same lecture is an upsert, never a duplicate.
 - **MacWhisper is a provider, not a dependency.** We call `mw transcribe` on files; we never read its internal SQLite,
   never use `--persist`. Speaker names come in through an exported transcript → `TranscriptSource`.

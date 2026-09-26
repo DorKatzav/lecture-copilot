@@ -232,8 +232,9 @@ failure is a logged row, never an exception that stops the lecture.
 - [x] M0: Gemini API key from aistudio.google.com → `.env` `GEMINI_API_KEY`. (2026-09-23)
 - [x] M0: MacWhisper → Settings → Advanced → Install CLI; confirm `mw version`. (2026-09-23, 14.7.1)
 - [x] M0: sit in the usual seat (or 3–5 m from a speaker) and record 1 minute for the mic test. (2026-09-23, speaker at 3–5 m, 2 min)
+- [ ] Before M1 (1 min, D-M0-11): start any transcription in the MacWhisper app, then run `python scripts/stage0.py mw-bench --busy` while it runs.
 - [ ] Sukkot: label `eval/benchmark.json` from the two `.vtt` files (~3 h): 30 real claims + verdicts, 10 injected errors (5 contradicting 7/6), 30 concepts, shared-concept pairs.
-- [ ] M2: install Google Drive for desktop (not installed as of 2026-09-26); `COURSES_ROOT` inside its folder; create course "יזמות וחדשנות" (he) and any English course (en).
+- [ ] M2: install Google Drive for desktop (not installed as of 2026-09-26); `COURSES_ROOT` inside its folder (current installs mount at `~/Library/CloudStorage/GoogleDrive-<account>/My Drive`, not the config default); create course "יזמות וחדשנות" (he) and any English course (en).
 - [ ] M6: Notion internal integration → `NOTION_TOKEN`; share the "🎓 לימודים" page with it; run `cli notion-init` once.
 - [ ] M7 (optional): install BlackHole 2ch; Audio MIDI Setup: Multi-Output (speakers + BlackHole), Aggregate (mic + BlackHole, drift correction on).
 - [ ] Before 18.10: run the first-lecture checklist.
