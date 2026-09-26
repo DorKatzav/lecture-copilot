@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M0 · שלד ושלב 0</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;800&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F6F6F2; --panel:#FFFFFF; --panel2:#EEEFEA; --ink:#1C2030; --ink2:#4D5468; --mute:#7C8398; --line:#D9DBD3;
+  --accent:#C8412F; --accent-soft:#FBE9E5; --local:#1E6F80; --local-soft:#E1F0F2; --cloud:#7A4FA8; --cloud-soft:#EFE7F8;
+  --ok:#2E7D4F; --ok-soft:#E3F2E8; --warn:#B7791F; --warn-soft:#FBF1DC; --code:#F0F1EC;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 6px 20px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+    --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+    --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+  --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+  --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Assistant',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;margin:0;direction:rtl}
+.wrap{max-width:880px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;margin-block:0 12px;padding-top:6px}
+h3{font-size:1.05rem;font-weight:700;margin-block:20px 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--ink2);max-width:62ch}
+a{color:var(--local)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+header.hero{padding-block:36px 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--mute);font-size:.9rem;margin-top:14px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;margin-bottom:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--panel2);color:var(--ink2);text-decoration:none;font-size:.88rem;font-weight:600;margin-inline-end:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section{margin-bottom:48px;scroll-margin-top:64px}
+.callout{border-inline-start:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:6px;margin:16px 0}
+.callout.local{border-color:var(--local);background:var(--local-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:480px}
+th,td{padding:10px 12px;text-align:right;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-family:'Heebo',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:700;font-family:'Heebo',sans-serif;white-space:nowrap}
+.yes{background:var(--ok-soft);color:var(--ok)} .no{background:var(--accent-soft);color:var(--accent)} .maybe{background:var(--warn-soft);color:var(--warn)}
+.loc{background:var(--local-soft);color:var(--local)} .cld{background:var(--cloud-soft);color:var(--cloud)} .mw{background:var(--panel2);color:var(--ink2)}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em;direction:ltr;unicode-bidi:embed}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;direction:ltr;text-align:left;font-size:.85rem;line-height:1.55;margin:12px 0 18px}
+pre.rtl{direction:rtl;text-align:right;font-family:'Assistant',sans-serif;font-size:.95rem;white-space:pre-wrap}
+pre code{background:none;padding:0}
+ul,ol{padding-inline-start:22px;margin:0 0 12px}
+li{margin-bottom:6px}
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:14px 0 20px}
+.step{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;box-shadow:var(--shadow)}
+.step b{display:block;font-family:'Heebo',sans-serif;font-size:.95rem}
+.step small{display:block;color:var(--mute);font-size:.82rem;line-height:1.4;margin-top:4px}
+.step.local{border-top:3px solid var(--local)} .step.cloud{border-top:3px solid var(--cloud)} .step.hot{border-top:3px solid var(--accent)} .step.mw{border-top:3px solid var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--mute);margin-top:-8px;margin-bottom:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:5px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow);margin:14px 0 20px}
+.mock .bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font-size:.85rem;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.mock .title{font-family:'Heebo',sans-serif;font-size:1.05rem;font-weight:700;color:var(--ink)}
+.mock .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media (max-width:600px){.mock .grid{grid-template-columns:1fr}}
+.mock .box{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--paper)}
+.mock .box h4{margin:0 0 10px;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--mute);font-weight:600;letter-spacing:.04em}
+.field{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.95rem}
+.field span.in{flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--panel)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.seg span{border:1px solid var(--line);border-radius:6px;padding:5px 12px;color:var(--mute);font-size:.9rem;background:var(--panel)}
+.seg span.on{border-color:var(--local);color:var(--local);background:var(--local-soft);font-weight:700}
+.recbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--accent);color:#fff;border-radius:10px;padding:16px;font-family:'Heebo',sans-serif;font-size:1.2rem;font-weight:800;margin:6px 0 8px}
+.recbtn i{width:14px;height:14px;border-radius:50%;background:#fff;display:inline-block}
+.mock .hint{color:var(--mute);font-size:.82rem}
+.mock .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.mock .row:last-child{border:0}
+.wk{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.wk .w{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.wk .w.off{background:var(--panel2);box-shadow:none;color:var(--mute)}
+.wk h4{margin:0 0 4px;font-family:'Heebo',sans-serif;font-size:1rem}
+.wk .d{color:var(--mute);font-size:.82rem;font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
+.wk ul{padding-inline-start:18px;font-size:.92rem;margin:0}
+.wk .goal{margin-top:8px;font-size:.88rem;color:var(--local);font-weight:700}
+.sources{font-size:.9rem;color:var(--ink2)}
+.sources li{margin-bottom:4px}
+.diff{font-size:.9rem;color:var(--ink2)}
+.diff b{color:var(--ink)}
+.dec{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.95rem}
+.dec b{color:var(--warn)}
+</style>
+</head>
+<body>
+<style>
+.num{font-family:'IBM Plex Mono',monospace;font-weight:500;direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.ask{border:2px solid var(--local);background:var(--local-soft);border-radius:10px;padding:14px 18px;margin:18px 0}
+.ask b{color:var(--local)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:16px 0 8px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);border-top:3px solid var(--ok)}
+.kpi b{display:block;font-family:'Heebo',sans-serif;font-size:1.35rem}
+.kpi small{color:var(--mute);font-size:.82rem}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">docs/reports · M0 · 27.9.2026 · מחכה לאישור שלך</div>
+  <h1 style="margin-top:8px">M0 — שלד ושלב 0</h1>
+  <p class="lead" style="margin-top:12px">לפני שבונים את המוצר, בדקנו את הקרקע שהוא עומד עליה, והנחנו בסיס שכל תחנה אחר כך נבנית עליו: ריפו, סביבה, שער ובדיקות. ארבע בדיקות שלב 0 עברו, ושלוש מהן הולידו החלטות שמשנות את התוכנית לטובה.</p>
+  <div class="meta"><span>ענף <code>feat/m0-skeleton</code></span><span>22–27.9</span><span>המספרים מ-<code>eval/stage0.json</code></span></div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><b class="num">8/8</b><small>שער M0</small></div>
+  <div class="kpi"><b class="num">95</b><small>בדיקות, ruff נקי</small></div>
+  <div class="kpi"><b><span class="num" data-metric="mw.p50_s">4.29</span> שנ'</b><small>תמלול קטע של 45 שנ' (ivrit.ai)</small></div>
+  <div class="kpi"><b><span class="num"><span data-metric="extract.gemma3:12b.valid_first">10</span>/<span data-metric="extract.gemma3:12b.n">10</span></span></b><small>JSON תקין, Gemma, בלי אותיות זרות</small></div>
+</div>
+
+<section id="built">
+  <h2>מה נבנה</h2>
+  <ul>
+    <li><b>ריפו וסביבה:</b> git משלו (מסמכי התכנון ב-<code>main</code>), סביבת conda <code>copilot</code> עם Python 3.11, ו-CI שמריץ רק בדיקות עם תחליפים — אף פעם לא MacWhisper, Ollama או Gemini.</li>
+    <li><b>הבסיס של הקוד:</b> <code>config.py</code> (נתיבים, מודלים, תקציבים), סכמות החילוץ, טוען פרומפטים שנכשל בקול על משתנה חסר או מיותר, ו-<code>llm.py</code> — הקריאה היחידה ל-Ollama: פלט מובנה, אימות, ניסיון חוזר אחד, ותקלה חוזרת כתוצאה ולא מפילה את ההרצאה.</li>
+    <li><b>השער:</b> <code>scripts/gate.py --m 0</code> — שמונה בדיקות, כולל סריקת מפתחות שלא מדפיסה מפתח לעולם. ראינו כל בדיקה נכשלת לפני שעברה.</li>
+    <li><b>המדידות:</b> <code>scripts/stage0.py</code> — כל בדיקות שלב 0, והמספרים נכתבים לקובץ ומשם לדפים בעברית. אף מספר לא מוקלד ביד.</li>
+    <li><b>סידור:</b> ההקלטות ב-<code>data/lectures/&lt;date&gt;_&lt;lecture|tirgul&gt;/</code>; המודלים (משותפים לפרויקטים אחרים) ב-<code>~/Projects/_shared/models/ollama</code>.</li>
+  </ul>
+</section>
+
+<section id="stage0">
+  <h2>שלב 0 בקצרה</h2>
+  <ul>
+    <li><b>תמלול:</b> ivrit.ai לעברית — חציון <span class="num" data-metric="mw.p50_s">4.29</span> שנ' לקטע (תקציב 8). הריצה הראשונה בכל הרצאה <span class="num" data-metric="mw.cold_s">11.53</span> שנ'; חימום ב-M5 יפתור.</li>
+    <li><b>חילוץ:</b> Gemma — <span class="num"><span data-metric="extract.gemma3:12b.valid_first">10</span>/<span data-metric="extract.gemma3:12b.n">10</span></span> JSON תקין, חציון <span class="num" data-metric="extract.gemma3:12b.p50_ms">8527</span> ms (תקציב 15,000). Qwen ערבב אותיות זרות ב-<span class="num"><span data-metric="extract.qwen3:8b.foreign_script_chunks">3</span>/<span data-metric="extract.qwen3:8b.n">10</span></span> קטעים.</li>
+    <li><b>וקטורים:</b> sqlite-vec <span class="num" data-metric="sqlite_vec.vec_version">v0.1.9</span> נטען — בלי fallback.</li>
+    <li><b>מיקרופון מ-3–5 מטר:</b> קריא עם ivrit.ai; Turbo כיסה רק <span class="num" data-metric="mic.by_model.whisperkit:openai_whisper-large-v3-v20240930.covered_s">58.7</span> מתוך <span class="num" data-metric="mic.duration_s">121.7</span> שנ'.</li>
+  </ul>
+  <p>הפירוט: <code>docs/notes/STAGE0_HE.html</code> · <code>docs/notes/ASR_MODEL_HE.html</code> · <code>docs/notes/DOWNLOADS_HE.html</code>.</p>
+</section>
+
+<section id="decisions">
+  <h2>ההחלטות של M0</h2>
+  <div class="dec"><b>D-M0-8 — תמלול לפי שפת הקורס:</b> עברית ← ivrit.ai, אנגלית ← Turbo. מהמושב Turbo איבד חצי מהדיבור בשקט.</div>
+  <div class="dec"><b>D-M0-9 — אודיו מהתרגול של 19/6:</b> להרצאות 7/6 ו-9/6 אין וידאו, רק תמלול. הן נשארות הבנצ'מרק דרך ה-.vtt.</div>
+  <div class="dec"><b>D-M0-10 — Gemma 3 12B לחילוץ וגם ל-Digest:</b> מודל אחד במקום שניים. Qwen ערבב רוסית וערבית לתוך העברית.</div>
+  <p>ועוד שמונה קטנות (D-M0-1…7, D-M0-11): Ollama ו-ffmpeg מ-Homebrew, שני מודולים נוספים, פלט מובנה עם אימות, כלל "חם או קר", איפה המספרים יושבים, קבצי התכנון הישנים לא בריפו, הפקודה המדויקת של MacWhisper, ומדידה אחת שנדחתה ל"לפני M1". כולן ב-<code>PROJECT_LOG.md</code> וב-Obsidian.</p>
+  <div class="callout warn"><p><b>סולם הוויתורים:</b> M0 חרגה ביום בגלל ההורדות, אז Zoom/BlackHole ירד. שום תאריך אחר לא זז — M1 מתחילה ב-4.10.</p></div>
+</section>
+
+<section id="incidents">
+  <h2>מה השתבש, ואיך נתפס</h2>
+  <ul>
+    <li><b>המפתח של Gemini הגיע ל-<code>.env.example</code></b> (קובץ שנמצא בגיט) במקום ל-<code>.env</code>, וסריקת המפתחות לא זיהתה אותו — הפורמט החדש של Google מתחיל ב-<code>AQ.</code>. נתפס לפני כל קומיט, הועבר, והסורק תוקן ונבדק על המפתח האמיתי. המפתח לא יצא מהמחשב, אז אין צורך להחליף אותו.</li>
+    <li><b>הפקודה של MacWhisper בתוכנית הייתה שגויה:</b> <code>-o</code> מקבל קובץ ולא תיקייה. נתפס בבדיקה על קליפ סינתטי, לפני שהגיעה ההרצאה.</li>
+    <li><b>MacWhisper התעדכן לבד</b> מ-14.7.1 ל-15.1.1 באמצע השבוע. הפקודה עדיין עובדת; השער מדפיס את הגרסה.</li>
+    <li><b>ארבעה באגים של כיוון טקסט</b> בדפים בעברית — מספרים שליליים, חצים, שמות תיקיות ויחסים — נתפסו בצילום מסך אמיתי ולא בבדיקה האוטומטית.</li>
+  </ul>
+</section>
+
+<section id="review">
+  <h2>ביקורת קוד על כל הענף</h2>
+  <p>סוקר עם הקשר נקי קרא את כל הקבצים בענף, הריץ את הבדיקות ואת השער, ובדק מקרים בעצמו בריפו זמני. <b>אין ממצא קריטי.</b> שני ממצאים חשובים, ועוד שלושה שהעליתי לחשובים כי הם היו פוגעים בך בפועל. ארבעה תוקנו — שלושה עם בדיקה שנכשלה קודם ועוברת עכשיו, וה-<code>.gitignore</code> נבדק ישירות מול git — והחמישי נרשם כהחלטה:</p>
+  <ul>
+    <li><b>סריקת המפתחות בדקה רק את הקבצים הנוכחיים</b> — לא את ההיסטוריה של git ולא את מה שמוכן לקומיט. מפתח שנכנס לקומיט ונמחק אחר כך היה מתפרסם בדחיפה לריפו הציבורי. עכשיו היא עוברת על שלושתם.</li>
+    <li><b>ממלא המספרים דילג בשקט</b> על מקומות שלא הצליח לקרוא — אותו סוג באג כמו "מילא 0" מקודם. עכשיו הוא נכשל בקול.</li>
+    <li><b>הקלטת מיקרופון חדשה השאירה את הציון הישן</b>, כך שהשער היה יכול לעבור על הקלטה שאף אחד לא שמע. עכשיו הקלטה חדשה מאפסת את הציון.</li>
+    <li><b>קבצי תמלול מחוץ ל-<code>data/lectures/</code> לא היו מוחרגים מגיט.</b> עכשיו כל <code>data/</code>, כל <code>.vtt</code> ו-<code>.srt</code> בכל מקום, וכל <code>.env.*</code> מוחרגים.</li>
+    <li><b>מדידה אחת משלב 0 דולגה בלי החלטה</b> — ריצה בזמן שהאפליקציה עסוקה. נרשמה כ-D-M0-11, והצעד (דקה) אצלך לפני M1.</li>
+  </ul>
+  <p>שמונה ממצאים קטנים נדחו במכוון ל-M1, שם הם מתחילים להיות חשובים — למשל שהקריאה ל-Ollama תעמוד גם בתשובה משובשת, ו-timeout שמתאים לתקציב. כולם ב-<code>PROJECT_LOG.md</code>.</p>
+  <p>המלצה של הסוקר שאני מאמץ: Gemma נמדד כש-MacWhisper לא היה טעון במקביל. ב-M1 מודדים על ה-fixture עם שניהם טעונים, כולל שיא הזיכרון.</p>
+</section>
+
+<section id="next">
+  <h2>מה הלאה</h2>
+  <ul>
+    <li><b>לפני M1 (דקה), אצלך:</b> להתחיל תמלול כלשהו באפליקציה של MacWhisper ולהגיד לי — אני מריץ את המדידה "בזמן שהאפליקציה עסוקה" (D-M0-11).</li>
+    <li><b>סוכות (עד 3.10), אצלך:</b> לתייג את <code>eval/benchmark.json</code> מה-.vtt של 7/6 ו-9/6 — כ-3 שעות.</li>
+    <li><b>לפני M2:</b> להתקין Google Drive for desktop — ה-Digest נוחת בתיקייה שהוא מסנכרן.</li>
+    <li><b>פתוח:</b> האם לפרסם בריפו את קבצי התכנון הישנים (<code>docs/history/</code>). ואם תרצה, <code>ollama rm qwen3:8b</code> משחרר <span class="num">5.2 GB</span>.</li>
+    <li><b>M1 (4–5.10):</b> הצנרת — FileSource, חיתוך לפי שקט, MacWhisper ל-segments, ה-Extractor עם Gemma ובדיקת האותיות הזרות, ומסד הנתונים.</li>
+  </ul>
+  <div class="ask"><p><b>מה אני צריך ממך:</b> לקרוא את הדוח ולאשר את המיזוג של ה-PR.</p></div>
+</section>
+</div>
+</body>
+</html>
