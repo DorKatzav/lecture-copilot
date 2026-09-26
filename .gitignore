@@ -1,7 +1,9 @@
 .env
+.env.*
+!.env.example
 db/
 runs/
-data/lectures/
+data/
 eval/fixture_10min.m4a
 __pycache__/
 .pytest_cache/
@@ -13,3 +15,6 @@ __pycache__/
 .DS_Store
 .superpowers/
 .playwright-mcp/
+# course material never leaves the machine, wherever it is dropped
+*.vtt
+*.srt
