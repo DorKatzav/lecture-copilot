@@ -125,14 +125,31 @@ def check_mic(results: dict, root: Path = ROOT) -> Result:
     return _ok("mic_seat", f"recorded, readable: {mic['readable']}")
 
 
-def check_secret_scan(root: Path = ROOT) -> Result:
-    p = subprocess.run(["git", "-C", str(root), "grep", "--untracked", "-I", "-l", "-iE", SECRET_PATTERN],
+def _git_grep_files(root: Path, opts: tuple[str, ...] = (), revs: tuple[str, ...] = ()) -> tuple[int, list[str], str]:
+    # options before the pattern, revisions after it
+    p = subprocess.run(["git", "-C", str(root), "grep", "-I", "-l", "-z", *opts, "-iE", SECRET_PATTERN, *revs],
                        capture_output=True, text=True)
-    if p.returncode == 1:
-        return _ok("secret_scan", "no key material in tracked or untracked files")
-    if p.returncode == 0:
-        return _fail("secret_scan", "key material in: " + ", ".join(p.stdout.split()))
-    return _fail("secret_scan", f"git grep failed: {p.stderr.strip()[:120]}")
+    return p.returncode, [f for f in p.stdout.split("\0") if f], p.stderr
+
+
+def check_secret_scan(root: Path = ROOT) -> Result:
+    """Working tree (tracked + untracked, .gitignore respected), the index, and every commit — what a push publishes."""
+    revs = subprocess.run(["git", "-C", str(root), "rev-list", "--all"], capture_output=True, text=True).stdout.split()
+    scopes = [("working tree", ("--untracked",), ()), ("index", ("--cached",), ())]
+    if revs:
+        scopes.append(("history", (), tuple(revs)))
+    hits: list[str] = []
+    for label, opts, commits in scopes:
+        code, files, err = _git_grep_files(root, opts, commits)
+        if code == 0:
+            if label == "history":  # "<sha>:<path>" → "<sha7>:<path>"
+                files = [f"{f.split(':', 1)[0][:7]}:{f.split(':', 1)[1]}" for f in files]
+            hits += [f"{label}: {f}" for f in dict.fromkeys(files)]
+        elif code != 1:
+            return _fail("secret_scan", f"git grep ({label}) failed: {err.strip()[:120]}")
+    if hits:
+        return _fail("secret_scan", "key material in " + "; ".join(hits))
+    return _ok("secret_scan", "no key material in the working tree, the index or history")
 
 
 # ---------- runner ----------

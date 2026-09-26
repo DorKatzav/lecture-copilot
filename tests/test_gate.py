@@ -17,6 +17,11 @@ def git_repo(tmp_path, files: dict[str, str]):
     return tmp_path
 
 
+def git(root, *args):
+    subprocess.run(["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                   check=True, capture_output=True)
+
+
 # ---- secret scan ----
 
 def test_secret_scan_clean_repo_passes(tmp_path):
@@ -198,3 +203,34 @@ def test_crashing_check_is_a_named_fail_not_a_crash(monkeypatch, capsys):
 def test_ollama_required_models_are_deduplicated():
     r = gate.check_ollama_models(client=FakeOllama(models=["gemma3:12b", "bge-m3:latest"]).client())
     assert r.status == "PASS" and r.detail == "gemma3:12b, bge-m3"
+
+
+def test_secret_scan_catches_a_key_that_only_lives_in_history(tmp_path):
+    root = git_repo(tmp_path, {".env.example": f"GEMINI_API_KEY={FAKE_GEMINI_AQ}\n"})
+    git(root, "add", ".env.example")
+    git(root, "commit", "-q", "-m", "oops")
+    (root / ".env.example").write_text("GEMINI_API_KEY=\n")
+    git(root, "commit", "-q", "-am", "remove key")
+    r = gate.check_secret_scan(root)
+    assert r.status == "FAIL" and "history" in r.detail and ".env.example" in r.detail
+    assert FAKE_GEMINI_AQ not in r.detail
+
+
+def test_secret_scan_catches_a_staged_key_deleted_from_the_working_file(tmp_path):
+    root = git_repo(tmp_path, {"a.py": f"K = '{FAKE_GEMINI}'\n"})
+    git(root, "add", "a.py")
+    (root / "a.py").write_text("K = ''\n")
+    r = gate.check_secret_scan(root)
+    assert r.status == "FAIL" and "index" in r.detail and "a.py" in r.detail
+
+
+def test_secret_scan_catches_notion_tokens(tmp_path):
+    ntn, legacy = "ntn_" + "A" * 30, "secret_" + "B" * 30
+    root = git_repo(tmp_path, {"n1.txt": ntn + "\n", "n2.txt": legacy + "\n"})
+    r = gate.check_secret_scan(root)
+    assert r.status == "FAIL" and "n1.txt" in r.detail and "n2.txt" in r.detail
+
+
+def test_secret_scan_keeps_file_names_with_spaces_whole(tmp_path):
+    root = git_repo(tmp_path, {"my notes.txt": FAKE_GEMINI + "\n"})
+    assert "my notes.txt" in gate.check_secret_scan(root).detail
