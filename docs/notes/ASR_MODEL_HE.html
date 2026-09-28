@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>D-M0-8 · מודל תמלול לעברית</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;800&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F6F6F2; --panel:#FFFFFF; --panel2:#EEEFEA; --ink:#1C2030; --ink2:#4D5468; --mute:#7C8398; --line:#D9DBD3;
+  --accent:#C8412F; --accent-soft:#FBE9E5; --local:#1E6F80; --local-soft:#E1F0F2; --cloud:#7A4FA8; --cloud-soft:#EFE7F8;
+  --ok:#2E7D4F; --ok-soft:#E3F2E8; --warn:#B7791F; --warn-soft:#FBF1DC; --code:#F0F1EC;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 6px 20px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+    --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+    --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+  --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+  --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Assistant',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;margin:0;direction:rtl}
+.wrap{max-width:880px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;margin-block:0 12px;padding-top:6px}
+h3{font-size:1.05rem;font-weight:700;margin-block:20px 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--ink2);max-width:62ch}
+a{color:var(--local)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+header.hero{padding-block:36px 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--mute);font-size:.9rem;margin-top:14px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;margin-bottom:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--panel2);color:var(--ink2);text-decoration:none;font-size:.88rem;font-weight:600;margin-inline-end:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section{margin-bottom:48px;scroll-margin-top:64px}
+.callout{border-inline-start:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:6px;margin:16px 0}
+.callout.local{border-color:var(--local);background:var(--local-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:480px}
+th,td{padding:10px 12px;text-align:right;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-family:'Heebo',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:700;font-family:'Heebo',sans-serif;white-space:nowrap}
+.yes{background:var(--ok-soft);color:var(--ok)} .no{background:var(--accent-soft);color:var(--accent)} .maybe{background:var(--warn-soft);color:var(--warn)}
+.loc{background:var(--local-soft);color:var(--local)} .cld{background:var(--cloud-soft);color:var(--cloud)} .mw{background:var(--panel2);color:var(--ink2)}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em;direction:ltr;unicode-bidi:embed}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;direction:ltr;text-align:left;font-size:.85rem;line-height:1.55;margin:12px 0 18px}
+pre.rtl{direction:rtl;text-align:right;font-family:'Assistant',sans-serif;font-size:.95rem;white-space:pre-wrap}
+pre code{background:none;padding:0}
+ul,ol{padding-inline-start:22px;margin:0 0 12px}
+li{margin-bottom:6px}
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:14px 0 20px}
+.step{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;box-shadow:var(--shadow)}
+.step b{display:block;font-family:'Heebo',sans-serif;font-size:.95rem}
+.step small{display:block;color:var(--mute);font-size:.82rem;line-height:1.4;margin-top:4px}
+.step.local{border-top:3px solid var(--local)} .step.cloud{border-top:3px solid var(--cloud)} .step.hot{border-top:3px solid var(--accent)} .step.mw{border-top:3px solid var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--mute);margin-top:-8px;margin-bottom:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:5px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow);margin:14px 0 20px}
+.mock .bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font-size:.85rem;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.mock .title{font-family:'Heebo',sans-serif;font-size:1.05rem;font-weight:700;color:var(--ink)}
+.mock .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media (max-width:600px){.mock .grid{grid-template-columns:1fr}}
+.mock .box{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--paper)}
+.mock .box h4{margin:0 0 10px;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--mute);font-weight:600;letter-spacing:.04em}
+.field{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.95rem}
+.field span.in{flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--panel)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.seg span{border:1px solid var(--line);border-radius:6px;padding:5px 12px;color:var(--mute);font-size:.9rem;background:var(--panel)}
+.seg span.on{border-color:var(--local);color:var(--local);background:var(--local-soft);font-weight:700}
+.recbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--accent);color:#fff;border-radius:10px;padding:16px;font-family:'Heebo',sans-serif;font-size:1.2rem;font-weight:800;margin:6px 0 8px}
+.recbtn i{width:14px;height:14px;border-radius:50%;background:#fff;display:inline-block}
+.mock .hint{color:var(--mute);font-size:.82rem}
+.mock .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.mock .row:last-child{border:0}
+.wk{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.wk .w{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.wk .w.off{background:var(--panel2);box-shadow:none;color:var(--mute)}
+.wk h4{margin:0 0 4px;font-family:'Heebo',sans-serif;font-size:1rem}
+.wk .d{color:var(--mute);font-size:.82rem;font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
+.wk ul{padding-inline-start:18px;font-size:.92rem;margin:0}
+.wk .goal{margin-top:8px;font-size:.88rem;color:var(--local);font-weight:700}
+.sources{font-size:.9rem;color:var(--ink2)}
+.sources li{margin-bottom:4px}
+.diff{font-size:.9rem;color:var(--ink2)}
+.diff b{color:var(--ink)}
+.dec{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.95rem}
+.dec b{color:var(--warn)}
+</style>
+</head>
+<body>
+<style>
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 18px}
+@media (max-width:600px){.cmp{grid-template-columns:1fr}}
+.cmp .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow)}
+.cmp .box h4{margin:0 0 8px;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--mute);font-weight:700;letter-spacing:.02em}
+.cmp .box.bad{border-top:3px solid var(--accent)}
+.cmp .box.good{border-top:3px solid var(--ok)}
+.cmp q{display:block;quotes:none;font-size:1rem}
+.cmp .t{display:block;font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--mute);margin-top:4px}
+.num{font-family:'IBM Plex Mono',monospace;font-weight:500;direction:ltr;unicode-bidi:isolate}
+.ask{border:2px solid var(--local);background:var(--local-soft);border-radius:10px;padding:14px 18px;margin:18px 0}
+.ask b{color:var(--local)}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">docs/notes · שלב 0 · D-M0-8 · הוחלט: ב' · 23.9</div>
+  <h1 style="margin-top:8px">איזה מודל יתמלל את הקורסים בעברית?</h1>
+  <p class="lead" style="margin-top:12px">בבדיקת המיקרופון מ-3–5 מטר, המודל שהגדרנו (Large v3 Turbo) איבד בשקט כחצי מההקלטה. מודל עברי של ivrit.ai, שכבר מותקן אצלך ב-MacWhisper, תמלל כמעט את כולה. צריך להחליט איזה מודל נכנס לקורסים בעברית — וזה גם מה שקובע אם בדיקת המיקרופון עוברת.</p>
+  <div class="meta"><span>23.9.2026</span><span>המספרים מ-<code>eval/stage0.json</code></span><span>שום דבר לא הורד</span></div>
+</header>
+
+<section id="test">
+  <h2>מה בדקנו</h2>
+  <p>הקלטה של <span class="num" data-metric="mic.duration_s">121.7</span> שניות: קטע חדשות בעברית — קריין וראיונות רחוב — מרמקול במרחק 3–5 מטר, דרך המיקרופון של המקבוק. אותו קובץ עבר בשני המודלים, עם אותה פקודה (<code>mw transcribe --language he</code>).</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מודל</th><th>מילים</th><th>שניות שכוסו בתמלול</th><th>זמן תמלול לכל ההקלטה</th><th>קליפ סינתטי 48 שנ': חציון / ריצה ראשונה</th></tr></thead>
+    <tbody>
+      <tr><td><b>Large v3 Turbo</b> (היום בקונפיג)</td>
+        <td class="num" data-metric="mic.by_model.whisperkit:openai_whisper-large-v3-v20240930.words">150</td>
+        <td><span class="num" data-metric="mic.by_model.whisperkit:openai_whisper-large-v3-v20240930.covered_s">58.7</span> מתוך <span class="num" data-metric="mic.duration_s">121.7</span></td>
+        <td><span class="num" data-metric="mic.by_model.whisperkit:openai_whisper-large-v3-v20240930.asr_s">8.9</span> שנ'</td>
+        <td><span class="num" data-metric="mw_tts.p50_s">5.14</span> / <span class="num" data-metric="mw_tts.cold_s">5.87</span> שנ'</td></tr>
+      <tr><td><b>ivrit.ai large-v3</b> (עברית)</td>
+        <td class="num" data-metric="mic.by_model.whisper-cpp:ivrit-ai-largev3.words">239</td>
+        <td><span class="num" data-metric="mic.by_model.whisper-cpp:ivrit-ai-largev3.covered_s">117.4</span> מתוך <span class="num" data-metric="mic.duration_s">121.7</span></td>
+        <td><span class="num" data-metric="mic.by_model.whisper-cpp:ivrit-ai-largev3.asr_s">16.35</span> שנ'</td>
+        <td><span class="num" data-metric="mw_tts_ivrit.p50_s">6.67</span> / <span class="num" data-metric="mw_tts_ivrit.cold_s">7.38</span> שנ'</td></tr>
+    </tbody>
+  </table></div>
+  <p>התקציב לקטע של 45 שנ' הוא 8 שניות תמלול. שני המודלים עומדים בו בכל מה שמדדנו עד עכשיו. הקליפ הסינתטי הוא דיבור נקי של קול מחשב — טוב למדידת זמן, חלש למדידת דיוק.</p>
+</section>
+
+<section id="text">
+  <h2>מה רואים בטקסט</h2>
+  <p><b>Turbo:</b> הדקה הראשונה נעלמה כמעט לגמרי. המילים היחידות שהוא כתב שם היו "תודה רבה" — הזיה מוכרת של Whisper על אודיו שהוא לא מצליח לפענח. מהדקה השנייה הקריין קריא, עם שגיאות, וקולות הראיונות משובשים.</p>
+  <p><b>ivrit.ai:</b> כיסה כמעט הכול. הקריין מדויק, כולל שמות, מספרים ומקומות. קולות הראיונות משובשים חלקית, אבל אפשר לעקוב.</p>
+  <p>בדקתי שזו לא הזיה: חתכתי רק את הדקה הראשונה והרצתי שוב. Turbo החזיר כמעט כלום, ivrit החזיר משפטים שלמים שמתחברים להמשך. הרמה בדקה הזו לא שקטה — היא באותה עוצמה כמו החלק ש-Turbo כן תמלל.</p>
+  <div class="cmp">
+    <div class="box bad"><h4>Turbo · בדקה הראשונה</h4><q>תודה רבה.</q><span class="t">11.7–14.5 שנ' · השאר ריק</span></div>
+    <div class="box good"><h4>ivrit.ai · באותה דקה</h4><q>כך זה היה נראה בשנים שלפני מהפכת הקופות הדיגיטליות.</q><span class="t">44.1–53.7 שנ'</span></div>
+    <div class="box bad"><h4>Turbo · קריין</h4><q>הקופות הדיגיטניות של מקדונלדס נחתו בישראל.</q><span class="t">69.7–72.6 שנ'</span></div>
+    <div class="box good"><h4>ivrit.ai · קריין</h4><q>הקופות הדיגיטליות של מקדונלד'ס נחתו בישראל.</q><span class="t">69.6–73.0 שנ'</span></div>
+  </div>
+</section>
+
+<section id="options">
+  <h2>האפשרויות</h2>
+  <div class="dec"><b>א. להשאיר Turbo לכל הקורסים.</b> לפי הכלל באפיון: לא קריא ← יושבים בשורה הראשונה. יתרון: מהיר יותר, לא משנים כלום. חיסרון: מהמרחק הזה חצי מהדיבור נעלם בלי שום סימן — ה-Digest ייבנה על חצי הרצאה ואתה לא תדע.</div>
+  <div class="dec"><b>ב. מודל לפי שפת הקורס: עברית ← ivrit.ai, אנגלית ← Turbo. (ההמלצה שלי)</b> יתרון: כיסוי כמעט מלא מהמרחק הזה, ודיוק טוב יותר על הקריין. עלות: איטי יותר לכל קטע (עדיין בתוך 8 השניות), וריצה ראשונה קרה איטית יותר. בקוד: <code>MW_MODEL</code> הופך למפה לפי שפה — שינוי קטן בקונפיג. זה מתיישב עם הכלל "שפה ברמת הקורס" שכבר באפיון.</div>
+  <div class="callout warn"><p><b>תנאי לנעילה של ב':</b> מחר בערב, כשההרצאות יורדו, אני מריץ את מדידת הזמן גם עם ivrit על הקליפ האמיתי של 45 שנ' מההרצאה. אם הוא חורג מ-8 שניות לקטע — חוזרים אליך לפני שממשיכים.</p></div>
+  <p>בשני המקרים, לשבת קרוב עוזר. זה לא מחליף את ההחלטה.</p>
+</section>
+
+<section id="mic">
+  <h2>מה זה אומר לבדיקת המיקרופון</h2>
+  <ul>
+    <li>ב' ← הבדיקה "קריא: כן", ושער M0 מתקדם.</li>
+    <li>א' ← "קריא: לא", וההוראה היא לשבת בשורה הראשונה.</li>
+  </ul>
+  <div class="callout local"><p><b>הערה ל-M1 (לא משנים עכשיו):</b> מהמרחק הזה עוצמת הדיבור יושבת בדיוק על סף השקט הקבוע של האפיון — חציון <span class="num" data-metric="mic.level.p50_db">-40.8</span> dB מול סף של <span class="num" data-metric="mic.level.floor_db">-40</span> dB, ורק <span class="num" data-metric="mic.level.share_above_floor">0.35</span> מהפריימים (של רבע שנייה) מעליו. סף מוחלט יחתוך דיבור אמיתי, אז ב-M1 הסף יהיה יחסי לרעש הרקע, ויוחלט שם על ה-fixture.</p></div>
+</section>
+
+<section id="ask">
+  <div class="ask"><p><b>הוחלט: ב' (23.9).</b> קורסים בעברית מתומללים ב-ivrit.ai, קורסים באנגלית ב-Turbo. הקונפיג עודכן (<code>MW_MODELS</code>), בדיקת המיקרופון סומנה "קריא: כן", ו-D-M0-8 נרשם ביומן. הנעילה הסופית — אחרי מדידת הזמן של ivrit על הקליפ האמיתי מההרצאה, מחר בערב.</p></div>
+</section>
+</div>
+</body>
+</html>
