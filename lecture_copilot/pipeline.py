@@ -91,7 +91,8 @@ def _timing(outcomes: list[dict], key: str) -> dict:
     return {"n": len(xs), "p50": percentile(xs, 50), "p95": percentile(xs, 95), "max": max(xs)}
 
 
-async def run(source: AsyncIterable[AudioChunk], ctx: Ctx, extra: Callable[[], dict] | None = None) -> dict:
+async def run(source: AsyncIterable[AudioChunk], ctx: Ctx, extra: Callable[[], dict] | None = None,
+              on_chunk: Callable[[dict], None] | None = None) -> dict:
     queue: asyncio.Queue[AudioChunk | None] = asyncio.Queue()
     failure: list[Exception] = []
 
@@ -109,6 +110,8 @@ async def run(source: AsyncIterable[AudioChunk], ctx: Ctx, extra: Callable[[], d
     outcomes = []
     while (chunk := await queue.get()) is not None:
         outcomes.append(await process_chunk(chunk, ctx, queue_depth=queue.qsize()))
+        if on_chunk:
+            on_chunk(outcomes[-1])
     await producer
     if not failure:
         ctx.store.prune_chunks(ctx.lecture_id, max((o["idx"] for o in outcomes), default=0))
