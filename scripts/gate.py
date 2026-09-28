@@ -258,6 +258,25 @@ def check_peak_memory(db: Path = DB_PATH, fixture: Path = FIXTURE) -> Result:
     return _ok("peak_memory", detail)
 
 
+def _ollama_serve_env() -> str | None:
+    """Command line + environment of the running `ollama serve` (macOS `ps eww` shows a process's environment)."""
+    pids = subprocess.run(["pgrep", "-f", "^ollama serve"], capture_output=True, text=True).stdout.split()
+    if not pids:
+        return None
+    return subprocess.run(["ps", "eww", "-o", "command=", "-p", pids[0]], capture_output=True, text=True).stdout
+
+
+def check_prompt_cache(server_env: Callable[[], str | None] = _ollama_serve_env) -> Result:
+    """D-M1-4: llama-server's host-RAM prompt cache (8 GiB by default) must be off in the running Ollama server."""
+    env = server_env()
+    if env is None:
+        return _fail("prompt_cache", "ollama serve is not running — scripts/ollama_serve.sh")
+    if "LLAMA_ARG_CACHE_RAM=0" not in env.split():
+        return _fail("prompt_cache", "ollama serve runs with llama-server's 8 GiB prompt cache on — restart it with "
+                                     "scripts/ollama_serve.sh (D-M1-4)")
+    return _ok("prompt_cache", "ollama serve runs with LLAMA_ARG_CACHE_RAM=0 (prompt cache off, D-M1-4)")
+
+
 async def _asr_error_run(work: Path, asr, client: httpx.AsyncClient, chunks: list) -> dict:
     from lecture_copilot.pipeline import Ctx, run
     from lecture_copilot.store.db import Store, new_id
@@ -346,6 +365,7 @@ CHECKS: dict[int, list[tuple[str, Callable[[], Result]]]] = {
         ("chunk_budget", check_chunk_budget),
         ("asr_error", check_asr_error),
         ("peak_memory", check_peak_memory),
+        ("prompt_cache", check_prompt_cache),
         ("tests", check_tests),
         ("secret_scan", check_secret_scan),
     ],

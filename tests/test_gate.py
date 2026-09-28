@@ -402,9 +402,25 @@ def test_m1_asr_error_fails_when_the_run_stops(tmp_path):
     assert asr_error_check(tmp_path, asr, replies=0).status == "FAIL"
 
 
-def test_m1_has_seven_checks():
+def test_m1_checks():
     assert [name for name, _ in gate.CHECKS[1]] == ["fixture_replay", "rerun_upsert", "chunk_budget", "asr_error",
-                                                    "peak_memory", "tests", "secret_scan"]
+                                                    "peak_memory", "prompt_cache", "tests", "secret_scan"]
+
+
+def test_m1_prompt_cache_off_passes():
+    r = gate.check_prompt_cache(server_env=lambda: "ollama serve TERM=xterm LLAMA_ARG_CACHE_RAM=0 HOME=/Users/x")
+    assert r.status == "PASS"
+
+
+@pytest.mark.parametrize("env", ["ollama serve TERM=xterm HOME=/Users/x", "ollama serve LLAMA_ARG_CACHE_RAM=8192"])
+def test_m1_prompt_cache_on_fails_with_the_fix(env):
+    r = gate.check_prompt_cache(server_env=lambda: env)
+    assert r.status == "FAIL" and "scripts/ollama_serve.sh" in r.detail
+
+
+def test_m1_prompt_cache_without_a_server_fails():
+    r = gate.check_prompt_cache(server_env=lambda: None)
+    assert r.status == "FAIL" and "not running" in r.detail
 
 
 def test_m1_asr_error_detail_is_terminal_safe(tmp_path):
