@@ -37,3 +37,39 @@ class FakeOllama:
 
     def client(self) -> httpx.Client:
         return httpx.Client(transport=httpx.MockTransport(self._handle), base_url=OLLAMA_URL)
+
+
+FAKE_MW = '''#!{python}
+import json, os, sys, time
+mode = {mode!r}
+args = sys.argv[1:]
+open({log!r}, "a").write(json.dumps(args) + "\\n")
+out = args[args.index("-o") + 1]
+if mode == "hang":
+    open({log!r} + ".pid", "w").write(str(os.getpid()))
+    time.sleep(30)
+if mode == "exit1":
+    sys.stderr.write("Error: could not decode audio\\n")
+    sys.exit(1)
+if mode == "garbage":
+    open(out, "w").write("not json")
+if mode in ("ok", "silent"):
+    segs = [] if mode == "silent" else [
+        {{"id": 0, "start": 0, "end": 4200, "text": " שלום לכולם ", "words": []}},
+        {{"id": 1, "start": 4200, "end": 9000, "text": "היום נדבר על CAC", "words": []}},
+        {{"id": 2, "start": 9000, "end": 9500, "text": "  ", "words": []}}]
+    json.dump({{"text": " ".join(s["text"] for s in segs), "segments": segs}}, open(out, "w"), ensure_ascii=False)
+'''
+
+
+def fake_mw(directory, mode="ok"):
+    """A stand-in `mw` executable. mode: ok | silent | exit1 | hang | no_output | garbage.
+    Every call's argv is appended to <directory>/mw_calls.jsonl."""
+    import sys
+    from pathlib import Path
+
+    path = Path(directory) / "mw"
+    log = str(Path(directory) / "mw_calls.jsonl")
+    path.write_text(FAKE_MW.format(python=sys.executable, mode=mode, log=log), encoding="utf-8")
+    path.chmod(0o755)
+    return path
