@@ -15,9 +15,7 @@ Raw transcripts and model outputs stay in runs/stage0/ (gitignored): they are co
 
 import argparse
 import asyncio
-import html as html_lib
 import json
-import re
 import sqlite3
 import subprocess
 import sys
@@ -31,6 +29,7 @@ from lecture_copilot import prompts
 from lecture_copilot.agents.schemas import ExtractResult
 from lecture_copilot.config import BUDGET_S, MW_BIN, MW_MODELS, OLLAMA_URL, ROOT, SILENCE_DB
 from lecture_copilot.llm import chat_json
+from lecture_copilot.metrics_page import _METRIC, fill_metrics
 from lecture_copilot.stats import percentile
 
 RESULTS = ROOT / "eval" / "stage0.json"
@@ -135,37 +134,6 @@ def mic_record(old: dict, file: str, duration_s: float, level: dict, model: str,
 
 
 # any element carrying data-metric, attributes in any order: <td class="num" data-metric="a.b">…</td>
-_METRIC = re.compile(r'(<(\w+)\b[^>]*\bdata-metric="([^"]+)"[^>]*>)(.*?)(</\2>)', re.DOTALL)
-
-
-def _lookup(results: dict, path: str) -> object:
-    node: object = results
-    for part in path.split("."):
-        if not isinstance(node, dict) or part not in node:
-            raise KeyError(path)
-        node = node[part]
-    return node
-
-
-def _fmt(v: object) -> str:
-    if isinstance(v, float):
-        return str(round(v, 2))
-    if v is None:
-        return "—"
-    return str(v)
-
-
-def fill_metrics(html: str, results: dict) -> str:
-    """Fill every placeholder or raise — a placeholder left unfilled would show a stale number on the page."""
-    found = len(re.findall(r"data-metric\s*=", html, re.IGNORECASE))
-    parsed = len(_METRIC.findall(html))
-    if parsed != found:
-        raise ValueError(f"{found - parsed} data-metric placeholder(s) cannot be parsed — "
-                         'write them as <tag data-metric="a.b">…</tag> with matching tag case')
-    return _METRIC.sub(lambda m: m.group(1) + html_lib.escape(_fmt(_lookup(results, m.group(3))), quote=False)
-                       + m.group(5), html)
-
-
 # ---------- providers (run for real, not in tests) ----------
 
 def ffprobe_duration(path: Path) -> float:

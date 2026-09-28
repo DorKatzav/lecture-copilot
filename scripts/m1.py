@@ -16,7 +16,7 @@ from pathlib import Path
 import httpx
 
 from lecture_copilot.config import DB_PATH, LIVE_MODEL, OLLAMA_NUM_CTX, OLLAMA_URL, ROOT
-from scripts.stage0 import fill_metrics
+from lecture_copilot.metrics_page import fill_metrics
 
 RESULTS = ROOT / "eval" / "m1.json"
 FIXTURE = ROOT / "eval" / "fixture_10min.m4a"
