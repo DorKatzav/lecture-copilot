@@ -55,3 +55,39 @@ def test_fixture_metrics_come_from_the_run_rows(tmp_path):
     assert out["n_runs"] == 2 and out["first"]["memory"]["max_pressure"] == 2 and out["last"]["counts"]["segments"] == 3
     assert out["last"]["extract"] == {"calls": 1, "first_valid": 1, "retries": 0}
     json.dumps(out)
+
+
+def seg(start, end, text):
+    return {"start": start, "end": end, "text": text}
+
+
+def test_transcripts_compare_text_and_segmentation_separately():
+    a = {"segments": [seg(0, 1000, " שלום "), seg(1000, 2000, "לכולם")]}
+    same_text_other_cuts = {"segments": [seg(0, 2000, "שלום לכולם")]}
+    other_text = {"segments": [seg(0, 1000, "שלום"), seg(1000, 2000, "לכולן")]}
+    assert m1.compare_transcripts(a, a) == {"same_text": True, "same_segments": True}
+    assert m1.compare_transcripts(a, same_text_other_cuts) == {"same_text": True, "same_segments": False}
+    assert m1.compare_transcripts(a, other_text) == {"same_text": False, "same_segments": True}
+
+
+def test_repeat_summary_counts_chunks():
+    rows = [{"same_text": True, "same_segments": True}, {"same_text": True, "same_segments": False},
+            {"same_text": False, "same_segments": False}]
+    assert m1.summarize_repeat(rows) == {"n": 3, "same_text": 2, "same_segments": 1}
+
+
+def test_growth_is_the_mean_step_between_prompts():
+    assert m1.cache_growth([4650, 5590, 6530, 7470]) == {"first_mb": 4650, "last_mb": 7470, "per_prompt_mb": 940}
+    assert m1.cache_growth([4650, 4650, 4650])["per_prompt_mb"] == 0
+
+
+def test_fixture_runs_are_addressable_by_number(tmp_path):
+    s = Store(tmp_path / "c.sqlite")
+    course = s.upsert_course("c", language="he")
+    lid = s.upsert_lecture(course, audio_path="/f/fixture.m4a", source="file", title="t", date="d", fact_check=True)
+    for run_id in ("R1", "R2", "R3"):
+        s.log("run", lecture_id=lid, input_ref=run_id, output={"chunks": 1, "counts": {"segments": 3}})
+    s.close()
+    from pathlib import Path
+    out = m1.fixture_metrics(tmp_path / "c.sqlite", Path("/f/fixture.m4a"))
+    assert list(out["by_run"]) == ["r1", "r2", "r3"] and out["by_run"]["r3"]["run_id"] == "R3"
