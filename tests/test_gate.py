@@ -1,6 +1,7 @@
 import subprocess
 
 import httpx
+import pytest
 
 from lecture_copilot.config import LIVE_MODEL
 from scripts import gate
@@ -234,3 +235,173 @@ def test_secret_scan_catches_notion_tokens(tmp_path):
 def test_secret_scan_keeps_file_names_with_spaces_whole(tmp_path):
     root = git_repo(tmp_path, {"my notes.txt": FAKE_GEMINI + "\n"})
     assert "my notes.txt" in gate.check_secret_scan(root).detail
+
+
+# ---------- M1 ----------
+
+M1_FIXTURE = "/x/eval/fixture_10min.m4a"
+GOOD_MEMORY = {"samples": 200, "peak_used_gb": 19.5, "total_gb": 24.0, "baseline_used_gb": 9.0, "max_pressure": 1,
+               "swap_growth_mb": 0.0, "models_at_peak_gb": {"gemma3:12b": 8.3, "bge-m3": 0.6},
+               "procs_peak_mb": {"MacWhisper": 4100, "llama-server": 1800}}
+
+
+def m1_store(tmp_path, runs=2, counts=None, totals=(14.6, 17.8), memory=None, lectures=1, source_error=None,
+             stage_p95=(5.2, 12.9)):
+    from lecture_copilot.store.db import Store
+    s = Store(tmp_path / "copilot.sqlite")
+    course = s.upsert_course("AI Developers — Python", language="he")
+    lid = s.upsert_lecture(course, audio_path=M1_FIXTURE, source="file", title="f", date="2026-06-19", fact_check=True)
+    for i in range(1, lectures):
+        s.upsert_lecture(course, audio_path=f"/other/{i}.m4a", source="file", title="o", date="d", fact_check=True)
+    counts = counts or [{"segments": 58, "items": 28, "claims": 23}] * runs
+    for r in range(runs):
+        run_id = f"RUN{r}"
+        for i, total in enumerate(totals, 1):
+            s.log("chunk", lecture_id=lid, input_ref=f"{run_id}#{i:04d}", ms=total * 1000,
+                  output={"idx": i, "status": "ok", "total_s": total})
+        out = {"chunks": len(totals), "status": {"ok": len(totals)}, "counts": counts[r],
+               "timing": {"asr_s": {"p95": stage_p95[0]}, "extract_s": {"p95": stage_p95[1]},
+                          "total_s": {"p95": max(totals), "max": max(totals)}},
+               "memory": memory if memory is not None else GOOD_MEMORY}
+        if source_error and r == runs - 1:
+            out["source_error"] = source_error
+        s.log("run", lecture_id=lid, input_ref=run_id, output=out)
+    # the rows the last run left behind
+    c = counts[-1] if counts else {"segments": 0, "items": 0, "claims": 0}
+    from lecture_copilot.agents.schemas import Claim, Concept, ExtractResult
+    from lecture_copilot.asr.base import Segment
+    for i in range(c["segments"]):
+        res = None
+        if i == 0:
+            res = ExtractResult(chunk_summary="s", items=[],
+                                concepts=[Concept(term="t", explanation="e", canonical_key="k")] * c["items"],
+                                claims=[Claim(text="c", normalized="n", importance=50)] * c["claims"])
+        s.write_chunk(lid, i + 1, [Segment(t0=i, t1=i + 1, text="x")], asr="mw", result=res)
+    s.close()
+    return tmp_path / "copilot.sqlite"
+
+
+def m1(check, tmp_path, **kw):
+    from pathlib import Path
+    return check(m1_store(tmp_path, **kw), fixture=Path(M1_FIXTURE))
+
+
+def test_m1_fixture_replay_passes_with_enough_rows(tmp_path):
+    r = m1(gate.check_fixture_replay, tmp_path)
+    assert r.status == "PASS" and "58 segments" in r.detail
+
+
+@pytest.mark.parametrize("counts", [{"segments": 9, "items": 28, "claims": 23},
+                                    {"segments": 58, "items": 4, "claims": 23},
+                                    {"segments": 58, "items": 28, "claims": 0}])
+def test_m1_fixture_replay_fails_below_a_threshold(tmp_path, counts):
+    assert m1(gate.check_fixture_replay, tmp_path, runs=1, counts=[counts]).status == "FAIL"
+
+
+def test_m1_fixture_replay_fails_without_a_run(tmp_path):
+    r = m1(gate.check_fixture_replay, tmp_path, runs=0, counts=[])
+    assert r.status == "FAIL" and "replay" in r.detail
+
+
+def test_m1_fixture_replay_ignores_a_broken_last_run(tmp_path):
+    r = m1(gate.check_fixture_replay, tmp_path, runs=1, source_error="RuntimeError: ffmpeg")
+    assert r.status == "FAIL"
+
+
+def test_m1_rerun_identical_counts_passes(tmp_path):
+    assert m1(gate.check_rerun_upsert, tmp_path).status == "PASS"
+
+
+def test_m1_rerun_different_counts_fails(tmp_path):
+    counts = [{"segments": 58, "items": 28, "claims": 23}, {"segments": 58, "items": 30, "claims": 23}]
+    r = m1(gate.check_rerun_upsert, tmp_path, counts=counts)
+    assert r.status == "FAIL" and "items" in r.detail
+
+
+def test_m1_rerun_needs_two_runs(tmp_path):
+    assert m1(gate.check_rerun_upsert, tmp_path, runs=1).status == "FAIL"
+
+
+def test_m1_rerun_fails_when_the_table_disagrees_with_the_run(tmp_path):
+    counts = [{"segments": 58, "items": 28, "claims": 23}] * 2
+    path = m1_store(tmp_path, counts=counts)
+    import sqlite3
+    con = sqlite3.connect(path)
+    con.execute("insert into segments (id, lecture_id, chunk_id, t0, t1, text) "
+                "select 'DUP', lecture_id, 99, 0, 1, 'dup' from segments limit 1")
+    con.commit()
+    from pathlib import Path
+    assert gate.check_rerun_upsert(path, fixture=Path(M1_FIXTURE)).status == "FAIL"
+
+
+def test_m1_budget_passes_under_30_s(tmp_path):
+    r = m1(gate.check_chunk_budget, tmp_path)
+    assert r.status == "PASS" and "p95" in r.detail
+
+
+def test_m1_budget_fails_when_one_chunk_is_over(tmp_path):
+    r = m1(gate.check_chunk_budget, tmp_path, totals=(14.6, 31.0))
+    assert r.status == "FAIL" and "0002" in r.detail
+
+
+@pytest.mark.parametrize("stage_p95", [(8.5, 12.9), (5.2, 15.5)])
+def test_m1_budget_fails_when_a_stage_p95_is_over_its_budget(tmp_path, stage_p95):
+    assert m1(gate.check_chunk_budget, tmp_path, stage_p95=stage_p95).status == "FAIL"
+
+
+def test_m1_memory_passes_with_normal_pressure_and_all_three_resident(tmp_path):
+    assert m1(gate.check_peak_memory, tmp_path).status == "PASS"
+
+
+def test_m1_memory_fails_on_pressure_warning(tmp_path):
+    r = m1(gate.check_peak_memory, tmp_path, memory=GOOD_MEMORY | {"max_pressure": 2, "swap_growth_mb": 7743.0})
+    assert r.status == "FAIL" and "warning" in r.detail and "7743" in r.detail
+
+
+def test_m1_memory_fails_when_a_model_was_not_resident(tmp_path):
+    r = m1(gate.check_peak_memory, tmp_path, memory=GOOD_MEMORY | {"models_at_peak_gb": {"gemma3:12b": 8.3}})
+    assert r.status == "FAIL" and "bge-m3" in r.detail
+
+
+def test_m1_memory_fails_when_not_measured(tmp_path):
+    assert m1(gate.check_peak_memory, tmp_path, memory={"samples": 0, "errors": 3}).status == "FAIL"
+
+
+def test_m1_tests_check_runs_the_commands():
+    assert gate.check_tests(cmds=(("true",), ("true",))).status == "PASS"
+    r = gate.check_tests(cmds=(("true",), ("false",)))
+    assert r.status == "FAIL" and "false" in r.detail
+
+
+def asr_error_check(tmp_path, asr, replies):
+    import json
+
+    from lecture_copilot.audio.sources import AudioChunk
+    fake = FakeOllama([json.dumps({"chunk_summary": "s", "concepts": [], "claims": [], "items": []})] * replies)
+    chunks = [AudioChunk("", 1, tmp_path / "chunk_0001.wav", 0.0, 1.0),
+              AudioChunk("", 2, tmp_path / "chunk_0002.wav", 1.0, 31.0)]
+    return gate.check_asr_error(work=tmp_path, asr=asr, client=fake.async_client(), chunks=chunks)
+
+
+def test_m1_asr_error_passes_when_the_corrupt_chunk_fails_and_the_next_runs(tmp_path):
+    from lecture_copilot.asr.base import ASRError
+    from tests.stubs import FakeASR
+    r = asr_error_check(tmp_path, FakeASR(script={1: ASRError("mw exit 1: bad wav")}), replies=1)
+    assert r.status == "PASS" and "bad wav" in r.detail
+
+
+def test_m1_asr_error_fails_when_the_corrupt_chunk_is_not_marked(tmp_path):
+    from tests.stubs import FakeASR
+    assert asr_error_check(tmp_path, FakeASR(), replies=2).status == "FAIL"
+
+
+def test_m1_asr_error_fails_when_the_run_stops(tmp_path):
+    from lecture_copilot.asr.base import ASRError
+    from tests.stubs import FakeASR
+    asr = FakeASR(script={1: ASRError("bad wav"), 2: ASRError("also bad")})
+    assert asr_error_check(tmp_path, asr, replies=0).status == "FAIL"
+
+
+def test_m1_has_seven_checks():
+    assert [name for name, _ in gate.CHECKS[1]] == ["fixture_replay", "rerun_upsert", "chunk_budget", "asr_error",
+                                                    "peak_memory", "tests", "secret_scan"]
