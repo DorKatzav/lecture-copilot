@@ -18,6 +18,9 @@ LIVE_MODEL, DIGEST_MODEL, EMBED_MODEL = "gemma3:12b", "gemma3:12b", "bge-m3"
 VERIFIER_MODEL = "gemini-3.7-flash"
 VERIFY_MIN_IMPORTANCE, MATERIAL_MIN_IMPORTANCE = 70, 85
 BUDGET_S = {"asr": 8, "extract": 15, "embed": 2}
+CHUNK_BUDGET_S = 30                                            # all processing of one ~45 s chunk
+EXTRACT_TIMEOUT_S = BUDGET_S["extract"] * 2                    # per attempt; a longer call is a hang
+EXTRACT_OPTIONS = {"temperature": 0, "seed": 42}               # D-M1-2: reproducible replays
 
 MW_BIN = os.getenv("MW_BIN", "mw")                             # MacWhisper CLI (Settings → Advanced → Install CLI)
 # ASR model per course language (D-M0-8), explicit: never the app's current selection
@@ -25,6 +28,7 @@ MW_MODELS = {"he": "whisper-cpp:ivrit-ai-largev3", "en": "whisperkit:openai_whis
 
 OLLAMA_URL = "http://127.0.0.1:11434"
 OLLAMA_NUM_CTX = 4096
+OLLAMA_KEEP_ALIVE = "30m"                                      # stays loaded through a lecture break
 
 
 class Profile(BaseModel):

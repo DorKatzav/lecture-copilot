@@ -11,14 +11,21 @@ class FakeOllama:
     """Scripted Ollama server. Each reply is a str (assistant content), an int (HTTP status), an exception, or a
     dict/list sent verbatim as the response body (malformed shapes)."""
 
-    def __init__(self, replies=(), models=("qwen3:8b", "gemma3:12b", "bge-m3:latest")):
+    def __init__(self, replies=(), models=("qwen3:8b", "gemma3:12b", "bge-m3:latest"), fail_loads=False):
         self.replies = list(replies)
         self.models = list(models)
+        self.fail_loads = fail_loads
         self.requests: list[dict] = []
+        self.loads: list[tuple[str, dict]] = []
 
     def _handle(self, request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/tags":
             return httpx.Response(200, json={"models": [{"name": m} for m in self.models]})
+        if request.url.path in ("/api/generate", "/api/embed"):  # model load / unload: never consumes a reply
+            self.loads.append((request.url.path, json.loads(request.content)))
+            if self.fail_loads:
+                return httpx.Response(500, json={"error": "scripted load failure"})
+            return httpx.Response(200, json={"done": True, "embeddings": [[0.0]]})
         self.requests.append(json.loads(request.content))
         reply = self.replies.pop(0)
         if isinstance(reply, Exception):
@@ -73,3 +80,36 @@ def fake_mw(directory, mode="ok"):
     path.write_text(FAKE_MW.format(python=sys.executable, mode=mode, log=log), encoding="utf-8")
     path.chmod(0o755)
     return path
+
+
+class FakeASR:
+    """Scripted ASR: `script[idx]` is a list of Segments (chunk-relative) or an exception to raise."""
+
+    name = "fake"
+
+    def __init__(self, script=None, default=None):
+        from lecture_copilot.asr.base import Segment
+        self.script = dict(script or {})
+        self.default = default if default is not None else [Segment(t0=0.0, t1=5.0, text="שלום, היום נדבר על CAC")]
+        self.calls: list[tuple[str, str]] = []
+
+    async def transcribe(self, wav, language):
+        self.calls.append((str(wav), language))
+        idx = int(str(wav).rsplit("_", 1)[-1].split(".")[0]) if "chunk_" in str(wav) else 0
+        out = self.script.get(idx, self.default)
+        if isinstance(out, Exception):
+            raise out
+        return out
+
+
+class ListSource:
+    """A ChunkSource over prepared chunks; `fail_after=n` raises after n chunks (a source that breaks)."""
+
+    def __init__(self, chunks, fail_after=None):
+        self.chunks, self.fail_after = list(chunks), fail_after
+
+    async def __aiter__(self):
+        for i, c in enumerate(self.chunks):
+            if self.fail_after is not None and i == self.fail_after:
+                raise RuntimeError("ffmpeg could not decode lecture.m4a")
+            yield c

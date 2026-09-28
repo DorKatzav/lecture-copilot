@@ -17,7 +17,6 @@ import argparse
 import asyncio
 import html as html_lib
 import json
-import math
 import re
 import sqlite3
 import subprocess
@@ -32,6 +31,7 @@ from lecture_copilot import prompts
 from lecture_copilot.agents.schemas import ExtractResult
 from lecture_copilot.config import BUDGET_S, MW_BIN, MW_MODELS, OLLAMA_URL, ROOT, SILENCE_DB
 from lecture_copilot.llm import chat_json
+from lecture_copilot.stats import percentile
 
 RESULTS = ROOT / "eval" / "stage0.json"
 WORK = ROOT / "runs" / "stage0"
@@ -42,11 +42,6 @@ BENCH_MODELS = ("qwen3:8b", "gemma3:12b")  # the stage-0 comparison behind D-M0-
 
 
 # ---------- pure helpers (tested) ----------
-
-def percentile(xs: list[float], p: float) -> float:
-    s = sorted(xs)
-    return s[max(0, math.ceil(p / 100 * len(s)) - 1)]
-
 
 def mw_verdict(runs_s: list[float | None], budget_s: float) -> dict:
     """runs_s[0] is the cold run; None is a hang (timed out). hot = the median run fits the per-chunk ASR budget."""
