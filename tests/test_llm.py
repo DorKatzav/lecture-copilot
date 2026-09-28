@@ -33,6 +33,7 @@ def test_request_is_schema_constrained_with_explicit_context():
     req = fake.requests[0]
     assert req["format"] == ExtractResult.model_json_schema()
     assert req["options"]["num_ctx"] == 4096
+    assert req["options"]["use_mmap"] is True   # D-M1-3: weights file-backed, not ~18 GB of dirty memory
     assert req["think"] is False and req["stream"] is False
     assert [m["role"] for m in req["messages"]] == ["system", "user"]
 

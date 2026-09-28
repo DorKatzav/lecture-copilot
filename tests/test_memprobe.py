@@ -1,6 +1,6 @@
 import pytest
 
-from lecture_copilot.memprobe import MemoryProbe, parse_mem, parse_swap_mb, parse_top, parse_vm_stat_gb
+from lecture_copilot.memprobe import MemoryProbe, parse_mem, parse_swap_mb, parse_top, parse_vm_stat_gb, watched_pids
 
 VM_STAT = """Mach Virtual Memory Statistics: (page size of 16384 bytes)
 Pages free:                                    17528.
@@ -82,3 +82,13 @@ def test_background_thread_samples_until_stopped():
     n = probe.summary()["samples"]
     time.sleep(0.05)
     assert n >= 2 and probe.summary()["samples"] == n
+
+
+def test_watched_processes_include_ollamas_runner():
+    ps = """  409 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+39183 /Applications/MacWhisper.app/Contents/MacOS/MacWhisper
+39900 ollama
+61332 /opt/homebrew/Cellar/ollama/0.34.2/libexec/lib/ollama/llama-server
+70000 /usr/local/bin/mw
+"""
+    assert watched_pids(ps) == ["39183", "39900", "61332", "70000"]

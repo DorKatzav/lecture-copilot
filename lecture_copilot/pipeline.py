@@ -18,7 +18,7 @@ import numpy as np
 from lecture_copilot.agents.extractor import ExtractError, extract
 from lecture_copilot.asr.base import ASR, ASRError
 from lecture_copilot.audio.sources import SR, AudioChunk, write_wav
-from lecture_copilot.config import EMBED_MODEL, LIVE_MODEL, OLLAMA_KEEP_ALIVE, RUNS_DIR, Profile
+from lecture_copilot.config import EMBED_MODEL, LIVE_MODEL, OLLAMA_KEEP_ALIVE, OLLAMA_LOAD_OPTIONS, RUNS_DIR, Profile
 from lecture_copilot.stats import percentile
 from lecture_copilot.store.db import Store
 
@@ -148,8 +148,8 @@ async def warm_up(ctx: Ctx) -> None:
     for node, model, path, extra_body in loads:
         t = time.perf_counter()
         try:
-            r = await ctx.ollama.post(path, json={"model": model, "keep_alive": OLLAMA_KEEP_ALIVE, **extra_body},
-                                      timeout=180)
+            body = {"model": model, "keep_alive": OLLAMA_KEEP_ALIVE, "options": OLLAMA_LOAD_OPTIONS, **extra_body}
+            r = await ctx.ollama.post(path, json=body, timeout=180)
             r.raise_for_status()
             out = {"status": "ok", "model": model}
         except httpx.HTTPError as e:

@@ -5,7 +5,14 @@ import pytest
 
 from lecture_copilot.asr.base import ASRError, Segment
 from lecture_copilot.audio.sources import AudioChunk
-from lecture_copilot.config import EMBED_MODEL, EXTRACT_OPTIONS, LIVE_MODEL, OLLAMA_KEEP_ALIVE, Profile
+from lecture_copilot.config import (
+    EMBED_MODEL,
+    EXTRACT_OPTIONS,
+    LIVE_MODEL,
+    OLLAMA_KEEP_ALIVE,
+    OLLAMA_LOAD_OPTIONS,
+    Profile,
+)
 from lecture_copilot.pipeline import Ctx, run, warm_up
 from lecture_copilot.store.db import Store
 from tests.stubs import FakeASR, FakeOllama, ListSource
@@ -82,6 +89,7 @@ def test_extraction_request_uses_the_live_model_and_prompt(store, tmp_path):
     first, second = fake.requests
     assert first["model"] == LIVE_MODEL and first["keep_alive"] == OLLAMA_KEEP_ALIVE
     assert {k: first["options"][k] for k in EXTRACT_OPTIONS} == EXTRACT_OPTIONS
+    assert {k: first["options"][k] for k in OLLAMA_LOAD_OPTIONS} == OLLAMA_LOAD_OPTIONS
     user = second["messages"][1]["content"]
     assert "AI Developers — Python" in user and "Chunk 2 (45–90 s)" in user
     assert "פרק ראשון" in user            # the previous chunk's summary
@@ -192,6 +200,8 @@ def test_warm_up_loads_asr_llm_and_embedding_model(store, tmp_path):
     assert len(asr.calls) == 1 and asr.calls[0][0].endswith("warmup.wav")
     loaded = {body["model"]: body["keep_alive"] for _, body in fake.loads}
     assert loaded == {LIVE_MODEL: OLLAMA_KEEP_ALIVE, EMBED_MODEL: OLLAMA_KEEP_ALIVE}
+    # the same load options as every later call, so Ollama never reloads the model mid-lecture
+    assert all(body["options"] == OLLAMA_LOAD_OPTIONS for _, body in fake.loads)
     assert {d["input_ref"] for d in decisions(store, "asr") + decisions(store, "extractor")} == {"RUN1#warmup"}
 
 

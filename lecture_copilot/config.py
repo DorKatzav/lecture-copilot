@@ -29,6 +29,10 @@ MW_MODELS = {"he": "whisper-cpp:ivrit-ai-largev3", "en": "whisperkit:openai_whis
 OLLAMA_URL = "http://127.0.0.1:11434"
 OLLAMA_NUM_CTX = 4096
 OLLAMA_KEEP_ALIVE = "30m"                                      # stays loaded through a lecture break
+# every request that can load a model sends the same load options, so Ollama never reloads mid-lecture.
+# use_mmap (D-M1-3): Ollama 0.34 otherwise starts its runner with --load-mode none and gemma3:12b holds
+# ~18 GB of dirty memory instead of ~1.8 GB plus reclaimable file-backed weights.
+OLLAMA_LOAD_OPTIONS = {"num_ctx": OLLAMA_NUM_CTX, "use_mmap": True}
 
 
 class Profile(BaseModel):

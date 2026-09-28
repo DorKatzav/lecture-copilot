@@ -14,7 +14,7 @@ import httpx
 
 from lecture_copilot.config import OLLAMA_URL
 
-WATCH = ("MacWhisper", "mw", "ollama")
+WATCH = ("MacWhisper", "mw", "ollama", "llama-server")   # llama-server: Ollama 0.34's model runner
 UNITS = {"B": 1 / 2**20, "K": 1 / 1024, "M": 1.0, "G": 1024.0}
 
 
@@ -46,14 +46,19 @@ def parse_top(text: str) -> dict[str, float]:
     return out
 
 
+def watched_pids(ps_text: str) -> list[str]:
+    """`ps -A -o pid=,comm=` → pids whose executable name is in WATCH."""
+    return [line.split()[0] for line in ps_text.splitlines()
+            if len(line.split()) >= 2 and line.split()[-1].rsplit("/", 1)[-1] in WATCH]
+
+
 def _sh(*cmd: str) -> str:
     return subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=10).stdout
 
 
 def macos_sample(ollama_url: str = OLLAMA_URL) -> dict:
     procs_mb: dict[str, float] = {}
-    pids = [line.split()[0] for line in _sh("ps", "-A", "-o", "pid=,comm=").splitlines()
-            if line.split() and line.split()[-1].rsplit("/", 1)[-1] in WATCH]
+    pids = watched_pids(_sh("ps", "-A", "-o", "pid=,comm="))
     if pids:
         pid_args = [a for p in pids for a in ("-pid", p)]
         procs_mb = parse_top(_sh("top", "-l", "1", "-stats", "pid,command,mem", *pid_args))

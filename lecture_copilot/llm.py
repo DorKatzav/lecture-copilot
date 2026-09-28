@@ -14,7 +14,7 @@ from typing import Generic, TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from lecture_copilot.config import OLLAMA_NUM_CTX
+from lecture_copilot.config import OLLAMA_LOAD_OPTIONS
 
 T = TypeVar("T", bound=BaseModel)
 MAX_ATTEMPTS = 2
@@ -56,7 +56,7 @@ async def chat_json(
             "messages": messages,
             "stream": False,
             "format": schema.model_json_schema(),
-            "options": {"num_ctx": OLLAMA_NUM_CTX, **(options or {})},
+            "options": {**OLLAMA_LOAD_OPTIONS, **(options or {})},
         }
         if think is not None:
             body["think"] = think
