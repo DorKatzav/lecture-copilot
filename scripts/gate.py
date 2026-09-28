@@ -246,7 +246,8 @@ def check_peak_memory(db: Path = DB_PATH, fixture: Path = FIXTURE) -> Result:
     need = [x.removesuffix(":latest") for x in (LIVE_MODEL, EMBED_MODEL)]
     missing = [x for x in need if x not in m["models_at_peak_gb"]] + [
         x for x in ("MacWhisper",) if x not in m["procs_peak_mb"]]
-    procs = ", ".join(f"{k} {v / 1024:.1f} GB" for k, v in sorted(m["procs_peak_mb"].items(), key=lambda kv: -kv[1]))
+    procs = ", ".join(f"{k} {v / 1024:.1f} GB" for k, v in sorted(m["procs_peak_mb"].items(), key=lambda kv: -kv[1])
+                      if v >= 100)
     pressure = PRESSURE.get(m["max_pressure"], str(m["max_pressure"]))
     detail = (f"peak {m['peak_used_gb']} of {m['total_gb']} GB, pressure {pressure}, swap {m['swap_growth_mb']:+.0f} MB"
               f" · {procs}")
@@ -295,6 +296,7 @@ def check_asr_error(work: Path | None = None, asr=None, client: httpx.AsyncClien
                     chunks: list | None = None) -> Result:
     """Break it on purpose: a corrupt wav through the real pipeline must be marked failed, the next chunk must run."""
     from lecture_copilot.asr.macwhisper import MacWhisperASR
+    from lecture_copilot.scriptcheck import terminal_text
 
     with tempfile.TemporaryDirectory() as tmp:
         work = work or Path(tmp)
@@ -302,7 +304,7 @@ def check_asr_error(work: Path | None = None, asr=None, client: httpx.AsyncClien
         out = asyncio.run(_asr_error_run(work, asr or MacWhisperASR(), client or httpx.AsyncClient(base_url=OLLAMA_URL),
                                          chunks))
     first, second = out.get(1, {}), out.get(2, {})
-    detail = (f"corrupt chunk → {first.get('status')} ({first.get('error', '')[:70]}); "
+    detail = (f"corrupt chunk → {first.get('status')} ({terminal_text(first.get('error', ''), 90)}); "
               f"next chunk → {second.get('status')}")
     if first.get("status") != "asr_failed" or second.get("status") != "ok":
         return _fail("asr_error", detail)

@@ -405,3 +405,11 @@ def test_m1_asr_error_fails_when_the_run_stops(tmp_path):
 def test_m1_has_seven_checks():
     assert [name for name, _ in gate.CHECKS[1]] == ["fixture_replay", "rerun_upsert", "chunk_budget", "asr_error",
                                                     "peak_memory", "tests", "secret_scan"]
+
+
+def test_m1_asr_error_detail_is_terminal_safe(tmp_path):
+    from lecture_copilot.asr.base import ASRError
+    from tests.stubs import FakeASR
+    err = ASRError("mw exit 1: Transcribing chunk_0001.wav...\nError: לא ניתן היה להשלים את הפעולה.")
+    r = asr_error_check(tmp_path, FakeASR(script={1: err}), replies=1)
+    assert "\n" not in r.detail and not any("֐" <= ch <= "׿" for ch in r.detail)

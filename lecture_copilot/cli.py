@@ -16,6 +16,7 @@ from lecture_copilot.audio.sources import ChunkSource, FileSource
 from lecture_copilot.config import CHUNK_BUDGET_S, DB_PATH, OLLAMA_URL, RUNS_DIR, Profile
 from lecture_copilot.memprobe import MemoryProbe, total_gb
 from lecture_copilot.pipeline import Ctx, run, warm_up
+from lecture_copilot.scriptcheck import terminal_text
 from lecture_copilot.store.db import Store, new_id
 
 TRANSCRIPT_SUFFIXES = {".vtt", ".srt", ".json", ".txt"}
@@ -30,7 +31,7 @@ def fmt_chunk(o: dict) -> str:
     if o["total_s"] > CHUNK_BUDGET_S:
         line += f"  OVER BUDGET ({CHUNK_BUDGET_S} s)"
     if o["status"] in ("asr_failed", "failed"):
-        line += f"  [{o.get('error', '')[:120]}]"
+        line += f"  [{terminal_text(o.get('error', ''), 120)}]"
     return line
 
 

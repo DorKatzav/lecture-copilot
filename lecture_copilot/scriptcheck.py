@@ -4,6 +4,8 @@ The forbidden scripts are listed explicitly — stage 0 saw Cyrillic, Arabic and
 Hebrew. Accented Latin (é, ü) is allowed: it appears in real names and loanwords.
 """
 
+import re
+
 FORBIDDEN: dict[str, tuple[tuple[int, int], ...]] = {
     "Cyrillic": ((0x0400, 0x052F), (0x1C80, 0x1C8F), (0x2DE0, 0x2DFF), (0xA640, 0xA69F)),
     "Arabic": ((0x0600, 0x06FF), (0x0750, 0x077F), (0x0870, 0x08FF), (0xFB50, 0xFDFF), (0xFE70, 0xFEFF)),
@@ -23,3 +25,12 @@ def forbidden_scripts(text: str) -> set[str]:
             if any(lo <= cp <= hi for lo, hi in ranges):
                 found.add(name)
     return found
+
+
+_HEBREW_RUN = re.compile("[\u0590-\u05FF][\u0590-\u05FF\\s\"'.,:;!?-]*")
+
+
+def terminal_text(text: str, limit: int = 160) -> str:
+    """One line for the terminal, Hebrew replaced by [he] (CLAUDE.md: Hebrew never goes to the terminal).
+    Provider messages can be Hebrew — macOS localizes MacWhisper's errors to the system language."""
+    return " ".join(_HEBREW_RUN.sub("[he] ", text).split())[:limit]

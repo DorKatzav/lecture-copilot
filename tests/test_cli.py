@@ -79,3 +79,18 @@ def test_transcripts_are_refused_until_m2(tmp_path, name, capsys):
 def test_missing_file_is_refused(tmp_path, capsys):
     assert cli.main(["replay", str(tmp_path / "nope.m4a"), "--course", "X"]) == 2
     assert "not found" in capsys.readouterr().err
+
+
+MW_HE_ERROR = "mw exit 1: Transcribing chunk_0001.wav...\nError: לא ניתן היה להשלים את הפעולה."
+
+
+def test_terminal_text_is_one_line_without_hebrew():
+    out = cli.terminal_text(MW_HE_ERROR)
+    assert "\n" not in out and not any("֐" <= ch <= "׿" for ch in out)
+    assert out.startswith("mw exit 1: Transcribing chunk_0001.wav... Error:") and "[he]" in out
+
+
+def test_chunk_line_never_prints_a_localized_error():
+    line = cli.fmt_chunk({"idx": 2, "t0": 0.0, "t1": 30.0, "status": "asr_failed", "asr_s": 1.0, "extract_s": None,
+                          "total_s": 1.0, "segments": 0, "error": MW_HE_ERROR})
+    assert not any("֐" <= ch <= "׿" for ch in line) and "\n" not in line
