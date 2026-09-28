@@ -2,6 +2,7 @@ import asyncio
 import json
 
 import httpx
+import pytest
 
 from lecture_copilot.agents.schemas import ExtractResult
 from lecture_copilot.llm import chat_json
@@ -74,3 +75,50 @@ def test_tokens_and_timings_are_recorded():
     call = run(fake)
     assert (call.tokens_in, call.tokens_out) == (100, 20)
     assert call.load_ms == 5.0 and len(call.ms) == 1
+
+
+def test_load_ms_kept_when_the_first_attempt_is_an_http_error():
+    fake = FakeOllama([500, GOOD])
+    assert run(fake).load_ms == 5.0
+
+
+@pytest.mark.parametrize("body", [
+    [],                                                        # list body
+    {"message": None},                                         # message: null
+    {"message": {"content": None}},                            # content: null
+    {"message": {"content": GOOD}, "load_duration": None,      # null counters on an otherwise good reply
+     "prompt_eval_count": None, "eval_count": None},
+])
+def test_malformed_response_shapes_never_raise(body):
+    fake = FakeOllama([body, body])
+    call = run(fake)
+    if call.value is None:
+        assert call.attempts == 2 and call.error
+    else:
+        assert call.tokens_in == 0 and call.load_ms == 0.0
+
+
+def test_extra_check_failure_retries_with_its_message():
+    fake = FakeOllama([GOOD, GOOD])
+    seen = []
+
+    def check(v):
+        seen.append(v)
+        return "chunk_summary contains Cyrillic letters" if len(seen) == 1 else None
+
+    call = run(fake, check=check)
+    assert call.value is not None and call.attempts == 2 and not call.first_valid
+    assert "Cyrillic" in fake.requests[1]["messages"][-1]["content"]
+
+
+def test_extra_check_failing_twice_is_an_error_not_a_value():
+    fake = FakeOllama([GOOD, GOOD])
+    call = run(fake, check=lambda v: "contains Arabic letters")
+    assert call.value is None and call.attempts == 2 and "Arabic" in call.error
+
+
+def test_keep_alive_is_sent_only_when_given():
+    fake = FakeOllama([GOOD, GOOD])
+    run(fake, keep_alive="30m")
+    run(fake)
+    assert fake.requests[0]["keep_alive"] == "30m" and "keep_alive" not in fake.requests[1]
