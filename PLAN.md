@@ -144,7 +144,7 @@ async def remember(res: ExtractResult, ctx: Ctx) -> ExtractResult             # 
 async def verify(claim_id: str, ctx: Ctx) -> Verdict                          # Gemini + grounding + tool get_course_context(topic); cache by normalized hash
 def rank(lecture_id: str) -> list[ClaimRow]                                    # ORDER BY importance DESC; labels: material (≥85) / minor
 async def recap(lecture_id: str, minutes: int = 5) -> str                      # last N chunk_summaries → one Ollama call → 3 lines
-class Ctx(BaseModel): lecture_id: str; course_id: str; profile: Profile; store: Store; asr: ASR
+class Ctx: lecture_id; course_id; course_name; lecture_title; profile: Profile; store: Store; asr: ASR; ollama: httpx.AsyncClient; run_id; runs_dir   # dataclass, M1
 ```
 
 ### 3.6 `store/db.py` (schema = DESIGN_HE §data model)
@@ -156,7 +156,7 @@ items(id, lecture_id, segment_id, kind concept|question|action|highlight|note|de
 claims(id, lecture_id, segment_id, text, normalized, importance, status pending|verified|skipped|unchecked, verdict, confidence, sources_json, cache_key, embedding BLOB)
 lecture_summaries(lecture_id, bullets_json, digest_md, embedding BLOB)
 fact_cache(cache_key, verdict, sources_json, checked_at)
-decisions(id, lecture_id, node extractor|memory|verifier|ranker|net, input_ref, output_json, ms, tokens_in, tokens_out, cost_usd, ts)
+decisions(id, lecture_id, node extractor|memory|verifier|ranker|net|asr|chunk|run (D-M1-1), input_ref, output_json, ms, tokens_in, tokens_out, cost_usd, ts)
 items_fts / claims_fts  = FTS5(text, canonical_key)   ·   vec_items / vec_claims = sqlite-vec (bge-m3, 1024 dims)
 ```
 ```python
@@ -209,7 +209,7 @@ WS   /ws              → pushes rows on every store write (items, claims, level
 | M | Dates | Delivers | Gate checks (`scripts/gate.py --m N`) |
 |---|---|---|---|
 | **M0 skeleton + stage-0** | 23–25.9 | repo, env `copilot`, `.cursor/rules`, `scripts/setup_models.sh`, fixture, `prompts/extract_v0.md`, stage-0 measurements in `docs/notes/STAGE0_HE.html` | `mw version` ok · 3 Ollama models present · sqlite-vec loads (or numpy fallback flagged) · fixture exists · `mw` 5 runs on 45 s: p50 logged, hot/cold verdict written · 10 real chunks → extract_v0 → ≥ 9/10 valid JSON · mic-from-seat test recorded (readable yes/no) · secret scan empty |
-| **M1 pipeline** | 4–5.10 | `FileSource`, `vad.split`, `MacWhisperASR`, `extract`, `Store` (schema, ULID, upserts), `cli replay --pace fast` | fixture → segments ≥ 10, items ≥ 5, claims ≥ 1 · rerun = identical row counts (upsert) · every chunk ≤ budget on the fixture (p95 logged) · `ASRError` on a corrupt wav marks the chunk failed and continues · tests with stubs green |
+| **M1 pipeline** | 4–5.10 (done 28.9) | `FileSource`, `vad.split`, `MacWhisperASR`, `extract`, `Store` (schema, ULID, upserts), `cli replay --pace fast`, `memprobe`, `scripts/ollama_serve.sh` | fixture → segments ≥ 10, items ≥ 5, claims ≥ 1 · rerun = one lecture, tables equal the last replay, no older rows (D-M1-5; identical counts asserted with stubs) · every chunk ≤ budget on the fixture (p95 logged) · `ASRError` on a corrupt wav marks the chunk failed and continues · peak memory: all three resident, pressure below critical, swap growth ≤ 1 GB (D-M1-6) · Ollama runs with the prompt cache off (D-M1-4) · tests with stubs green |
 | **M2 digest** | 6–7.10 | `digest()`, `FolderSink` (md + html + transcript + claims.json), `TranscriptSource` (.vtt + mw JSON), `prompts/digest_v0.md` | digest.md has all 9 sections in order · 60-min lecture → digest < 120 s wall · replay of a .vtt yields the same sections · course folder created under `COURSES_ROOT` · html renders RTL (screenshot) |
 | **M3 memory** | 8–10.10 | `embed`, FTS5 + sqlite-vec, `search` (RRF), `remember` (already_said / contradicts), `canonical_key`, `previous_lecture`, continuation chapter, "ממשיך את" bullets | 7/6 then 9/6 replay: ≥ 80% of shared concepts flagged already_said · injected contradiction raises importance by 20 · search("CAC") returns the 9/6 explanation top-1 · continuation chapter present in 9/6 digest · numpy fallback passes the same tests |
 | **M4 verifier + ranker + eval** | 11–12.10 | `verify` (Gemini, grounding, `get_course_context` tool, cache), verifier worker, offline mode, `rank`, `eval.py`, `benchmark.json` (labels from Sukkot) | eval: verdict accuracy ≥ 80% on 40 claims · Precision@5 material ≥ 80% · wifi off mid-replay → claims `unchecked`, batch-verified at stop · cost per lecture < $0.20 from `decisions` · cache hit on repeated claim · CI never calls Gemini |
@@ -232,7 +232,9 @@ failure is a logged row, never an exception that stops the lecture.
 - [x] M0: Gemini API key from aistudio.google.com → `.env` `GEMINI_API_KEY`. (2026-09-23)
 - [x] M0: MacWhisper → Settings → Advanced → Install CLI; confirm `mw version`. (2026-09-23, 14.7.1)
 - [x] M0: sit in the usual seat (or 3–5 m from a speaker) and record 1 minute for the mic test. (2026-09-23, speaker at 3–5 m, 2 min)
-- [ ] Before M1 (1 min, D-M0-11): start any transcription in the MacWhisper app, then run `python scripts/stage0.py mw-bench --busy` while it runs.
+- [ ] Always: start Ollama with `scripts/ollama_serve.sh` (`--restart` if it is already up), never a plain `ollama serve` (D-M1-4).
+- [ ] Suggested: MacWhisper → Settings → turn off automatic updates until 18.10 (it updated itself mid-run on 28.9).
+- [ ] Still open (1 min, D-M0-11): start any transcription in the MacWhisper app, then run `python scripts/stage0.py mw-bench --busy` while it runs.
 - [ ] Sukkot: label `eval/benchmark.json` from the two `.vtt` files (~3 h): 30 real claims + verdicts, 10 injected errors (5 contradicting 7/6), 30 concepts, shared-concept pairs.
 - [ ] M2: install Google Drive for desktop (not installed as of 2026-09-26); `COURSES_ROOT` inside its folder (current installs mount at `~/Library/CloudStorage/GoogleDrive-<account>/My Drive`, not the config default); create course "יזמות וחדשנות" (he) and any English course (en).
 - [ ] M6: Notion internal integration → `NOTION_TOKEN`; share the "🎓 לימודים" page with it; run `cli notion-init` once.
