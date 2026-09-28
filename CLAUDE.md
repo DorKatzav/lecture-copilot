@@ -41,8 +41,8 @@ during a lecture.** No submission, no grade: this is a tool Dor uses from the fi
   MacWhisper, Ollama or Gemini — they use `tests/stubs.py`.
 - **Numbers are generated, never typed.** Eval numbers come from `eval/results.json`; cost and latency from the
   `decisions` table.
-- **Provided files are sacred.** Lecture recordings in `data/lectures/` (7/6, 9/6 from the course Drive) and their
-  `.vtt` files are never modified. They are also never committed (`.gitignore`) — course material, not ours to publish.
+- **Provided files are sacred.** Course files in `data/lectures/<date>_<lecture|tirgul>/` (7/6 + 9/6 `.vtt`, 19/6 Tirgul
+  recording for audio — D-M0-9) are never modified or renamed. They are also never committed (`.gitignore`) — course material, not ours to publish.
 - **Dor owns manual steps** (keys, MacWhisper settings, BlackHole/Audio MIDI Setup, downloads). Collected in PLAN.md §7.
   Never type his passwords into a browser; never commit secrets.
 - Two review moments per milestone: Dor reads the Hebrew report, then approves the merge.
@@ -85,19 +85,22 @@ during a lecture.** No submission, no grade: this is a tool Dor uses from the fi
   Gemini runs in a separate worker (semaphore 2) and never in the chunk loop. `queue_depth ≥ 2` → skip extraction on
   low-speech chunks, catch up in the Digest.
 - **Language is per course** (`courses.language` he|en), never auto-detected per chunk. Digest prose is Hebrew.
-- **One local model for live, one for Digest:** Qwen3 8B q4 (thinking off, `num_ctx=4096`) for extraction; Gemma 3 12B
-  only in `digest()`. Never both loaded while Whisper is running. 24 GB is the budget.
+- **One local LLM for live and Digest:** Gemma 3 12B (`num_ctx=4096`) for extraction and `digest()` (D-M0-10 — qwen3:8b
+  leaked Cyrillic/Arabic into Hebrew in stage 0). Only one LLM loaded at a time; MacWhisper + Gemma + bge-m3 must fit
+  24 GB together — peak memory is measured in M1. Every extraction output passes a foreign-script check that lists
+  forbidden scripts explicitly (Cyrillic, Arabic, CJK, Latin Extended Additional); accented Latin (é, ü) is allowed.
 - **IDs are ULIDs minted in Python before any write.** Replaying the same lecture is an upsert, never a duplicate.
 - **MacWhisper is a provider, not a dependency.** We call `mw transcribe` on files; we never read its internal SQLite,
   never use `--persist`. Speaker names come in through an exported transcript → `TranscriptSource`.
 - **Prompts are files with versions.** Changing a prompt = new file + a line in `PROJECT_LOG.md` with before/after on the fixture.
-- Secrets only in `.env` (gitignored): `GEMINI_API_KEY`, `NOTION_TOKEN`, `NOTION_*_DB`. `git grep -iE "AIza[0-9A-Za-z_-]{30,}|ntn_[A-Za-z0-9]{20,}|secret_[A-Za-z0-9]{20,}"` must stay empty before every push.
+- Secrets only in `.env` (gitignored): `GEMINI_API_KEY`, `NOTION_TOKEN`, `NOTION_*_DB`. `git grep --untracked -iE "AIza[0-9A-Za-z_-]{30,}|AQ\.[0-9A-Za-z_.-]{40,}|ntn_[A-Za-z0-9]{20,}|secret_[A-Za-z0-9]{20,}"` must stay empty before every push (same pattern as `scripts/gate.py`; AI Studio keys come as `AIza…` or `AQ.…`).
 
 ## Environment
 
 - macOS, MacBook Pro M5 Pro, 24 GB. conda env **`copilot`** (Python 3.11, uv/Homebrew Python if conda's sqlite lacks
   `enable_load_extension` — checked in M0). Never `AI_dev` or `base`. Use `python`, not `python3`.
-- Ollama: `qwen3:8b`, `gemma3:12b`, `bge-m3`. MacWhisper Pro with the CLI installed (`mw version` works).
+- Ollama: `gemma3:12b`, `bge-m3` (`qwen3:8b` kept only from the stage-0 comparison) — stored in `~/Projects/_shared/models/ollama` (shared across projects;
+  `~/.ollama/models` is a symlink to it). MacWhisper Pro with the CLI installed (`mw version` works).
 - Gemini key from aistudio.google.com in `.env` as `GEMINI_API_KEY`. Notion internal integration token as `NOTION_TOKEN`.
 - Run: `python -m lecture_copilot.cli copilot` (launcher) · replay: `python -m lecture_copilot.cli replay <file|json> --pace fast`
   · tests: `pytest -q && ruff check .` · gate: `python scripts/gate.py --m N` · eval: `python -m lecture_copilot.cli eval`.

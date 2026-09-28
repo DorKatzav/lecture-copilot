@@ -17,7 +17,7 @@ async functions on each chunk — Extractor (one Ollama call), Memory (embedding
 `store/` is one SQLite file (tables + FTS5 + vectors) and is the only state. `output/` renders Digest, course page and
 `Sink`s (folder, Notion). `web/` is FastAPI + one HTML page over WebSocket that hydrates from SQLite.
 
-**Tech stack:** Python 3.11 · sounddevice · ffmpeg · MacWhisper CLI (`mw`) · Ollama (qwen3:8b, gemma3:12b, bge-m3) ·
+**Tech stack:** Python 3.11 · sounddevice · ffmpeg · MacWhisper CLI (`mw`) · Ollama (gemma3:12b, bge-m3) ·
 Gemini 3.7 Flash (`google-genai`) · SQLite + FTS5 + sqlite-vec · pydantic 2 · FastAPI + uvicorn · notion-client ·
 pytest · ruff · GitHub Actions (stubs only, no providers).
 
@@ -28,9 +28,9 @@ pytest · ruff · GitHub Actions (stubs only, no providers).
 - **One pipeline.** `ChunkSource` async iterator; `process_chunk(chunk, ctx)` does not know the source. `Profile(fact_check: bool)` is the only mode flag.
 - **Disk as interface.** Recorder writes `runs/<lecture_id>/chunk_NNNN.wav` then signals the loop. Worker consumes paths. UI reads SQLite.
 - **Budget.** ≤ 30 s processing per 45 s chunk (ASR ≤ 8, Ollama ≤ 15, embeddings ≤ 2). Gemini outside the loop.
-- **Models.** qwen3:8b for live extraction, gemma3:12b only for `digest()`, bge-m3 embeddings, Gemini 3.7 Flash verifier. Language per course.
+- **Models.** gemma3:12b for live extraction and `digest()` (D-M0-10), bge-m3 embeddings, Gemini 3.7 Flash verifier; ASR ivrit.ai (he) / Turbo (en) via `mw` (D-M0-8). Language per course.
 - **IDs.** ULID minted in Python; upsert on replay. `lecture_id` is the partition key everywhere.
-- **MacWhisper is a provider.** `mw transcribe <file> --format json --language <he|en>`; no `--persist`, no internal DB reads.
+- **MacWhisper is a provider.** `mw transcribe <file> --model <MW_MODELS[lang]> --language <he|en> --format json --no-speakers -o <file.json>`; no `--persist`, no internal DB reads. ASR model per course language: `he` → ivrit.ai large-v3, `en` → large-v3 Turbo (D-M0-8).
 - **Recordings never modified, never committed.** `data/lectures/**` and `runs/**` gitignored.
 - **Secrets** only in `.env`; secret scan in the gate.
 - Own git repo; GitHub `DorKatzav/lecture-copilot` (public).
@@ -44,7 +44,7 @@ LiveSource (sounddevice, mic) ─┐
 FileSource (ffmpeg, --pace)  ─┼─ AudioChunk(path, t0, t1) ──► asr.transcribe ──► Segment[]
 TranscriptSource (mw JSON)   ─┘        (skips asr)                                   │
                                                                                      ▼
-                              ┌───────── agents.extractor (qwen3:8b, one call) ── ExtractResult
+                              ┌───────── agents.extractor (gemma3:12b, one call) ── ExtractResult
                               │           chunk_summary, concepts, claims, questions, actions, highlights, importance
                               ▼
                        agents.memory: embed batch → FTS5 + vec → RRF top-5 → already_said / contradicts → adjust importance
@@ -89,10 +89,12 @@ ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "db" / "copilot.sqlite"; RUNS_DIR = ROOT / "runs"
 COURSES_ROOT = Path(os.getenv("COURSES_ROOT", "~/Google Drive/My Drive/Lecture-Copilot")).expanduser()  # Drive desktop syncs it
 CHUNK_MIN_S, CHUNK_MAX_S, SILENCE_DB = 30, 60, -40          # VAD split window
-LIVE_MODEL, DIGEST_MODEL, EMBED_MODEL = "qwen3:8b", "gemma3:12b", "bge-m3"
+LIVE_MODEL, DIGEST_MODEL, EMBED_MODEL = "gemma3:12b", "gemma3:12b", "bge-m3"   # D-M0-10
 VERIFIER_MODEL = "gemini-3.7-flash"                          # google-genai, grounding on
 VERIFY_MIN_IMPORTANCE = 70; MATERIAL_MIN_IMPORTANCE = 85     # ranker labels, never alerts
 BUDGET_S = {"asr": 8, "extract": 15, "embed": 2}
+MW_BIN = os.getenv("MW_BIN", "mw")                           # MacWhisper CLI
+MW_MODELS = {"he": "whisper-cpp:ivrit-ai-largev3", "en": "whisperkit:openai_whisper-large-v3-v20240930"}  # D-M0-8
 class Profile(BaseModel): fact_check: bool = True; language: Literal["he", "en"] = "he"
 def load_env() -> None: ...                                  # .env → os.environ; raises on missing GEMINI_API_KEY only when fact_check
 ```
@@ -118,7 +120,9 @@ class Segment(BaseModel): t0: float; t1: float; text: str; speaker: str | None =
 class ASR(Protocol):
     name: str
     async def transcribe(self, wav: Path, language: str) -> list[Segment]: ...
-# macwhisper.py: asyncio.create_subprocess_exec("mw", "transcribe", wav, "--format", "json", "--language", language, "-o", out)
+# macwhisper.py: asyncio.create_subprocess_exec(MW_BIN, "transcribe", wav, "--model", MW_MODELS[language], "--language",
+#   language, "--format", "json", "--no-speakers", "-o", out_json, "--overwrite")   # verified on mw 14.7.1 (D-M0-7): -o is a FILE
+#   output: {text, segments[{id, start, end (int ms), text, words[]}]}
 #   timeout = BUDGET_S["asr"] * 3; non-zero exit or empty output → ASRError (caller marks chunk failed, continues)
 ```
 
@@ -224,12 +228,13 @@ failure is a logged row, never an exception that stops the lecture.
 
 ## 7. Dor's manual steps (collected; never done by Claude)
 
-- [ ] M0: download `7/6 Lecture` and `9/6 Lecture` (video) from Drive `AI DEVELOPERS 11 / 2. Python / REC` into `data/lectures/`; copy their `.vtt` next to them.
-- [ ] M0: Gemini API key from aistudio.google.com → `.env` `GEMINI_API_KEY`.
-- [ ] M0: MacWhisper → Settings → Advanced → Install CLI; confirm `mw version`.
-- [ ] M0: sit in the usual seat (or 3–5 m from a speaker) and record 1 minute for the mic test.
+- [x] M0: download `7/6 Lecture` and `9/6 Lecture` (video) from Drive `AI DEVELOPERS 11 / 2. Python / REC` into `data/lectures/`; copy their `.vtt` next to them. (2026-09-26: no video exists for 7/6 or 9/6 — `.vtt` only; audio from the 19/6 Tirgul instead, D-M0-9. Layout: `data/lectures/<date>_<lecture|tirgul>/<original Zoom name>`.)
+- [x] M0: Gemini API key from aistudio.google.com → `.env` `GEMINI_API_KEY`. (2026-09-23)
+- [x] M0: MacWhisper → Settings → Advanced → Install CLI; confirm `mw version`. (2026-09-23, 14.7.1)
+- [x] M0: sit in the usual seat (or 3–5 m from a speaker) and record 1 minute for the mic test. (2026-09-23, speaker at 3–5 m, 2 min)
+- [ ] Before M1 (1 min, D-M0-11): start any transcription in the MacWhisper app, then run `python scripts/stage0.py mw-bench --busy` while it runs.
 - [ ] Sukkot: label `eval/benchmark.json` from the two `.vtt` files (~3 h): 30 real claims + verdicts, 10 injected errors (5 contradicting 7/6), 30 concepts, shared-concept pairs.
-- [ ] M2: `COURSES_ROOT` inside the Google Drive desktop folder; create course "יזמות וחדשנות" (he) and any English course (en).
+- [ ] M2: install Google Drive for desktop (not installed as of 2026-09-26); `COURSES_ROOT` inside its folder (current installs mount at `~/Library/CloudStorage/GoogleDrive-<account>/My Drive`, not the config default); create course "יזמות וחדשנות" (he) and any English course (en).
 - [ ] M6: Notion internal integration → `NOTION_TOKEN`; share the "🎓 לימודים" page with it; run `cli notion-init` once.
 - [ ] M7 (optional): install BlackHole 2ch; Audio MIDI Setup: Multi-Output (speakers + BlackHole), Aggregate (mic + BlackHole, drift correction on).
 - [ ] Before 18.10: run the first-lecture checklist.

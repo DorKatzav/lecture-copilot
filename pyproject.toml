@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lecture-copilot"
+version = "0.0.0"
+description = "Local-first course memory for lectures"
+requires-python = ">=3.11,<3.12"
+
+[tool.setuptools.packages.find]
+include = ["lecture_copilot*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

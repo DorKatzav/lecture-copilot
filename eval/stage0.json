@@ -1,0 +1,170 @@
+{
+  "sqlite_vec": {
+    "sqlite": "3.53.4",
+    "python": "3.11.16",
+    "enable_load_extension": true,
+    "loaded": true,
+    "vec_version": "v0.1.9",
+    "fallback": null
+  },
+  "mw_tts": {
+    "wav": "tts_he.wav",
+    "model": "whisperkit:openai_whisper-large-v3-v20240930",
+    "runs_s": [
+      5.87,
+      5.14,
+      5.18,
+      5.11,
+      5.14
+    ],
+    "cold_s": 5.87,
+    "p50_s": 5.14,
+    "hangs": 0,
+    "budget_s": 8,
+    "verdict": "hot",
+    "decision": "mw",
+    "words": 112,
+    "parallel2_wall_s": 9.76,
+    "parallel2_exit": [
+      0,
+      0
+    ]
+  },
+  "mw_tts_ivrit": {
+    "wav": "tts_he.wav",
+    "model": "whisper-cpp:ivrit-ai-largev3",
+    "runs_s": [
+      7.38,
+      6.66,
+      6.65,
+      6.67,
+      6.67
+    ],
+    "cold_s": 7.38,
+    "p50_s": 6.67,
+    "hangs": 0,
+    "budget_s": 8,
+    "verdict": "hot",
+    "decision": "mw",
+    "words": 109,
+    "parallel2_wall_s": 12.77,
+    "parallel2_exit": [
+      0,
+      0
+    ]
+  },
+  "mic": {
+    "file": "data/mic_seat.m4a",
+    "duration_s": 121.7,
+    "readable": "yes",
+    "level": {
+      "p10_db": -44.4,
+      "p50_db": -40.8,
+      "p90_db": -38.3,
+      "floor_db": -40,
+      "share_above_floor": 0.35
+    },
+    "by_model": {
+      "whisperkit:openai_whisper-large-v3-v20240930": {
+        "asr_s": 8.9,
+        "words": 150,
+        "covered_s": 58.7
+      },
+      "whisper-cpp:ivrit-ai-largev3": {
+        "asr_s": 16.35,
+        "words": 239,
+        "covered_s": 117.4
+      }
+    },
+    "readable_with": "whisper-cpp:ivrit-ai-largev3"
+  },
+  "cut": {
+    "source": "GMT20260619-075636_Recording_1920x1080.mp4",
+    "duration_s": 4994.3,
+    "bench_at_s": 1200.0,
+    "chunk_offsets_s": [
+      300.0,
+      783.3,
+      1266.5,
+      1749.8,
+      2233.0,
+      2716.3,
+      3199.6,
+      3682.8,
+      4166.1,
+      4649.3
+    ]
+  },
+  "mw": {
+    "wav": "bench_45s.wav",
+    "model": "whisper-cpp:ivrit-ai-largev3",
+    "runs_s": [
+      11.53,
+      4.32,
+      4.29,
+      4.26,
+      4.29
+    ],
+    "cold_s": 11.53,
+    "p50_s": 4.29,
+    "hangs": 0,
+    "budget_s": 8,
+    "verdict": "hot",
+    "decision": "mw",
+    "words": 88,
+    "parallel2_wall_s": 8.08,
+    "parallel2_exit": [
+      0,
+      0
+    ]
+  },
+  "mw_turbo": {
+    "wav": "bench_45s.wav",
+    "model": "whisperkit:openai_whisper-large-v3-v20240930",
+    "runs_s": [
+      8.32,
+      4.31,
+      4.33,
+      4.36,
+      4.32
+    ],
+    "cold_s": 8.32,
+    "p50_s": 4.33,
+    "hangs": 0,
+    "budget_s": 8,
+    "verdict": "hot",
+    "decision": "mw",
+    "words": 87,
+    "parallel2_wall_s": 8.14,
+    "parallel2_exit": [
+      0,
+      0
+    ]
+  },
+  "extract": {
+    "asr_p50_s": 4.28,
+    "words_per_chunk_p50": 97,
+    "qwen3:8b": {
+      "n": 10,
+      "valid_first": 10,
+      "valid_after_retry": 10,
+      "p50_ms": 6690,
+      "p95_ms": 9451,
+      "hebrew_summaries": 10,
+      "concepts": 19,
+      "claims": 17,
+      "foreign_script_chunks": 3
+    },
+    "gemma3:12b": {
+      "n": 10,
+      "valid_first": 10,
+      "valid_after_retry": 10,
+      "p50_ms": 8527,
+      "p95_ms": 12074,
+      "hebrew_summaries": 10,
+      "concepts": 24,
+      "claims": 10,
+      "foreign_script_chunks": 0
+    }
+  }
+}
