@@ -254,8 +254,9 @@ def m1_store(tmp_path, runs=2, counts=None, totals=(14.6, 17.8), memory=None, le
     for i in range(1, lectures):
         s.upsert_lecture(course, audio_path=f"/other/{i}.m4a", source="file", title="o", date="d", fact_check=True)
     counts = counts or [{"segments": 58, "items": 28, "claims": 23}] * runs
+    from lecture_copilot.store.db import new_id
     for r in range(runs):
-        run_id = f"RUN{r}"
+        run_id = new_id(now_ms=1_000 + r)
         for i, total in enumerate(totals, 1):
             s.log("chunk", lecture_id=lid, input_ref=f"{run_id}#{i:04d}", ms=total * 1000,
                   output={"idx": i, "status": "ok", "total_s": total})
@@ -312,10 +313,24 @@ def test_m1_rerun_identical_counts_passes(tmp_path):
     assert m1(gate.check_rerun_upsert, tmp_path).status == "PASS"
 
 
-def test_m1_rerun_different_counts_fails(tmp_path):
-    counts = [{"segments": 58, "items": 28, "claims": 23}, {"segments": 58, "items": 30, "claims": 23}]
+def test_m1_rerun_passes_when_counts_differ_between_runs_and_says_so(tmp_path):
+    # D-M1-5: the ASR provider is not deterministic, so two replays may extract different rows
+    counts = [{"segments": 58, "items": 28, "claims": 23}, {"segments": 51, "items": 27, "claims": 18}]
     r = m1(gate.check_rerun_upsert, tmp_path, counts=counts)
-    assert r.status == "FAIL" and "items" in r.detail
+    assert r.status == "PASS" and "segments 58→51" in r.detail
+
+
+def test_m1_rerun_fails_when_a_row_survives_from_an_older_run(tmp_path):
+    import sqlite3
+    from pathlib import Path
+
+    from lecture_copilot.store.db import new_id
+    path = m1_store(tmp_path)
+    con = sqlite3.connect(path)
+    con.execute("update claims set id = ? where id = (select min(id) from claims)", (new_id(now_ms=500),))
+    con.commit()
+    r = gate.check_rerun_upsert(path, fixture=Path(M1_FIXTURE))
+    assert r.status == "FAIL" and "older" in r.detail and "claims" in r.detail
 
 
 def test_m1_rerun_needs_two_runs(tmp_path):
@@ -353,9 +368,20 @@ def test_m1_memory_passes_with_normal_pressure_and_all_three_resident(tmp_path):
     assert m1(gate.check_peak_memory, tmp_path).status == "PASS"
 
 
-def test_m1_memory_fails_on_pressure_warning(tmp_path):
+def test_m1_memory_passes_on_pressure_warning_and_says_so(tmp_path):
+    # D-M1-6: "warning" is the OS compressing memory; it fits as long as swap does not grow and the budget holds
+    r = m1(gate.check_peak_memory, tmp_path, memory=GOOD_MEMORY | {"max_pressure": 2, "swap_growth_mb": 692.0})
+    assert r.status == "PASS" and "warning" in r.detail
+
+
+def test_m1_memory_fails_on_pressure_critical(tmp_path):
+    r = m1(gate.check_peak_memory, tmp_path, memory=GOOD_MEMORY | {"max_pressure": 4})
+    assert r.status == "FAIL" and "critical" in r.detail
+
+
+def test_m1_memory_fails_when_swap_grows(tmp_path):
     r = m1(gate.check_peak_memory, tmp_path, memory=GOOD_MEMORY | {"max_pressure": 2, "swap_growth_mb": 7743.0})
-    assert r.status == "FAIL" and "warning" in r.detail and "7743" in r.detail
+    assert r.status == "FAIL" and "7743" in r.detail
 
 
 def test_m1_memory_fails_when_a_model_was_not_resident(tmp_path):

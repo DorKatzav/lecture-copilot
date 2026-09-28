@@ -169,6 +169,7 @@ def check_secret_scan(root: Path = ROOT) -> Result:
 REPLAY_HINT = ('python -m lecture_copilot.cli replay eval/fixture_10min.m4a --course "AI Developers — Python" '
                '--date 2026-06-19 (twice)')
 PRESSURE = {1: "normal", 2: "warning", 4: "critical"}
+SWAP_GROWTH_LIMIT_MB = 1024
 
 
 def _fixture_runs(db: Path, fixture: Path) -> tuple[list[str], list[dict], sqlite3.Connection]:
@@ -203,19 +204,28 @@ def check_fixture_replay(db: Path = DB_PATH, fixture: Path = FIXTURE) -> Result:
 
 
 def check_rerun_upsert(db: Path = DB_PATH, fixture: Path = FIXTURE) -> Result:
+    """Replay is an upsert: one lecture row, and the tables hold exactly what the last replay wrote — nothing
+    from an older run. Counts may differ between replays: the ASR provider is not deterministic (D-M1-5);
+    identical counts with deterministic providers are asserted in tests/test_pipeline.py."""
     lectures, runs, con = _fixture_runs(db, fixture)
     if len(lectures) != 1:
         return _fail("rerun_upsert", f"{len(lectures)} lecture rows for {fixture.name}, expected 1")
     if len(runs) < 2:
         return _fail("rerun_upsert", f"{len(runs)} complete replay(s) — {REPLAY_HINT}")
     a, b = runs[-2]["counts"], runs[-1]["counts"]
-    if a != b:
-        diff = ", ".join(f"{k} {a[k]}→{b[k]}" for k in a if a[k] != b[k])
-        return _fail("rerun_upsert", f"last two replays differ: {diff}")
     table = _table_counts(con, lectures[0])
     if table != b:
         return _fail("rerun_upsert", f"tables hold {table}, the last replay wrote {b}")
-    return _ok("rerun_upsert", f"1 lecture, {len(runs)} replays, last two identical: {b}")
+    # ids are ULIDs (time-ordered): a row minted before the last run started is a leftover
+    stale = {t: con.execute(f"select count(*) from {t} where lecture_id = ? and id < ?",
+                            (lectures[0], runs[-1]["run_id"])).fetchone()[0] for t in ("segments", "items", "claims")}
+    if any(stale.values()):
+        left = ", ".join(f"{t} {n}" for t, n in stale.items() if n)
+        return _fail("rerun_upsert", f"rows older than the last replay: {left}")
+    diff = ", ".join(f"{k} {a[k]}→{b[k]}" for k in a if a[k] != b[k])
+    detail = f"1 lecture, {len(runs)} replays, tables = last replay {b}, 0 older rows"
+    return _ok("rerun_upsert", detail + (f"; vs previous replay: {diff} (ASR varies, D-M1-5)" if diff else
+                                         "; identical to the previous replay"))
 
 
 def check_chunk_budget(db: Path = DB_PATH, fixture: Path = FIXTURE) -> Result:
@@ -253,8 +263,10 @@ def check_peak_memory(db: Path = DB_PATH, fixture: Path = FIXTURE) -> Result:
               f" · {procs}")
     if missing:
         return _fail("peak_memory", f"not resident at the peak: {', '.join(missing)} — {detail}")
-    if m["max_pressure"] > 1:
-        return _fail("peak_memory", detail)
+    # D-M1-6: it fits when the OS never reaches critical pressure and swap does not grow during the run
+    if m["max_pressure"] >= 4 or m["swap_growth_mb"] > SWAP_GROWTH_LIMIT_MB:
+        return _fail("peak_memory", f"{detail} (limits: pressure below critical, swap growth ≤ "
+                                    f"{SWAP_GROWTH_LIMIT_MB} MB)")
     return _ok("peak_memory", detail)
 
 
