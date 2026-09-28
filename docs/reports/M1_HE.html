@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M1 · הצנרת</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;800&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F6F6F2; --panel:#FFFFFF; --panel2:#EEEFEA; --ink:#1C2030; --ink2:#4D5468; --mute:#7C8398; --line:#D9DBD3;
+  --accent:#C8412F; --accent-soft:#FBE9E5; --local:#1E6F80; --local-soft:#E1F0F2; --cloud:#7A4FA8; --cloud-soft:#EFE7F8;
+  --ok:#2E7D4F; --ok-soft:#E3F2E8; --warn:#B7791F; --warn-soft:#FBF1DC; --code:#F0F1EC;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 6px 20px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+    --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+    --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+  --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+  --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Assistant',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;margin:0;direction:rtl}
+.wrap{max-width:880px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;margin-block:0 12px;padding-top:6px}
+h3{font-size:1.05rem;font-weight:700;margin-block:20px 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--ink2);max-width:62ch}
+a{color:var(--local)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+header.hero{padding-block:36px 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--mute);font-size:.9rem;margin-top:14px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;margin-bottom:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--panel2);color:var(--ink2);text-decoration:none;font-size:.88rem;font-weight:600;margin-inline-end:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section{margin-bottom:48px;scroll-margin-top:64px}
+.callout{border-inline-start:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:6px;margin:16px 0}
+.callout.local{border-color:var(--local);background:var(--local-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:480px}
+th,td{padding:10px 12px;text-align:right;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-family:'Heebo',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:700;font-family:'Heebo',sans-serif;white-space:nowrap}
+.yes{background:var(--ok-soft);color:var(--ok)} .no{background:var(--accent-soft);color:var(--accent)} .maybe{background:var(--warn-soft);color:var(--warn)}
+.loc{background:var(--local-soft);color:var(--local)} .cld{background:var(--cloud-soft);color:var(--cloud)} .mw{background:var(--panel2);color:var(--ink2)}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em;direction:ltr;unicode-bidi:embed}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;direction:ltr;text-align:left;font-size:.85rem;line-height:1.55;margin:12px 0 18px}
+pre.rtl{direction:rtl;text-align:right;font-family:'Assistant',sans-serif;font-size:.95rem;white-space:pre-wrap}
+pre code{background:none;padding:0}
+ul,ol{padding-inline-start:22px;margin:0 0 12px}
+li{margin-bottom:6px}
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:14px 0 20px}
+.step{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;box-shadow:var(--shadow)}
+.step b{display:block;font-family:'Heebo',sans-serif;font-size:.95rem}
+.step small{display:block;color:var(--mute);font-size:.82rem;line-height:1.4;margin-top:4px}
+.step.local{border-top:3px solid var(--local)} .step.cloud{border-top:3px solid var(--cloud)} .step.hot{border-top:3px solid var(--accent)} .step.mw{border-top:3px solid var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--mute);margin-top:-8px;margin-bottom:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:5px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow);margin:14px 0 20px}
+.mock .bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font-size:.85rem;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.mock .title{font-family:'Heebo',sans-serif;font-size:1.05rem;font-weight:700;color:var(--ink)}
+.mock .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media (max-width:600px){.mock .grid{grid-template-columns:1fr}}
+.mock .box{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--paper)}
+.mock .box h4{margin:0 0 10px;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--mute);font-weight:600;letter-spacing:.04em}
+.field{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.95rem}
+.field span.in{flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--panel)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.seg span{border:1px solid var(--line);border-radius:6px;padding:5px 12px;color:var(--mute);font-size:.9rem;background:var(--panel)}
+.seg span.on{border-color:var(--local);color:var(--local);background:var(--local-soft);font-weight:700}
+.recbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--accent);color:#fff;border-radius:10px;padding:16px;font-family:'Heebo',sans-serif;font-size:1.2rem;font-weight:800;margin:6px 0 8px}
+.recbtn i{width:14px;height:14px;border-radius:50%;background:#fff;display:inline-block}
+.mock .hint{color:var(--mute);font-size:.82rem}
+.mock .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.mock .row:last-child{border:0}
+.wk{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.wk .w{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.wk .w.off{background:var(--panel2);box-shadow:none;color:var(--mute)}
+.wk h4{margin:0 0 4px;font-family:'Heebo',sans-serif;font-size:1rem}
+.wk .d{color:var(--mute);font-size:.82rem;font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
+.wk ul{padding-inline-start:18px;font-size:.92rem;margin:0}
+.wk .goal{margin-top:8px;font-size:.88rem;color:var(--local);font-weight:700}
+.sources{font-size:.9rem;color:var(--ink2)}
+.sources li{margin-bottom:4px}
+.diff{font-size:.9rem;color:var(--ink2)}
+.diff b{color:var(--ink)}
+.dec{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.95rem}
+.dec b{color:var(--warn)}
+</style>
+</head>
+<body>
+<style>
+.num{font-family:'IBM Plex Mono',monospace;font-weight:500;direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.ask{border:2px solid var(--local);background:var(--local-soft);border-radius:10px;padding:14px 18px;margin:18px 0}
+.ask b{color:var(--local)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:16px 0 8px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);border-top:3px solid var(--ok)}
+.kpi b{display:block;font-family:'Heebo',sans-serif;font-size:1.35rem}
+.kpi small{color:var(--mute);font-size:.82rem}
+.id{direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">docs/reports · M1 · 28.9.2026 · מחכה לאישור שלך</div>
+  <h1 style="margin-top:8px">M1 — הצנרת</h1>
+  <p class="lead" style="margin-top:12px">M1 היא הקו שכל השאר יושב עליו: הקלטה נכנסת מצד אחד, ושורות במסד הנתונים יוצאות מהצד השני. הקובץ נחתך לקטעים לפי שקט, MacWhisper מתמלל כל קטע, Gemma מוציא ממנו מושגים, טענות, שאלות ומשימות, והכול נשמר ב-SQLite. ה-Digest, הזיכרון, בודק העובדות וההקלטה החיה מתחברים אחר כך לאותה לולאה בלי לשנות אותה.</p>
+  <div class="meta"><span>ענף <code>feat/m1-pipeline</code></span><span class="num">PR #3</span><span>המספרים מ-<code>eval/m1.json</code> ומטבלת <code>decisions</code></span><span>נבנה לפני המועד (תוכנן ל-<span class="num">4–5.10</span>)</span></div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><b class="num">8/8</b><small>שער M1</small></div>
+  <div class="kpi"><b class="num">244</b><small>בדיקות (היו 95), ruff נקי</small></div>
+  <div class="kpi"><b><span class="num" data-metric="fixture.by_run.r5.timing.total_s.p95">17.4</span> שנ'</b><small>עיבוד קטע, p95 · תקציב 30</small></div>
+  <div class="kpi"><b><span class="num"><span data-metric="fixture.by_run.r5.memory.peak_used_gb">22.24</span> GB</span></b><small>שיא זיכרון מתוך <span class="num" data-metric="fixture.by_run.r5.memory.total_gb">24.0</span> · צפוף</small></div>
+</div>
+
+<section id="built">
+  <h2>מה נבנה</h2>
+  <ul>
+    <li><b>מקור הקטעים:</b> <code>FileSource</code> מפענח כל קובץ אודיו או וידאו עם ffmpeg, וה-VAD חותך אותו לקטעים של <span class="num">30–60</span> שניות באמצע ההפסקה הארוכה ביותר. כל קטע נכתב לדיסק כ-<code>chunk_0001.wav</code> לפני שמישהו נוגע בו, כך שקריסה מאבדת לכל היותר קטע אחד.</li>
+    <li><b>תמלול:</b> <code>MacWhisperASR</code> מריץ <code>mw transcribe</code> על כל קטע. תקיעה נהרגת אחרי 24 שניות, וכל תקלה הופכת ל-<code>ASRError</code> — הקטע מסומן ככושל וההרצאה ממשיכה.</li>
+    <li><b>חילוץ:</b> קריאה אחת ל-Gemma לכל קטע, עם אימות מבנה, בדיקת אותיות זרות (קירילית, ערבית, CJK, וייטנאמית) וניסיון חוזר אחד.</li>
+    <li><b>המסד:</b> <code>Store</code> — הסכמה מהאפיון, מזהי ULID, וטרנזקציה אחת לכל קטע. הרצה חוזרת של אותו קובץ מחליפה את השורות ולא מכפילה אותן.</li>
+    <li><b>הפקודה:</b> <code>python -m lecture_copilot.cli replay &lt;file&gt; --course &lt;name&gt;</code>. הטרמינל באנגלית בלבד, שורה לכל קטע.</li>
+    <li><b>מדידת זיכרון:</b> דגימה כל שנייה בזמן הריצה — זיכרון המערכת, swap, לחץ זיכרון, וכמה תופס כל תהליך.</li>
+  </ul>
+</section>
+
+<section id="numbers">
+  <h2>המספרים על ה-fixture</h2>
+  <p>עשר דקות מהתרגול של 19/6, <span class="num" data-metric="fixture.by_run.r5.chunks">14</span> קטעים, ההרצה האחרונה מתוך <span class="num" data-metric="fixture.n_runs">5</span>.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מה</th><th>p95</th><th>תקציב</th></tr></thead>
+    <tbody>
+      <tr><td>תמלול קטע (MacWhisper, ivrit.ai)</td><td><span class="num" data-metric="fixture.by_run.r5.timing.asr_s.p95">5.38</span> שנ'</td><td><span class="num">8</span> שנ'</td></tr>
+      <tr><td>חילוץ (Gemma)</td><td><span class="num" data-metric="fixture.by_run.r5.timing.extract_s.p95">12.19</span> שנ'</td><td><span class="num">15</span> שנ'</td></tr>
+      <tr><td>סה"כ לקטע</td><td><span class="num" data-metric="fixture.by_run.r5.timing.total_s.p95">17.4</span> שנ'</td><td><span class="num">30</span> שנ'</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>שורות:</b> <span class="num" data-metric="fixture.by_run.r5.counts.segments">51</span> קטעי תמלול, <span class="num" data-metric="fixture.by_run.r5.counts.items">27</span> פריטים, <span class="num" data-metric="fixture.by_run.r5.counts.claims">18</span> טענות.</li>
+    <li><b>JSON תקין בניסיון ראשון:</b> <span class="num"><span data-metric="fixture.by_run.r5.extract.first_valid">14</span>/<span data-metric="fixture.by_run.r5.extract.calls">14</span></span> בהרצה הזו, וכך בכל חמש ההרצות. אף ניסיון חוזר, אף אות זרה.</li>
+    <li><b>החילוץ קרוב לתקציב שלו:</b> פחות מ-3 שניות מרווח. זה המקום הראשון שייפגע אם משהו יאט.</li>
+  </ul>
+</section>
+
+<section id="incident">
+  <h2>מה השתבש: הזיכרון</h2>
+  <p>בהרצה הראשונה המחשב נכנס ללחץ זיכרון, וה-swap גדל ב-<span class="num"><span data-metric="fixture.by_run.r1.memory.swap_growth_mb">11177.6</span> MB</span>. התהליך של Ollama שמריץ את Gemma הגיע ל-<span class="num"><span data-metric="fixture.by_run.r2.memory.procs_peak_mb.llama-server">10374</span> MB</span> ויותר, בשביל מודל של כ-<span class="num">8 GB</span>.</p>
+  <p><b>הסיבה:</b> Ollama <span class="num" data-metric="prompt_cache.ollama_version">0.34.2</span> שומר בזיכרון את המצב של כל פרומפט שראה, עד <span class="num">8 GB</span>, כדי לחסוך זמן אם אותו פרומפט יחזור. אצלנו כל קטע הוא פרומפט חדש, אז המטמון רק מתמלא ואף פעם לא עוזר.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מצב</th><th>אחרי פרומפט ראשון</th><th>אחרי <span class="num" data-metric="prompt_cache.prompts">6</span> פרומפטים</th><th>זמן קריאת הפרומפט</th></tr></thead>
+    <tbody>
+      <tr><td>מטמון פועל (ברירת המחדל)</td><td><span class="num"><span data-metric="prompt_cache.cache_on.first_gb">4.5</span> GB</span></td><td><span class="num"><span data-metric="prompt_cache.cache_on.last_gb">13.6</span> GB</span></td><td><span class="num" data-metric="prompt_cache.cache_on.prompt_eval_s">1.92</span> שנ'</td></tr>
+      <tr><td>מטמון כבוי</td><td><span class="num"><span data-metric="prompt_cache.cache_off.first_gb">4.5</span> GB</span></td><td><span class="num"><span data-metric="prompt_cache.cache_off.last_gb">4.5</span> GB</span></td><td><span class="num" data-metric="prompt_cache.cache_off.prompt_eval_s">1.88</span> שנ'</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>התיקון (<span class="id">D-M1-4</span>):</b> מפעילים את Ollama רק דרך <code>scripts/ollama_serve.sh</code>, שמכבה את המטמון. השער בודק את השרת שרץ בפועל, וראיתי אותו נכשל על <code>ollama serve</code> רגיל.</p>
+  <div class="callout warn"><p><b>תחת לחץ זיכרון התקציב לא מחזיק.</b> הרצה 3 רצה בזמן שהמחשב התאושש מה-swap, וה-p95 היה <span class="num" data-metric="fixture.by_run.r3.timing.total_s.p95">31.3</span> שנ' וקטע אחד מעל 30. בשתי ההרצות שאחריה הזמנים חזרו ל-17 שניות.</p></div>
+</section>
+
+<section id="memory">
+  <h2>שיא הזיכרון: נכנס, אבל צפוף</h2>
+  <ul>
+    <li><b>שיא:</b> <span class="num"><span data-metric="fixture.by_run.r5.memory.peak_used_gb">22.24</span> GB</span> מתוך <span class="num" data-metric="fixture.by_run.r5.memory.total_gb">24.0</span>, כששלושת המודלים טעונים יחד.</li>
+    <li><b>השאר הוא המחשב שלך:</b> כ-<span class="num">8 GB</span> של Chrome, Cursor, Claude, Outlook, WhatsApp ומכונה וירטואלית, שהיו פתוחים בזמן המדידה.</li>
+    <li><b>לחץ הזיכרון מגיע ל"אזהרה"</b> (המערכת דוחסת זיכרון), אבל ה-swap לא גדל: <span class="num"><span data-metric="fixture.by_run.r5.memory.swap_growth_mb">-15.3</span> MB</span> בהרצה האחרונה.</li>
+  </ul>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מי</th><th>כמה בשיא</th></tr></thead>
+    <tbody>
+      <tr><td>Gemma (המודל עצמו)</td><td><span class="num"><span data-metric="fixture.by_run.r5.memory.models_at_peak_gb.gemma3:12b">8.27</span> GB</span></td></tr>
+      <tr><td>התהליך של Ollama שמריץ אותו</td><td><span class="num"><span data-metric="fixture.by_run.r5.memory.procs_peak_mb.llama-server">2592</span> MB</span></td></tr>
+      <tr><td>MacWhisper</td><td><span class="num"><span data-metric="fixture.by_run.r5.memory.procs_peak_mb.MacWhisper">4146</span> MB</span></td></tr>
+      <tr><td>bge-m3</td><td><span class="num"><span data-metric="fixture.by_run.r5.memory.models_at_peak_gb.bge-m3">0.63</span> GB</span></td></tr>
+    </tbody>
+  </table></div>
+  <p><b>ההמלצה שלי להרצאות:</b> לסגור את Chrome, את Cursor ואת המכונה הווירטואלית לפני שמתחילים. נשארים פחות מ-<span class="num">2 GB</span> מרווח כשהם פתוחים.</p>
+</section>
+
+<section id="findings">
+  <h2>שני ממצאים שכדאי שתדע</h2>
+  <ul>
+    <li><b>MacWhisper לא נותן אותו תמלול פעמיים.</b> הרצתי את אותם <span class="num" data-metric="asr_repeat.n">14</span> קטעים פעמיים: הטקסט יצא זהה רק ב-<span class="num"><span data-metric="asr_repeat.same_text">4</span>/<span data-metric="asr_repeat.n">14</span></span> מהם. לכן מספר השורות משתנה מהרצה להרצה (בין 46 ל-58 קטעי תמלול).</li>
+    <li><b>החילוץ מוציא כמעט רק מושגים.</b> <span class="num" data-metric="fixture.item_kinds.concept">25</span> מושגים, שאלה <span class="num" data-metric="fixture.item_kinds.question">1</span>, משימה <span class="num" data-metric="fixture.item_kinds.action">1</span>, ואף הדגשה. חלק מזה צפוי בתרגול, אבל ייתכן שהפרומפט מפספס שאלות והדגשות. אבדוק את זה לפני ה-Digest של M2.</li>
+  </ul>
+  <p>לא נבדק ב-M1: האם הטענות עצמן נכונות. זה ה-Eval של M4.</p>
+</section>
+
+<section id="decisions">
+  <h2>ההחלטות של M1</h2>
+  <p>שתי הראשונות משנות קריטריון בשער, אז הן שלך לאשר או להפוך.</p>
+  <div class="dec"><b>D-M1-5 — בדיקת ההרצה החוזרת:</b> בתוכנית כתוב "מספר שורות זהה". עם MacWhisper זה לא יכול להתקיים. השער בודק עכשיו את התכונה עצמה: הרצאה אחת, הטבלאות שוות להרצה האחרונה, ואין שורה שנשארה מהרצה קודמת. מספר שורות זהה נבדק בבדיקות עם תחליפים. החלופה: לשמור את התמלול ולהשתמש בו שוב בהרצה חוזרת — אבל אז ההרצה החוזרת לא בודקת את התמלול.</div>
+  <div class="dec"><b>D-M1-6 — מה נחשב "נכנס ב-<span class="num">24 GB</span>":</b> שלושת המודלים טעונים בשיא, הלחץ לא מגיע ל"קריטי", וה-swap לא גדל ביותר מ-<span class="num">1 GB</span>. החלופה: לדרוש לחץ "רגיל" — כלומר לסגור אפליקציות לפני כל הרצאה, או מודל קטן יותר.</div>
+  <div class="dec"><b>D-M1-4 — Ollama בלי מטמון פרומפטים,</b> דרך <code>scripts/ollama_serve.sh</code>. ב-M5 המפעיל יצטרך להשתמש באותו סקריפט.</div>
+  <p>ועוד שלוש קטנות: מצב כל קטע נרשם ב-<code>decisions</code> ולא בטבלה חדשה (<span class="id">D-M1-1</span>), החילוץ רץ עם temperature 0 וזרע קבוע (<span class="id">D-M1-2</span>), וכל בקשה ל-Ollama שולחת את אותן אפשרויות טעינה (<span class="id">D-M1-3</span>). ב-D-M1-3 תיקנתי את עצמי: ייחסתי ל-<code>use_mmap</code> את כל התיקון, והמדידה הראתה שהגורם היה המטמון.</p>
+</section>
+
+<section id="caught">
+  <h2>איך השער נתפס נכשל</h2>
+  <ul>
+    <li><b>באמת:</b> <code>GATE M1: FAIL 6/7</code> על הזיכרון — כך התגלה המטמון.</li>
+    <li><b>בכוונה:</b> קובץ wav פגום דרך MacWhisper האמיתי (בכל הרצה של השער), מסד ריק, שורה שנשארה מהרצה ישנה, עמודה ששמה שונה, ו-<code>ollama serve</code> רגיל. כל אחד מהם נותן FAIL עם שם.</li>
+    <li><b>בבדיקות:</b> כשבדיקה חדשה עברה בפעם הראשונה, שברתי את הקוד כדי לוודא שהיא תופסת.</li>
+  </ul>
+  <p>עוד שתי תקלות קטנות: MacWhisper התעדכן לבד באמצע העבודה (מ-15.1.1 ל-15.2.1), והודעת שגיאה שלו בעברית הגיעה לטרמינל — עכשיו היא מוחלפת ב-<code>[he]</code>.</p>
+</section>
+
+<section id="next">
+  <h2>מה לא נבנה, ומה הלאה</h2>
+  <ul>
+    <li><b>לא נבנה, בכוונה:</b> <code>TranscriptSource</code> (M2), הקלטה חיה (M5), זיכרון הקורס (M3), והכלל שמדלג על חילוץ כשהתור מתארך — הוא צריך קצב אמיתי.</li>
+    <li><b>לא נמדד:</b> <code>--pace realtime</code> נבדק רק בבדיקות, לא על ה-fixture.</li>
+    <li><b>אצלך:</b> להפעיל את Ollama רק עם <code>scripts/ollama_serve.sh</code>; לכבות עדכונים אוטומטיים ב-MacWhisper עד 18.10; והמדידה של דקה מ-M0 (<span class="id">D-M0-11</span>) עדיין פתוחה.</li>
+    <li><b>M2 (<span class="num">6–7.10</span>):</b> ה-Digest, תיקיית הקורס, ו-<code>TranscriptSource</code> לקבצי <code>.vtt</code>. צריך Google Drive for desktop מותקן.</li>
+  </ul>
+  <div class="ask"><p><b>מה אני צריך ממך:</b> לקרוא את הדוח, להחליט על <span class="id">D-M1-5</span> ו-D-M1-6, ולאשר את המיזוג של <span class="num">PR #3</span>.</p></div>
+</section>
+</div>
+</body>
+</html>
