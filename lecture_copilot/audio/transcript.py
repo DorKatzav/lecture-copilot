@@ -58,12 +58,12 @@ def parse_mw_json(text: str) -> list[Segment]:
 
 def group_segments(segments: list[Segment], target_s: float = TARGET_S,
                    max_s: float = CHUNK_MAX_S) -> list[list[Segment]]:
-    """Close a group when it reached the target, when the next segment would push it over the maximum, or when
-    the silence before the next segment is longer than a whole chunk (a break)."""
+    """Close a group when it reached the target or when the next segment would push it over the maximum
+    (which also closes it at a break: a long silence is longer than any chunk)."""
     groups: list[list[Segment]] = []
     for s in segments:
         g = groups[-1] if groups else None
-        if g is None or g[-1].t1 - g[0].t0 >= target_s or s.t1 - g[0].t0 > max_s or s.t0 - g[-1].t1 > max_s:
+        if g is None or g[-1].t1 - g[0].t0 >= target_s or s.t1 - g[0].t0 > max_s:
             groups.append([s])
         else:
             g.append(s)
