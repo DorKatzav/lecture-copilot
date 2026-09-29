@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M2 · ה-Digest</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;800&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F6F6F2; --panel:#FFFFFF; --panel2:#EEEFEA; --ink:#1C2030; --ink2:#4D5468; --mute:#7C8398; --line:#D9DBD3;
+  --accent:#C8412F; --accent-soft:#FBE9E5; --local:#1E6F80; --local-soft:#E1F0F2; --cloud:#7A4FA8; --cloud-soft:#EFE7F8;
+  --ok:#2E7D4F; --ok-soft:#E3F2E8; --warn:#B7791F; --warn-soft:#FBF1DC; --code:#F0F1EC;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 6px 20px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+    --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+    --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+  --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+  --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Assistant',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;margin:0;direction:rtl}
+.wrap{max-width:880px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;margin-block:0 12px;padding-top:6px}
+h3{font-size:1.05rem;font-weight:700;margin-block:20px 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--ink2);max-width:62ch}
+a{color:var(--local)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+header.hero{padding-block:36px 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--mute);font-size:.9rem;margin-top:14px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;margin-bottom:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--panel2);color:var(--ink2);text-decoration:none;font-size:.88rem;font-weight:600;margin-inline-end:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section{margin-bottom:48px;scroll-margin-top:64px}
+.callout{border-inline-start:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:6px;margin:16px 0}
+.callout.local{border-color:var(--local);background:var(--local-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:480px}
+th,td{padding:10px 12px;text-align:right;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-family:'Heebo',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:700;font-family:'Heebo',sans-serif;white-space:nowrap}
+.yes{background:var(--ok-soft);color:var(--ok)} .no{background:var(--accent-soft);color:var(--accent)} .maybe{background:var(--warn-soft);color:var(--warn)}
+.loc{background:var(--local-soft);color:var(--local)} .cld{background:var(--cloud-soft);color:var(--cloud)} .mw{background:var(--panel2);color:var(--ink2)}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em;direction:ltr;unicode-bidi:embed}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;direction:ltr;text-align:left;font-size:.85rem;line-height:1.55;margin:12px 0 18px}
+pre.rtl{direction:rtl;text-align:right;font-family:'Assistant',sans-serif;font-size:.95rem;white-space:pre-wrap}
+pre code{background:none;padding:0}
+ul,ol{padding-inline-start:22px;margin:0 0 12px}
+li{margin-bottom:6px}
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:14px 0 20px}
+.step{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;box-shadow:var(--shadow)}
+.step b{display:block;font-family:'Heebo',sans-serif;font-size:.95rem}
+.step small{display:block;color:var(--mute);font-size:.82rem;line-height:1.4;margin-top:4px}
+.step.local{border-top:3px solid var(--local)} .step.cloud{border-top:3px solid var(--cloud)} .step.hot{border-top:3px solid var(--accent)} .step.mw{border-top:3px solid var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--mute);margin-top:-8px;margin-bottom:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:5px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow);margin:14px 0 20px}
+.mock .bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font-size:.85rem;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.mock .title{font-family:'Heebo',sans-serif;font-size:1.05rem;font-weight:700;color:var(--ink)}
+.mock .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media (max-width:600px){.mock .grid{grid-template-columns:1fr}}
+.mock .box{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--paper)}
+.mock .box h4{margin:0 0 10px;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--mute);font-weight:600;letter-spacing:.04em}
+.field{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.95rem}
+.field span.in{flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--panel)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.seg span{border:1px solid var(--line);border-radius:6px;padding:5px 12px;color:var(--mute);font-size:.9rem;background:var(--panel)}
+.seg span.on{border-color:var(--local);color:var(--local);background:var(--local-soft);font-weight:700}
+.recbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--accent);color:#fff;border-radius:10px;padding:16px;font-family:'Heebo',sans-serif;font-size:1.2rem;font-weight:800;margin:6px 0 8px}
+.recbtn i{width:14px;height:14px;border-radius:50%;background:#fff;display:inline-block}
+.mock .hint{color:var(--mute);font-size:.82rem}
+.mock .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.mock .row:last-child{border:0}
+.wk{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.wk .w{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.wk .w.off{background:var(--panel2);box-shadow:none;color:var(--mute)}
+.wk h4{margin:0 0 4px;font-family:'Heebo',sans-serif;font-size:1rem}
+.wk .d{color:var(--mute);font-size:.82rem;font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
+.wk ul{padding-inline-start:18px;font-size:.92rem;margin:0}
+.wk .goal{margin-top:8px;font-size:.88rem;color:var(--local);font-weight:700}
+.sources{font-size:.9rem;color:var(--ink2)}
+.sources li{margin-bottom:4px}
+.diff{font-size:.9rem;color:var(--ink2)}
+.diff b{color:var(--ink)}
+.dec{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.95rem}
+.dec b{color:var(--warn)}
+</style>
+</head>
+<body>
+<style>
+.num{font-family:'IBM Plex Mono',monospace;font-weight:500;direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.ask{border:2px solid var(--local);background:var(--local-soft);border-radius:10px;padding:14px 18px;margin:18px 0}
+.ask b{color:var(--local)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:16px 0 8px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);border-top:3px solid var(--ok)}
+.kpi b{display:block;font-family:'Heebo',sans-serif;font-size:1.35rem}
+.kpi small{color:var(--mute);font-size:.82rem}
+.id{direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.shots{display:grid;grid-template-columns:2.4fr 1fr;gap:14px;align-items:start;margin:14px 0}
+.shots img{width:100%;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.shots figure{margin:0}
+.shots figcaption{color:var(--mute);font-size:.85rem;margin-top:6px}
+@media (max-width:600px){.shots{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">docs/reports · M2 · 29.9.2026 · מחכה לאישור שלך</div>
+  <h1 style="margin-top:8px">M2 — ה-Digest</h1>
+  <p class="lead" style="margin-top:12px">M1 הפכה הקלטה לשורות במסד. M2 הופכת את השורות למשהו שאפשר לקרוא: Digest לכל הרצאה, תמיד באותם תשעה פרקים ובאותו סדר, שנכתב כקבצים לתיקיית הקורס. בנוסף, מעכשיו אפשר להריץ גם תמלול מיוצא (קובץ <code>.vtt</code> של זום או JSON של MacWhisper) באותה צנרת, בלי אודיו.</p>
+  <div class="meta"><span>ענף <code>feat/m2-digest</code></span><span>המספרים מ-<code>eval/m2.json</code> ומטבלת <code>decisions</code></span><span>נבנה לפני המועד (תוכנן ל-<span class="num">6–7.10</span>)</span></div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><b class="num">8/8</b><small>שער M2</small></div>
+  <div class="kpi"><b class="num">358</b><small>בדיקות (היו 244), ruff נקי</small></div>
+  <div class="kpi"><b><span class="num" data-metric="tirgul_full.digest.total_s">94.33</span> שנ'</b><small>Digest להרצאה של <span class="num" data-metric="tirgul_full.digest.minutes">78</span> דקות · תקציב 120</small></div>
+  <div class="kpi"><b class="num">9</b><small>פרקים, תמיד באותו סדר</small></div>
+</div>
+
+<section id="built">
+  <h2>מה נבנה</h2>
+  <ul>
+    <li><b>הרצה מתמלול:</b> <code>TranscriptSource</code> קורא קובץ <code>.vtt</code> או JSON, מקבץ את השורות לקטעים של כ-45 שניות, וכותב כל קטע לדיסק. משם הצנרת ממשיכה כרגיל, בלי לדעת שלא היה אודיו.</li>
+    <li><b>ה-Digest:</b> <code>output/digest.py</code> — סיכום מנהלים וסיכום מלא נכתבים על ידי Gemma; שאר הפרקים הם תבניות על המסד.</li>
+    <li><b>תיקיית הקורס:</b> <code>FolderSink</code> כותב לכל הרצאה <code>digest.md</code>, <code>digest.html</code>, <code>transcript.txt</code> ו-<code>claims.json</code>, ומעדכן <code>index.md</code> של הקורס.</li>
+    <li><b>הפקודות:</b> <code>replay</code> מסתיים עכשיו ב-Digest; <code>digest</code> בונה מחדש Digest להרצאה קיימת.</li>
+    <li><b>תקלה לא עולה ב-Digest:</b> אם המודל נכשל בחלק מסוים, החלק מתמלא מתקצירי הקטעים או מסומן, והקבצים נכתבים בכל מקרה.</li>
+  </ul>
+</section>
+
+<section id="how">
+  <h2>איך ה-Digest נבנה</h2>
+  <p>באפיון, Gemma מקבל את כל תקצירי הקטעים בבת אחת. מדדתי: שורת תקציר עולה כ-38 טוקנים, ו-Gemma רץ עם חלון של <span class="num">4,096</span> טוקנים. הרצאה של שעה וחצי לא נכנסת. לכן ה-Digest נבנה בשני שלבים (<span class="id">D-M2-2</span>):</p>
+  <ul>
+    <li><b>שלב א':</b> התקצירים מתחלקים לבלוקים שווים, וכל בלוק הופך לפסקאות של הסיכום המלא.</li>
+    <li><b>שלב ב':</b> מהסיכום המלא נכתבות חמש הנקודות של סיכום המנהלים.</li>
+  </ul>
+  <p>התמלול עצמו לא נקרא שוב, ולכן הזמן כמעט לא תלוי באורך ההרצאה.</p>
+</section>
+
+<section id="numbers">
+  <h2>המספרים</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מה הורץ</th><th>קטעים</th><th>עיבוד קטע, p95</th><th>בלוקים</th><th>זמן ה-Digest</th></tr></thead>
+    <tbody>
+      <tr><td>התרגול המלא של 19/6, מאודיו (<span class="num" data-metric="tirgul_full.audio_min">83.2</span> דקות)</td><td><span class="num" data-metric="tirgul_full.chunks">115</span></td><td><span class="num" data-metric="tirgul_full.timing.total_s.p95">17.92</span> שנ'</td><td><span class="num" data-metric="tirgul_full.digest.blocks">3</span></td><td><span class="num" data-metric="tirgul_full.digest.total_s">94.33</span> שנ'</td></tr>
+      <tr><td>ההרצאה של 7/6, מה-<code>.vtt</code> (<span class="num" data-metric="vtt_0607.digest.minutes">251</span> דקות)</td><td><span class="num" data-metric="vtt_0607.chunks">259</span></td><td><span class="num" data-metric="vtt_0607.timing.total_s.p95">12.93</span> שנ'</td><td><span class="num" data-metric="vtt_0607.digest.blocks">5</span></td><td><span class="num" data-metric="vtt_0607.digest.total_s">119.33</span> שנ'</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>אף קטע לא חרג</b> מ-30 שניות בתרגול המלא; הגרוע ביותר לקח <span class="num" data-metric="tirgul_full.timing.total_s.max">22.46</span> שנ'.</li>
+    <li><b>החילוץ קרוב לתקציב:</b> p95 של <span class="num" data-metric="tirgul_full.timing.extract_s.p95">13.36</span> שנ' מתוך 15. הפרומפט החדש הוסיף לו כשנייה.</li>
+    <li><b>זיכרון:</b> שיא של <span class="num"><span data-metric="tirgul_full.memory.peak_used_gb">21.86</span> GB</span> לאורך 83 דקות, וה-swap לא גדל (<span class="num"><span data-metric="tirgul_full.memory.swap_growth_mb">-264.0</span> MB</span>).</li>
+    <li><b>התקציב של שתי דקות</b> נבדק על הרצאות של שעה עד שעתיים. הקלטה של ארבע שעות מדווחת ולא נשפטת (<span class="id">D-M2-7</span>); בפועל גם היא יצאה מתחת לתקציב, בקושי.</li>
+    <li><b>בהרצאה של 7/6 הבעיות גדלות עם האורך:</b> <span class="num" data-metric="vtt_0607.digest_md.concepts">205</span> מושגים, <span class="num" data-metric="vtt_0607.digest_md.highlights">50</span> הדגשות ו-<span class="num" data-metric="vtt_0607.digest_md.full_summary_words">805</span> מילים בסיכום המלא.</li>
+  </ul>
+</section>
+
+<section id="look">
+  <h2>איך זה נראה</h2>
+  <p>הצילומים הם של הרצאה מומצאת (הדוגמה מהאפיון). Digest אמיתי הוא חומר של הקורס, ולא נכנס לריפו הציבורי (<span class="id">D-M2-8</span>).</p>
+  <div class="shots">
+    <figure><img src="img/m2_digest_desktop.jpg" alt="ה-Digest במסך מלא: כותרת ההרצאה, סיכום מנהלים בחמש נקודות ותחילת הסיכום המלא"><figcaption>מסך מלא</figcaption></figure>
+    <figure><img src="img/m2_digest_phone.jpg" alt="אותו Digest ברוחב של טלפון"><figcaption>רוחב של טלפון</figcaption></figure>
+  </div>
+</section>
+
+<section id="prompts">
+  <h2>ניסוי הפרומפטים</h2>
+  <p>ב-M1 ראינו שהחילוץ מוציא כמעט רק מושגים. ניסיתי שלוש גרסאות של פרומפט החילוץ על אותם תמלולים בדיוק: 20 קטעים מההרצאה של 7/6.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>גרסה</th><th>טענות</th><th>הדגשות</th><th>שאלות</th><th>תקצירים שמספרים על המרצה</th><th>זמן, p95</th></tr></thead>
+    <tbody>
+      <tr><td><code>extract_v0</code></td><td><span class="num" data-metric="extract_compare_lecture.extract_v0.claims">13</span></td><td><span class="num" data-metric="extract_compare_lecture.extract_v0.highlights">0</span></td><td><span class="num" data-metric="extract_compare_lecture.extract_v0.questions">6</span></td><td><span class="num" data-metric="extract_compare_lecture.extract_v0.summaries_naming_the_lecturer">20</span></td><td><span class="num" data-metric="extract_compare_lecture.extract_v0.p95_s">10.61</span> שנ'</td></tr>
+      <tr><td><code>extract_v1</code></td><td><span class="num" data-metric="extract_compare_lecture.extract_v1.claims">0</span></td><td><span class="num" data-metric="extract_compare_lecture.extract_v1.highlights">1</span></td><td><span class="num" data-metric="extract_compare_lecture.extract_v1.questions">1</span></td><td><span class="num" data-metric="extract_compare_lecture.extract_v1.summaries_naming_the_lecturer">1</span></td><td><span class="num" data-metric="extract_compare_lecture.extract_v1.p95_s">8.96</span> שנ'</td></tr>
+      <tr><td><code>extract_v2</code></td><td><span class="num" data-metric="extract_compare_lecture_v2.extract_v2.claims">3</span></td><td><span class="num" data-metric="extract_compare_lecture_v2.extract_v2.highlights">0</span></td><td><span class="num" data-metric="extract_compare_lecture_v2.extract_v2.questions">0</span></td><td><span class="num" data-metric="extract_compare_lecture_v2.extract_v2.summaries_naming_the_lecturer">15</span></td><td><span class="num" data-metric="extract_compare_lecture_v2.extract_v2.p95_s">10.56</span> שנ'</td></tr>
+      <tr><td><code>extract_v3</code></td><td><span class="num" data-metric="extract_compare_lecture_v3.extract_v3.claims">9</span></td><td><span class="num" data-metric="extract_compare_lecture_v3.extract_v3.highlights">3</span></td><td><span class="num" data-metric="extract_compare_lecture_v3.extract_v3.questions">3</span></td><td><span class="num" data-metric="extract_compare_lecture_v3.extract_v3.summaries_naming_the_lecturer">20</span></td><td><span class="num" data-metric="extract_compare_lecture_v3.extract_v3.p95_s">12.42</span> שנ'</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b><code>v1</code> נפסלה:</b> היא העלימה את כל הטענות, כולל עובדות נכונות על Python שכדאי לבדוק, והתקצירים נעשו כלליים.</li>
+    <li><b><code>v2</code> נפסלה:</b> הסיפור על המרצה חזר, ונשארו שלוש טענות בלבד.</li>
+    <li><b><code>v3</code> בשימוש</b> (<span class="id">D-M2-4</span>): הגרסה המקורית עם שינוי אחד, כלל ההדגשות. הלקח: שיניתי ב-<code>v1</code> יותר מדי דברים בבת אחת.</li>
+    <li><b>פרומפט ה-Digest</b> (<span class="id">D-M2-5</span>): בגרסה החדשה, על ה-fixture, משפטים שמספרים על המרצה ירדו מ-<span class="num" data-metric="digest_compare.digest_sections_v0.sentences_naming_the_lecturer">8</span> ל-<span class="num" data-metric="digest_compare.digest_sections_v1.sentences_naming_the_lecturer">0</span>.</li>
+  </ul>
+</section>
+
+<section id="quality">
+  <h2>איכות ה-Digest: מה עוד לא טוב</h2>
+  <p>המבנה והזמנים עומדים בשער. התוכן עדיין לא במקום שהייתי רוצה. אלה המספרים של התרגול המלא:</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>פרק</th><th>כמה יצא</th><th>הבעיה</th></tr></thead>
+    <tbody>
+      <tr><td>מושגים</td><td><span class="num" data-metric="tirgul_full.digest_md.concepts">77</span></td><td>יותר מדי. אותו מושג מופיע בכמה כתיבים (Git, גיט), כי התמלול כותב אנגלית באותיות עבריות. הזיכרון של M3 אמור לאחד.</td></tr>
+      <tr><td>★ למבחן</td><td><span class="num" data-metric="tirgul_full.digest_md.highlights">29</span></td><td>יותר מדי בשביל פרק שאמור להיות קצר. המרצה אומרת "חשוב" הרבה.</td></tr>
+      <tr><td>משימות</td><td><span class="num" data-metric="tirgul_full.digest_md.tasks">13</span></td><td>רובן לא מטלות, אלא דברים שנעשו בכיתה.</td></tr>
+      <tr><td>טענות מסומנות</td><td><span class="num" data-metric="tirgul_full.digest_md.claims_flagged">33</span></td><td>הרבה מהן ענייני מנהלה ("יונתן אחראי על התרגיל") ולא עובדות לבדיקה.</td></tr>
+      <tr><td>סיכום מלא</td><td><span class="num" data-metric="tirgul_full.digest_md.full_summary_words">681</span> מילים</td><td>מעל היעד של <span class="num">400–600</span>, ו-<span class="num" data-metric="tirgul_full.digest_md.full_summary_sentences_naming_the_lecturer">7</span> משפטים עדיין מספרים על המרצה.</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>ההמלצה שלי:</b> את הטענות לכוון ב-M4 מול הבנצ'מרק שתתייג, ולא לפי הקריאה שלי. לגבי ההדגשות והמשימות יש שאלה אליך למטה.</p>
+</section>
+
+<section id="decisions">
+  <h2>ההחלטות של M2</h2>
+  <div class="dec"><b><span class="id">D-M2-2</span> — Digest בשני שלבים:</b> במקום קריאה אחת כמו באפיון. בהרצה קצרה (כמו ה-fixture) הסיכום המלא קצר מ-400 מילים, כדי שהמודל לא ימציא.</div>
+  <div class="dec"><b><span class="id">D-M2-6</span> — תיקיית הקורס מקומית בינתיים:</b> Google Drive for desktop לא מותקן, אז הקבצים נכתבים ל-<code>runs/courses</code>. הקוד מסרב ליצור תיקייה שמתחזה ל-Drive. אחרי ההתקנה משנים את <code>COURSES_ROOT</code> בלבד.</div>
+  <div class="dec"><b><span class="id">D-M2-7</span> — תקציב ה-Digest נבדק על הרצאות של שעה עד שעתיים.</b> קבעתי את זה לפני שראיתי את התוצאה של ההרצאה הארוכה.</div>
+  <p>ועוד חמש קטנות: איך מדלגים על התמלול בלי שהצנרת תדע (<span class="id">D-M2-1</span>), גרסה 2 של המסד עם העברה אוטומטית (<span class="id">D-M2-3</span>), הפרומפטים שבשימוש (<span class="id">D-M2-4</span>, <span class="id">D-M2-5</span>), וצילומים של הרצאה מומצאת (<span class="id">D-M2-8</span>).</p>
+</section>
+
+<section id="caught">
+  <h2>מה נתפס בדרך</h2>
+  <ul>
+    <li><b>בצילום מסך, לא בקוד:</b> טענה שמתחילה במילה באנגלית ("Dropbox הגיעה…") הוצגה בסדר מילים הפוך, וטווח אחוזים התהפך. שני הבאגים תוקנו ויש להם בדיקות.</li>
+    <li><b>בשבירה מכוונת:</b> תנאי אחד בקיבוץ התמלול התברר כקוד מת ונמחק; שתי בדיקות שלי התבררו כחלשות מדי וחוזקו.</li>
+    <li><b>מזהים:</b> שני מזהים שנוצרו באותה אלפית שנייה יצאו בסדר אקראי. עכשיו הסדר נשמר.</li>
+  </ul>
+</section>
+
+<section id="next">
+  <h2>מה לא נבנה, ומה הלאה</h2>
+  <ul>
+    <li><b>פרק "המשך מההרצאה הקודמת"</b> קיים בכל Digest, אבל התוכן שלו מגיע ב-M3. בינתיים כתוב בו שזו ההרצאה הראשונה.</li>
+    <li><b>לא נבנה, בכוונה:</b> <code>flashcards.tsv</code> (סולם הוויתורים) ו-<code>course.html</code> (M5).</li>
+    <li><b>מגבלה ידועה:</b> ב-<code>digest.md</code> טווח מספרים עדיין יכול להתהפך בתצוגה; תיקנתי רק ב-<code>digest.html</code>.</li>
+    <li><b>אצלך:</b> להתקין Google Drive for desktop; המדידה של דקה מ-M0 (<span class="id">D-M0-11</span>) עדיין פתוחה.</li>
+    <li><b>M3 (<span class="num">8–10.10</span>):</b> זיכרון הקורס — "נאמר כבר", סתירות, ופרק ההמשך.</li>
+  </ul>
+  <div class="ask"><p><b>מה אני צריך ממך:</b> לקרוא את הדוח ולאשר את המיזוג. ושאלה אחת: האם להגביל את פרק ★ לסימנים חזקים בלבד ("זה במבחן", "תזכרו"), או להשאיר כל "חשוב" ולתת לך לסנן?</p></div>
+</section>
+</div>
+</body>
+</html>
