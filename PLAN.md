@@ -64,14 +64,14 @@ TranscriptSource (mw JSON)   ─┘        (skips asr)                          
 lecture-copilot/                      git root; GitHub: DorKatzav/lecture-copilot
 ├── lecture_copilot/
 │   ├── config.py                     paths, models, thresholds, Profile, load_env()
-│   ├── cli.py                        copilot | record | replay | digest | eval | course-page
+│   ├── cli.py                        copilot | record | replay | digest | eval | course-page   (M2: replay, digest)
 │   ├── audio/  sources.py (ChunkSource, LiveSource, FileSource, TranscriptSource)  vad.py  meter.py
 │   ├── asr/    base.py (ASR protocol, Segment)  macwhisper.py  mlx.py (optional, M5+ ladder)
 │   ├── agents/ schemas.py (ExtractResult…)  extractor.py  memory.py  verifier.py  ranker.py  recap.py  graph.py (ladder)
 │   ├── store/  db.py (schema, ULID, upserts)  search.py (fts + vec + rrf)  embed.py  net.py
 │   ├── output/ digest.py  course_page.py  sinks.py (Sink, FolderSink, NotionSink)  templates/*.md.j2
 │   └── web/    app.py  index.html  (single page: before / during / after)
-├── prompts/  extract_v0.md  digest_v0.md  verifier_v0.md  recap_v0.md
+├── prompts/  extract_v3.md  digest_sections_v1.md  digest_exec_v1.md  verifier_v0.md  recap_v0.md   (in use: config.py; older versions stay)
 ├── eval/     fixture_10min.m4a (gitignored)  benchmark.json  eval.py  results.json
 ├── tests/    stubs.py (fake mw / ollama / gemini / notion) + one test file per module
 ├── scripts/  gate.py  setup_models.sh  make_fixture.sh
@@ -110,8 +110,9 @@ class LiveSource:      # sounddevice InputStream → vad.split → writes runs/<
     level: float       # RMS of the last 250 ms, read by web/ for the meter
 class FileSource:      # ffmpeg -i file -ac 1 -ar 16000 → vad.split; pace="realtime" sleeps t1-t0, "fast" does not
     def __init__(self, lecture_id: str, file: Path, pace: Literal["realtime", "fast"] = "fast"): ...
-class TranscriptSource:  # mw JSON export (or Zoom .vtt) → yields Segment groups as pseudo-chunks; pipeline skips ASR
-    def __init__(self, lecture_id: str, file: Path): ...
+class TranscriptSource:  # audio/transcript.py — mw JSON export or Zoom .vtt → groups of ~45 s written to disk as
+    def __init__(self, lecture_id: str, file: Path): ...   # chunk_NNNN.json (mw's shape); asr/transcript.TranscriptASR
+                                                           # reads them back, so the pipeline never knows (D-M2-1)
 ```
 
 ### 3.3 `asr/base.py`
@@ -135,6 +136,9 @@ class ExtractResult(BaseModel):
     chunk_summary: str; concepts: list[Concept]; claims: list[Claim]; items: list[Item]
 class MemoryHit(BaseModel): kind: str; id: str; lecture_id: str; text: str; score: float
 class Verdict(BaseModel):  verdict: Literal["correct","incorrect","imprecise","unverifiable"]; confidence: float; explanation: str; sources: list[str]
+class DigestSection(BaseModel): paragraphs: list[str]            # 1–3, map step (M2)
+class Continuation(BaseModel):  new: list[str]; repeated: list[str]; contradicts: list[str]
+class DigestExec(BaseModel):    exec_summary: list[str]          # exactly 5; continuation: Continuation | None (M3 fills it)
 ```
 
 ### 3.5 `agents/*.py` (four plain async functions + recap)
@@ -156,7 +160,7 @@ items(id, lecture_id, segment_id, kind concept|question|action|highlight|note|de
 claims(id, lecture_id, segment_id, text, normalized, importance, status pending|verified|skipped|unchecked, verdict, confidence, sources_json, cache_key, embedding BLOB)
 lecture_summaries(lecture_id, bullets_json, digest_md, embedding BLOB)
 fact_cache(cache_key, verdict, sources_json, checked_at)
-decisions(id, lecture_id, node extractor|memory|verifier|ranker|net|asr|chunk|run (D-M1-1), input_ref, output_json, ms, tokens_in, tokens_out, cost_usd, ts)
+decisions(id, lecture_id, node extractor|memory|verifier|ranker|net|asr|chunk|run (D-M1-1)|digest|sink (M2, schema v2), input_ref, output_json, ms, tokens_in, tokens_out, cost_usd, ts)
 items_fts / claims_fts  = FTS5(text, canonical_key)   ·   vec_items / vec_claims = sqlite-vec (bge-m3, 1024 dims)
 ```
 ```python
@@ -169,12 +173,16 @@ class Store:
 
 ### 3.7 `output/`
 ```python
-def digest(lecture_id: str) -> DigestDoc      # map-reduce: chunk_summaries + items + claims + previous bullets → gemma3:12b (prompts/digest_v0.md) → sections in fixed order
+async def digest(lecture_id, *, store, client) -> DigestDoc   # D-M2-2, sized for num_ctx 4096 (a summary line ≈ 38 tokens):
+    # map: even blocks of chunk summaries (+ their concepts) → paragraphs of the full summary   prompts/digest_sections_v1.md
+    # reduce: full summary (+ highlights, previous bullets) → 5 executive bullets (+ continuation)  prompts/digest_exec_v1.md
+    # the other sections are templates (output/templates/digest.md.j2, digest.html.j2); a failed call degrades, never aborts
 def course_page(course_id: str) -> CoursePage  # templates only, no LLM: glossary (canonical_key, first_seen), all ★, claims lecturer-said/actually, open questions, tasks
 class Sink(Protocol):
-    def write_lecture(self, doc: DigestDoc) -> None
-    def write_course(self, page: CoursePage) -> None
-class FolderSink:  # COURSES_ROOT/<course>/W05_2026-11-04_<slug>/{digest.md, digest.html, transcript.txt, claims.json, flashcards.tsv} + <course>/course.html + index.md
+    def write_lecture(self, doc: DigestDoc) -> Path
+    def write_course(self, page: CoursePage) -> None            # arrives with course_page() in M5
+class FolderSink:  # COURSES_ROOT/<course>/W05_2026-11-04_<slug>/{digest.md, digest.html, transcript.txt, claims.json} + <course>/index.md
+                   # (flashcards.tsv: cut ladder; course.html: M5). Refuses to create COURSES_ROOT when its parent is missing.
 class NotionSink:  # M6 — see §3.8
 ```
 
