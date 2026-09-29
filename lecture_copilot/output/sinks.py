@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Protocol
 
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
+from markupsafe import Markup, escape
 
 from lecture_copilot.config import COURSES_ROOT
 from lecture_copilot.output.digest import DigestDoc, render_markdown
@@ -19,6 +20,30 @@ _UNSAFE = re.compile(r'[/\\:*?"<>|\x00-\x1f]')
 _html = Environment(loader=PackageLoader("lecture_copilot.output", "templates"), undefined=StrictUndefined,
                     autoescape=select_autoescape(default=True, default_for_string=True))
 CLAIM_FIELDS = ("text", "normalized", "importance", "status", "verdict", "confidence")
+_RANGE = re.compile(r"\d[\d.,:%]*(?:\s?[–-]\s?\d[\d.,:%]*)+")
+
+
+def textdir(text: str) -> str:
+    """Direction of a sentence by its dominant script. First-letter detection (`<bdi>`, dir="auto") turns a
+    Hebrew sentence that opens with "Dropbox" into a left-to-right one and reverses its word order."""
+    hebrew = sum("\u0590" <= c <= "\u05ff" for c in text)
+    latin = sum(c.isascii() and c.isalpha() for c in text)
+    return "ltr" if latin > hebrew else "rtl"
+
+
+def isolate_ranges(text: str) -> Markup:
+    """In right-to-left text a range of numbers renders reversed (2%–5% shows as 5%–2%): each range becomes one
+    left-to-right span. Single numbers and Latin words are left to the browser's bidi algorithm."""
+    out, last = [], 0
+    for m in _RANGE.finditer(text):
+        out += [escape(text[last:m.start()]), Markup('<span class="num">'), escape(m.group().rstrip(".,:")),
+                Markup("</span>"), escape(m.group()[len(m.group().rstrip(".,:")):])]
+        last = m.end()
+    return Markup("").join([*out, escape(text[last:])])
+
+
+_html.filters["r"] = isolate_ranges
+_html.filters["textdir"] = textdir
 
 
 class Sink(Protocol):

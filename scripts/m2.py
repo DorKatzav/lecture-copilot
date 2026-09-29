@@ -4,6 +4,7 @@
         the same transcripts (mw JSON next to each chunk) through both prompts: counts by kind
     python scripts/m2.py digest-compare <lecture_id> --map digest_sections_v0 digest_sections_v1 \\
         --exec digest_exec_v0 digest_exec_v1                    the same rows through both Digest prompt pairs
+    python scripts/m2.py sample-digest                         a made-up lecture, every section filled (screenshots)
     python scripts/m2.py report --page docs/reports/M2_HE.html
 """
 
@@ -17,12 +18,13 @@ from pathlib import Path
 import httpx
 
 from lecture_copilot.agents.extractor import ExtractError, extract
-from lecture_copilot.agents.schemas import ExtractResult
+from lecture_copilot.agents.schemas import Continuation, ExtractResult
 from lecture_copilot.asr.macwhisper import parse_output
 from lecture_copilot.audio.sources import AudioChunk
 from lecture_copilot.config import DB_PATH, OLLAMA_URL, ROOT, VERIFY_MIN_IMPORTANCE, Profile
 from lecture_copilot.metrics_page import fill_metrics
-from lecture_copilot.output.digest import digest, render_markdown
+from lecture_copilot.output.digest import ClaimRow, ConceptRow, DigestDoc, TaskRow, digest, render_markdown
+from lecture_copilot.output.sinks import FolderSink
 from lecture_copilot.pipeline import Ctx
 from lecture_copilot.stats import percentile
 from lecture_copilot.store.db import Store, new_id
@@ -128,6 +130,54 @@ def cmd_digest_compare(a: argparse.Namespace) -> None:
     print(json.dumps(res, indent=2))
 
 
+def sample_doc() -> DigestDoc:
+    """A made-up lecture (the spec's example course) with every section filled: what the report's screenshots
+    show. Real Digests are course material and never go into the repository."""
+    return DigestDoc(
+        lecture_id="SAMPLE", course_name="יזמות וחדשנות", title="מודלים עסקיים ב'", date="2026-11-04", week=5,
+        minutes=88, language="he",
+        exec_summary=[
+            "מודל עסקי בריא מחזיר את עלות רכישת הלקוח (CAC) בתוך 12 חודשים לכל היותר.",
+            "היחס LTV/CAC צריך להיות לפחות 3; מתחת ל-1 העסק מפסיד על כל לקוח חדש.",
+            "Churn חודשי של 5% מוחק כמעט חצי מהלקוחות בשנה, ולכן שימור קודם לגיוס.",
+            "במודל Freemium רק 2%–5% מהמשתמשים משלמים, והמחיר צריך לכסות את כל השאר.",
+            "לפני שמגדילים תקציב שיווק בודקים את ה-Unit Economics של לקוח אחד.",
+        ],
+        full_summary=[
+            "עלות רכישת לקוח (CAC) היא סך הוצאות השיווק והמכירות חלקי מספר הלקוחות החדשים באותה תקופה. "
+            "ערך חיי הלקוח (LTV) הוא ההכנסה הממוצעת מלקוח כפול משך הזמן שהוא נשאר. "
+            "היחס בין השניים קובע אם צמיחה יוצרת ערך או שורפת כסף.",
+            "במודל מנויים, Churn הוא שיעור הלקוחות שעוזבים בחודש. Churn של 5% נשמע קטן, אבל בחישוב שנתי "
+            "נשארים רק כ-54% מהלקוחות. לכן שיפור של נקודת אחוז אחת בשימור שווה יותר מקמפיין גיוס.",
+            "במודל Freemium רוב המשתמשים לא משלמים לעולם. הדוגמה מהשיעור: 100,000 משתמשים, 3% משלמים "
+            "39 ש\"ח בחודש, כלומר הכנסה חודשית של 117,000 ש\"ח שצריכה לממן את כולם.",
+        ],
+        highlights=["ההגדרה של CAC ושל LTV, כולל הנוסחאות — זה במבחן.",
+                    "לזכור: Churn חודשי ו-Churn שנתי אינם אותו מספר."],
+        prev_title="W04 · מודלים עסקיים א'",
+        continuation=Continuation(new=["LTV", "Churn", "Freemium"], repeated=["CAC", "Unit Economics"],
+                                  contradicts=["ב-W04 נאמר שתקופת ההחזר המקובלת היא 18 חודשים; היום 12"]),
+        concepts=[ConceptRow("CAC", "עלות רכישת לקוח: הוצאות שיווק ומכירות חלקי מספר הלקוחות החדשים.", "cac"),
+                  ConceptRow("LTV", "ערך חיי לקוח: כמה הכנסה מביא לקוח ממוצע לאורך כל התקופה שלו.", "ltv"),
+                  ConceptRow("Churn", "שיעור הלקוחות שעוזבים בתקופה נתונה.", "churn"),
+                  ConceptRow("Freemium", "מוצר בסיסי חינם, ותשלום על יכולות מתקדמות.", "freemium"),
+                  ConceptRow("תקופת החזר", "כמה חודשים עוברים עד שלקוח מחזיר את עלות הרכישה שלו.", "payback")],
+        claims=[ClaimRow("Dropbox הגיעה ל-4% משלמים במודל Freemium", 90, "pending", "עדיין לא נבדק"),
+                ClaimRow("Netflix איבדה מיליון מנויים ברבעון אחד ב-2022", 85, "unchecked", "לא נבדק — אין רשת"),
+                ClaimRow("יחס LTV/CAC של 3 הוא הסטנדרט בתעשיית ה-SaaS", 75, "pending", "עדיין לא נבדק")],
+        all_claims=[], questions=["איך מחשבים LTV כשעדיין אין נתוני Churn של שנה שלמה?",
+                                  "האם CAC כולל גם את המשכורות של צוות המכירות?"],
+        tasks=[TaskRow("לחשב CAC ו-LTV למיזם שלי לפי הגיליון מהמודל", None, "2026-11-11"),
+               TaskRow("לקרוא את פרק 4 ב-Business Model Generation", None, None)],
+        notes=["לשאול את המרצה על Churn שלילי.", "הדוגמה של Freemium מתאימה לפרויקט הגמר."],
+        segments=[{"t0": 0.0, "t1": 8.0, "text": "ערב טוב, היום נמשיך במודלים עסקיים.", "speaker": None}])
+
+
+def cmd_sample_digest(_: argparse.Namespace) -> None:
+    folder = FolderSink(WORK / "sample").write_lecture(sample_doc())
+    print(f"sample digest written ({len(list(folder.iterdir()))} files)")
+
+
 def cmd_report(a: argparse.Namespace) -> None:
     data = json.loads(RESULTS.read_text(encoding="utf-8")) if RESULTS.exists() else {}
     page = Path(a.page)
@@ -149,6 +199,7 @@ def main(argv: list[str] | None = None) -> None:
     d.add_argument("--db", default=str(DB_PATH))
     d.add_argument("--key", default="digest_compare")
     d.set_defaults(fn=cmd_digest_compare)
+    sub.add_parser("sample-digest").set_defaults(fn=cmd_sample_digest)
     r = sub.add_parser("report")
     r.add_argument("--page", required=True)
     r.set_defaults(fn=cmd_report)

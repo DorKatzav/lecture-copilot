@@ -16,3 +16,9 @@ def test_counts_by_kind_over_all_chunks():
 
 def test_share_of_summaries_that_mention_the_lecturer():
     assert m2.lecturer_mentions(["המרצה פותח תרגיל", "git שומר גרסאות", "המרצה ממליצה", "הסטודנטים שאלו"]) == 2
+
+
+def test_the_sample_lecture_fills_every_section():
+    from lecture_copilot.output.digest import SECTIONS, render_markdown, section_headings
+    md = render_markdown(m2.sample_doc())
+    assert section_headings(md) == SECTIONS and "אין." not in md and "המשך מ-W04" in md

@@ -55,14 +55,14 @@ li{margin-bottom:6px}
 .exec{border-inline-start:4px solid var(--local);background:var(--local-soft);padding:14px 18px;border-radius:8px}
 .exec ol{margin:0;padding-inline-start:22px}
 .claim{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:8px 0}
-.claim q{quotes:'"' '"'}
+.claim q{quotes:'"' '"';unicode-bidi:isolate}
 .empty{color:var(--mute)}
 h2 small{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:.8rem;color:var(--mute)}{% endraw %}
 
 </style>
 </head>
 <body>
-{% macro bullets(rows) %}{% if rows %}<ul>{% for r in rows %}<li>{{ r }}</li>{% endfor %}</ul>{% else %}<p class="empty">אין.</p>{% endif %}{% endmacro %}
+{% macro bullets(rows) %}{% if rows %}<ul>{% for r in rows %}<li>{{ r | r }}</li>{% endfor %}</ul>{% else %}<p class="empty">אין.</p>{% endif %}{% endmacro %}
 <div class="wrap">
 <header class="hero">
   <div class="eyebrow">{{ doc.course_name }}{% if doc.week is not none %} · <span class="num">W{{ "%02d" | format(doc.week) }}</span>{% endif %}</div>
@@ -73,12 +73,12 @@ h2 small{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:.8rem;c
 
 <section id="exec">
   <h2>סיכום מנהלים</h2>
-  {% if doc.exec_summary %}<div class="exec"><ol>{% for b in doc.exec_summary %}<li>{{ b }}</li>{% endfor %}</ol></div>{% else %}<p class="empty">לא נוצר סיכום מנהלים: המודל לא החזיר פלט תקין.</p>{% endif %}
+  {% if doc.exec_summary %}<div class="exec"><ol>{% for b in doc.exec_summary %}<li>{{ b | r }}</li>{% endfor %}</ol></div>{% else %}<p class="empty">לא נוצר סיכום מנהלים: המודל לא החזיר פלט תקין.</p>{% endif %}
 </section>
 
 <section id="full">
   <h2>סיכום מלא</h2>
-  {% if doc.full_summary %}{% for p in doc.full_summary %}<p>{{ p }}</p>{% endfor %}{% else %}<p class="empty">אין.</p>{% endif %}
+  {% if doc.full_summary %}{% for p in doc.full_summary %}<p>{{ p | r }}</p>{% endfor %}{% else %}<p class="empty">אין.</p>{% endif %}
 </section>
 
 <section id="star">
@@ -87,23 +87,23 @@ h2 small{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:.8rem;c
 </section>
 
 <section id="continues">
-  {% if doc.continuation %}<h2>המשך מ-<bdi>{{ doc.prev_title }}</bdi></h2>
+  {% if doc.continuation %}<h2>המשך מ-<span dir="{{ doc.prev_title | textdir }}">{{ doc.prev_title }}</span></h2>
   <ul>
-    <li><b>מה חדש:</b> {{ doc.continuation.new | join(" · ") or "אין" }}</li>
-    <li><b>מה חזר:</b> {{ doc.continuation.repeated | join(" · ") or "אין" }}</li>
-    <li><b>מה סותר:</b> {{ doc.continuation.contradicts | join(" · ") or "אין" }}</li>
+    <li><b>מה חדש:</b> {{ (doc.continuation.new | join(" · ") or "אין") | r }}</li>
+    <li><b>מה חזר:</b> {{ (doc.continuation.repeated | join(" · ") or "אין") | r }}</li>
+    <li><b>מה סותר:</b> {{ (doc.continuation.contradicts | join(" · ") or "אין") | r }}</li>
   </ul>{% else %}<h2>המשך מההרצאה הקודמת</h2>
   <p class="empty">זו ההרצאה הראשונה בקורס.</p>{% endif %}
 </section>
 
 <section id="concepts">
   <h2>מושגים <small>({{ doc.concepts | length }})</small></h2>
-  {% if doc.concepts %}<ul>{% for c in doc.concepts %}<li><b><bdi>{{ c.term }}</bdi></b> — {{ c.explanation }}</li>{% endfor %}</ul>{% else %}<p class="empty">אין.</p>{% endif %}
+  {% if doc.concepts %}<ul>{% for c in doc.concepts %}<li><b><bdi>{{ c.term }}</bdi></b> — {{ c.explanation | r }}</li>{% endfor %}</ul>{% else %}<p class="empty">אין.</p>{% endif %}
 </section>
 
 <section id="claims">
   <h2>טענות מסומנות</h2>
-  {% if doc.claims %}{% for c in doc.claims %}<div class="claim">המרצה אמר: <q><bdi>{{ c.text }}</bdi></q> <span class="pill maybe">{{ c.label }}</span></div>{% endfor %}{% else %}<p class="empty">אין.</p>{% endif %}
+  {% if doc.claims %}{% for c in doc.claims %}<div class="claim">המרצה אמר: <q dir="{{ c.text | textdir }}">{{ c.text | r }}</q> <span class="pill maybe">{{ c.label }}</span></div>{% endfor %}{% else %}<p class="empty">אין.</p>{% endif %}
 </section>
 
 <section id="questions">
@@ -113,7 +113,7 @@ h2 small{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:.8rem;c
 
 <section id="tasks">
   <h2>משימות</h2>
-  {% if doc.tasks %}<ul>{% for t in doc.tasks %}<li>{{ t.text }}{% if t.due %} · עד <span class="num">{{ t.due }}</span>{% endif %}{% if t.owner %} · <bdi>{{ t.owner }}</bdi>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="empty">אין.</p>{% endif %}
+  {% if doc.tasks %}<ul>{% for t in doc.tasks %}<li>{{ t.text | r }}{% if t.due %} · עד <span class="num">{{ t.due }}</span>{% endif %}{% if t.owner %} · <bdi>{{ t.owner }}</bdi>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="empty">אין.</p>{% endif %}
 </section>
 
 <section id="notes">

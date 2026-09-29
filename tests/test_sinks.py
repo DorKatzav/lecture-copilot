@@ -131,3 +131,40 @@ def test_the_root_is_not_invented_when_its_parent_is_missing(tmp_path):
     with pytest.raises(OSError, match="does not exist"):
         sink.write_lecture(doc())
     assert not (tmp_path / "Google Drive").exists()
+
+
+# ---------- bidi: found in a browser screenshot, not by reading the markup ----------
+
+@pytest.mark.parametrize("text, expected", [
+    ("Dropbox הגיעה ל-4% משלמים במודל Freemium", "rtl"),      # a Hebrew sentence that opens with a Latin word
+    ("W04 · מודלים עסקיים א'", "rtl"),
+    ("random.shuffle returns None", "ltr"),
+    ("", "rtl"), ("2026", "rtl"),
+])
+def test_direction_follows_the_dominant_script_not_the_first_letter(text, expected):
+    from lecture_copilot.output.sinks import textdir
+    assert textdir(text) == expected
+
+
+@pytest.mark.parametrize("text, html", [
+    ("רק 2%–5% מהמשתמשים", 'רק <span class="num">2%–5%</span> מהמשתמשים'),
+    ("קטעים של 30-60 שניות", 'קטעים של <span class="num">30-60</span> שניות'),
+    ("בין 4 – 5.10", 'בין <span class="num">4 – 5.10</span>'),
+    ("עד 2026-11-11", 'עד <span class="num">2026-11-11</span>'),
+    ("ל-4% משלמים, פי 3", "ל-4% משלמים, פי 3"),                 # single numbers are left to the browser
+    ("יחס LTV/CAC של 3", "יחס LTV/CAC של 3"),
+    ("<b>1-2</b> & co", '&lt;b&gt;<span class="num">1-2</span>&lt;/b&gt; &amp; co'),
+])
+def test_number_ranges_are_isolated_and_everything_is_escaped(text, html):
+    from lecture_copilot.output.sinks import isolate_ranges
+    assert str(isolate_ranges(text)) == html
+
+
+def test_a_claim_that_opens_with_a_latin_word_keeps_its_order():
+    html = render_html(doc(claims=[ClaimRow("Dropbox הגיעה ל-4% משלמים", 90, "pending", "עדיין לא נבדק")]))
+    assert '<q dir="rtl">Dropbox הגיעה ל-4% משלמים</q>' in html and "<bdi>Dropbox" not in html
+
+
+def test_ranges_in_generated_text_are_isolated_in_the_page():
+    html = render_html(doc(exec_summary=["רק 2%–5% משלמים"] * 5, full_summary=["בין 30-60 שניות"]))
+    assert html.count('<span class="num">2%–5%</span>') == 5 and '<span class="num">30-60</span>' in html
