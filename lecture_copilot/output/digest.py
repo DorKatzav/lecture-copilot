@@ -21,8 +21,10 @@ from jinja2 import Environment, PackageLoader, StrictUndefined
 from lecture_copilot import prompts
 from lecture_copilot.agents.schemas import Continuation, DigestExec, DigestSection
 from lecture_copilot.config import (
+    DIGEST_EXEC_PROMPT,
     DIGEST_FULL_WORDS,
     DIGEST_MAP_INPUT_TOKENS,
+    DIGEST_MAP_PROMPT,
     DIGEST_OPTIONS,
     DIGEST_TIMEOUT_S,
     OLLAMA_KEEP_ALIVE,
@@ -37,7 +39,6 @@ from lecture_copilot.store.db import Store, new_id
 SECTIONS = ["סיכום מנהלים", "סיכום מלא", "★ למבחן / הודגש", "המשך מ", "מושגים", "טענות מסומנות", "שאלות פתוחות",
             "משימות", "ההערות שלי"]
 CLAIM_LABELS = {"pending": "עדיין לא נבדק", "unchecked": "לא נבדק — אין רשת", "skipped": "לא נבדק"}
-MAP_PROMPT, EXEC_PROMPT = "digest_sections_v0", "digest_exec_v0"
 
 _env = Environment(loader=PackageLoader("lecture_copilot.output", "templates"), undefined=StrictUndefined,
                    trim_blocks=True, lstrip_blocks=True, keep_trailing_newline=True, autoescape=False)
@@ -198,7 +199,9 @@ def _collect(lecture_id: str, store: Store) -> tuple[DigestDoc, dict[int, list[t
     return doc, by_chunk
 
 
-async def digest(lecture_id: str, *, store: Store, client: httpx.AsyncClient, backoff_s: float = 1.0) -> DigestDoc:
+async def digest(lecture_id: str, *, store: Store, client: httpx.AsyncClient, backoff_s: float = 1.0,
+                 map_prompt: str = DIGEST_MAP_PROMPT, exec_prompt: str = DIGEST_EXEC_PROMPT,
+                 save: bool = True) -> DigestDoc:
     t0 = time.perf_counter()
     run_id = new_id()
     doc, by_chunk = _collect(lecture_id, store)
@@ -224,18 +227,19 @@ async def digest(lecture_id: str, *, store: Store, client: httpx.AsyncClient, ba
     total_words = target_words(sum(len(t.split()) for _, t in lines))
     for k, b in enumerate(blocks, 1):
         section = await call(
-            f"map-{k}", MAP_PROMPT, DigestSection, lambda v: v.paragraphs, part=k, parts=len(blocks),
+            f"map-{k}", map_prompt, DigestSection, lambda v: v.paragraphs, part=k, parts=len(blocks),
             chunk_summaries="\n".join(f"{i}. {t}" for i, t in b.lines),
             concepts="\n".join(f"{term} — {expl}" for term, expl in b.concepts) or "(none)",
             words=max(40, round(total_words * len(b.lines) / len(lines))))
         doc.full_summary += section.paragraphs if section else [" ".join(t for _, t in b.lines)]
     if lines:
-        ex = await call("exec", EXEC_PROMPT, DigestExec, lambda v: v.exec_summary, date=doc.date,
+        ex = await call("exec", exec_prompt, DigestExec, lambda v: v.exec_summary, date=doc.date,
                         minutes=doc.minutes, full_summary="\n\n".join(doc.full_summary),
                         highlights=" · ".join(doc.highlights) or "(none)", prev_title="none", prev_bullets="(none)")
         doc.exec_summary = ex.exec_summary if ex else []
     markdown = render_markdown(doc)
-    store.save_digest(lecture_id, bullets=doc.exec_summary, digest_md=markdown)
+    if save:
+        store.save_digest(lecture_id, bullets=doc.exec_summary, digest_md=markdown)
     store.log("digest", lecture_id=lecture_id, input_ref=f"{run_id}#digest", ms=(time.perf_counter() - t0) * 1000,
               output={"status": "ok" if not doc.degraded else "degraded", "degraded": doc.degraded,
                       "blocks": len(blocks), "chunks": len(lines), "minutes": doc.minutes,

@@ -1,0 +1,142 @@
+{
+  "extract_compare": {
+    "extract_v0": {
+      "chunks": 14,
+      "failed": 0,
+      "concepts": 27,
+      "claims": 19,
+      "claims_flagged": 9,
+      "highlights": 0,
+      "questions": 0,
+      "actions": 2,
+      "chunks_with_a_claim": 13,
+      "p50_s": 9.66,
+      "p95_s": 12.54,
+      "summaries_naming_the_lecturer": 14
+    },
+    "extract_v1": {
+      "chunks": 14,
+      "failed": 0,
+      "concepts": 20,
+      "claims": 1,
+      "claims_flagged": 0,
+      "highlights": 2,
+      "questions": 0,
+      "actions": 0,
+      "chunks_with_a_claim": 1,
+      "p50_s": 6.51,
+      "p95_s": 8.98,
+      "summaries_naming_the_lecturer": 3
+    }
+  },
+  "extract_compare_lecture": {
+    "extract_v0": {
+      "chunks": 20,
+      "failed": 0,
+      "concepts": 33,
+      "claims": 13,
+      "claims_flagged": 13,
+      "highlights": 0,
+      "questions": 6,
+      "actions": 0,
+      "chunks_with_a_claim": 10,
+      "p50_s": 8.16,
+      "p95_s": 10.61,
+      "summaries_naming_the_lecturer": 20
+    },
+    "extract_v1": {
+      "chunks": 20,
+      "failed": 0,
+      "concepts": 24,
+      "claims": 0,
+      "claims_flagged": 0,
+      "highlights": 1,
+      "questions": 1,
+      "actions": 0,
+      "chunks_with_a_claim": 0,
+      "p50_s": 6.35,
+      "p95_s": 8.96,
+      "summaries_naming_the_lecturer": 1
+    }
+  },
+  "extract_compare_v2": {
+    "extract_v2": {
+      "chunks": 14,
+      "failed": 0,
+      "concepts": 13,
+      "claims": 1,
+      "claims_flagged": 0,
+      "highlights": 1,
+      "questions": 0,
+      "actions": 0,
+      "chunks_with_a_claim": 1,
+      "p50_s": 5.96,
+      "p95_s": 8.82,
+      "summaries_naming_the_lecturer": 8
+    }
+  },
+  "extract_compare_lecture_v2": {
+    "extract_v2": {
+      "chunks": 20,
+      "failed": 0,
+      "concepts": 26,
+      "claims": 3,
+      "claims_flagged": 1,
+      "highlights": 0,
+      "questions": 0,
+      "actions": 0,
+      "chunks_with_a_claim": 3,
+      "p50_s": 7.26,
+      "p95_s": 10.56,
+      "summaries_naming_the_lecturer": 15
+    }
+  },
+  "extract_compare_v3": {
+    "extract_v3": {
+      "chunks": 14,
+      "failed": 0,
+      "concepts": 28,
+      "claims": 11,
+      "claims_flagged": 5,
+      "highlights": 3,
+      "questions": 1,
+      "actions": 3,
+      "chunks_with_a_claim": 9,
+      "p50_s": 9.68,
+      "p95_s": 13.89,
+      "summaries_naming_the_lecturer": 14
+    }
+  },
+  "extract_compare_lecture_v3": {
+    "extract_v3": {
+      "chunks": 20,
+      "failed": 0,
+      "concepts": 35,
+      "claims": 9,
+      "claims_flagged": 9,
+      "highlights": 3,
+      "questions": 3,
+      "actions": 2,
+      "chunks_with_a_claim": 7,
+      "p50_s": 8.73,
+      "p95_s": 12.42,
+      "summaries_naming_the_lecturer": 20
+    }
+  },
+  "digest_compare": {
+    "digest_sections_v0": {
+      "exec_prompt": "digest_exec_v0",
+      "seconds": 27.7,
+      "degraded": [],
+      "full_summary_words": 175,
+      "sentences_naming_the_lecturer": 8
+    },
+    "digest_sections_v1": {
+      "exec_prompt": "digest_exec_v1",
+      "seconds": 18.7,
+      "degraded": [],
+      "full_summary_words": 109,
+      "sentences_naming_the_lecturer": 0
+    }
+  }
+}
