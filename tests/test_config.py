@@ -24,3 +24,8 @@ def test_asr_model_follows_course_language_d_m0_8():
         "he": "whisper-cpp:ivrit-ai-largev3",
         "en": "whisperkit:openai_whisper-large-v3-v20240930",
     }
+
+
+def test_extraction_limits_follow_the_budget():
+    assert config.CHUNK_BUDGET_S == 30 and config.EXTRACT_TIMEOUT_S == 2 * config.BUDGET_S["extract"]
+    assert config.EXTRACT_OPTIONS["temperature"] == 0 and "seed" in config.EXTRACT_OPTIONS  # D-M1-2

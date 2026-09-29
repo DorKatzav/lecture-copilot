@@ -1,0 +1,48 @@
+{
+  "runner": {
+    "default": {
+      "load_mode": "mmap (default)",
+      "footprint_gb": 3.3,
+      "malloc_large_gb": 0.1,
+      "vm_allocate_gb": 1.5,
+      "malloc_large_swapped_gb": 0.0
+    },
+    "use_mmap": {
+      "load_mode": "mmap (default)",
+      "footprint_gb": 3.3,
+      "malloc_large_gb": 0.1,
+      "vm_allocate_gb": 1.5,
+      "malloc_large_swapped_gb": 0.0
+    },
+    "ollama_version": "0.34.2"
+  },
+  "prompt_cache": {
+    "prompts": 6,
+    "cache_on": {
+      "first_mb": 4643,
+      "last_mb": 13912,
+      "per_prompt_mb": 1854,
+      "first_gb": 4.5,
+      "last_gb": 13.6,
+      "prompt_tokens": 1221,
+      "prompt_eval_s": 1.92
+    },
+    "cache_off": {
+      "first_mb": 4645,
+      "last_mb": 4645,
+      "per_prompt_mb": 0,
+      "first_gb": 4.5,
+      "last_gb": 4.5,
+      "prompt_tokens": 1221,
+      "prompt_eval_s": 1.88
+    },
+    "ollama_version": "0.34.2"
+  },
+  "asr_repeat": {
+    "n": 14,
+    "same_text": 4,
+    "same_segments": 2,
+    "model": "whisper-cpp:ivrit-ai-largev3",
+    "mw_version": "MacWhisper 15.2.1 (1521)"
+  }
+}
