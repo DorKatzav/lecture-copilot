@@ -143,7 +143,9 @@ def plan_blocks(lines: list[tuple[int, str]], concepts_by_chunk: dict[int, list[
 # ---------- rendering ----------
 
 def render_markdown(doc: DigestDoc) -> str:
-    return _env.get_template("digest.md.j2").render(doc=doc)
+    """The template separates sections with `@@`; they are joined by exactly one blank line."""
+    parts = _env.get_template("digest.md.j2").render(doc=doc).split("@@")
+    return "\n\n".join(p.strip() for p in parts) + "\n"
 
 
 def section_headings(markdown: str) -> list[str]:

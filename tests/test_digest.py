@@ -212,3 +212,13 @@ def test_a_lecture_without_any_summary_still_gets_a_digest(store):
     doc = run(store, lid, fake)
     assert fake.requests == [] and doc.degraded == ["empty"]
     assert section_headings(render_markdown(doc)) == SECTIONS
+
+
+@pytest.mark.parametrize("items", [[], [Item(kind="highlight", text="זה במבחן"), Item(kind="action", text="לקרוא")]])
+def test_markdown_is_well_formed(store, items):
+    md = render_markdown(run(store, lecture(store, items=items), FakeOllama([SECTION, EXEC])))
+    lines = md.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("## "):
+            assert lines[i - 1] == "" and lines[i + 1] == "", f"no blank line around {line!r}"
+    assert "\n\n\n" not in md and md.endswith("\n") and not md.endswith("\n\n")
