@@ -523,6 +523,39 @@ def test_m2_digest_time_fails_when_slow_short_or_degraded(tmp_path, kw):
     assert gate.check_digest_time(db).status == "FAIL"
 
 
+def test_m2_digest_time_judges_lectures_of_one_to_two_hours_and_reports_longer_ones(tmp_path):
+    # the spec promises two minutes for a lecture of up to two hours; a four-hour Zoom day is reported, not judged
+    from lecture_copilot.store.db import Store
+    db, _ = m2_store(tmp_path, minutes=78, total_s=94.3)
+    s = Store(db)
+    s.log("digest", lecture_id="OTHER", input_ref="R2#digest", output={
+        "status": "ok", "degraded": [], "minutes": 251, "total_s": 140.0, "blocks": 6})
+    s.close()
+    r = gate.check_digest_time(db)
+    assert r.status == "PASS" and "78 min" in r.detail and "251 min" in r.detail and "140.0 s" in r.detail
+
+
+def test_m2_digest_time_fails_when_any_lecture_in_range_is_slow(tmp_path):
+    from lecture_copilot.store.db import Store
+    db, _ = m2_store(tmp_path, minutes=78, total_s=94.3)
+    s = Store(db)
+    s.log("digest", lecture_id="OTHER", input_ref="R2#digest", output={
+        "status": "ok", "degraded": [], "minutes": 110, "total_s": 125.0, "blocks": 4})
+    s.close()
+    assert gate.check_digest_time(db).status == "FAIL"
+
+
+def test_m2_digest_time_uses_the_latest_digest_of_each_lecture(tmp_path):
+    from lecture_copilot.store.db import Store
+    db, _ = m2_store(tmp_path, minutes=78, total_s=130.0)
+    s = Store(db)
+    lid = s.con.execute("select id from lectures").fetchone()[0]
+    s.log("digest", lecture_id=lid, input_ref="R2#digest", output={
+        "status": "ok", "degraded": [], "minutes": 78, "total_s": 94.3, "blocks": 3})
+    s.close()
+    assert gate.check_digest_time(db).status == "PASS"
+
+
 def test_m2_vtt_replay_passes_for_a_transcript_lecture_with_nine_sections(tmp_path):
     db, _ = m2_store(tmp_path, source="transcript")
     assert gate.check_vtt_replay(db).status == "PASS"

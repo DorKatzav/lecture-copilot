@@ -138,5 +138,81 @@
       "full_summary_words": 109,
       "sentences_naming_the_lecturer": 0
     }
+  },
+  "tirgul_full": {
+    "source": "file",
+    "chunks": 115,
+    "status": {
+      "empty": 6,
+      "ok": 109
+    },
+    "counts": {
+      "segments": 574,
+      "items": 225,
+      "claims": 69
+    },
+    "audio_min": 83.2,
+    "timing": {
+      "asr_s": {
+        "n": 115,
+        "p50": 4.18,
+        "p95": 5.62,
+        "max": 6.13
+      },
+      "extract_s": {
+        "n": 109,
+        "p50": 9.1,
+        "p95": 13.36,
+        "max": 16.45
+      },
+      "total_s": {
+        "n": 115,
+        "p50": 12.82,
+        "p95": 17.92,
+        "max": 22.46
+      }
+    },
+    "memory": {
+      "baseline_used_gb": 20.33,
+      "peak_used_gb": 21.86,
+      "delta_gb": 1.53,
+      "total_gb": 24.0,
+      "max_pressure": 2,
+      "swap_growth_mb": -264.0,
+      "models_at_peak_gb": {
+        "gemma3:12b": 8.27,
+        "bge-m3": 0.63
+      },
+      "procs_peak_mb": {
+        "mw": 3,
+        "llama-server": 2974,
+        "ollama": 19,
+        "MacWhisper": 4302
+      },
+      "samples": 976
+    },
+    "chunks_over_budget_all_runs": 0,
+    "digest": {
+      "total_s": 94.33,
+      "blocks": 3,
+      "chunks": 109,
+      "minutes": 78,
+      "degraded": []
+    },
+    "digest_md": {
+      "sections": 9,
+      "exec_bullets": 5,
+      "full_summary_words": 681,
+      "full_summary_sentences_naming_the_lecturer": 7,
+      "highlights": 29,
+      "concepts": 77,
+      "claims_flagged": 33,
+      "questions": 5,
+      "tasks": 13,
+      "words": 2785
+    },
+    "concept_rows": 178,
+    "concept_keys": 77,
+    "concept_terms": 84
   }
 }

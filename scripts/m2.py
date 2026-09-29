@@ -23,7 +23,15 @@ from lecture_copilot.asr.macwhisper import parse_output
 from lecture_copilot.audio.sources import AudioChunk
 from lecture_copilot.config import DB_PATH, OLLAMA_URL, ROOT, VERIFY_MIN_IMPORTANCE, Profile
 from lecture_copilot.metrics_page import fill_metrics
-from lecture_copilot.output.digest import ClaimRow, ConceptRow, DigestDoc, TaskRow, digest, render_markdown
+from lecture_copilot.output.digest import (
+    ClaimRow,
+    ConceptRow,
+    DigestDoc,
+    TaskRow,
+    digest,
+    render_markdown,
+    section_headings,
+)
 from lecture_copilot.output.sinks import FolderSink
 from lecture_copilot.pipeline import Ctx
 from lecture_copilot.stats import percentile
@@ -48,6 +56,47 @@ def count_extraction(results: list[ExtractResult | None]) -> dict:
 
 def lecturer_mentions(texts: list[str]) -> int:
     return sum(any(w in t for w in LECTURER) for t in texts)
+
+
+def digest_stats(markdown: str) -> dict:
+    """What a Digest holds, counted from its markdown."""
+    parts = {h.split("\n", 1)[0]: h.split("\n", 1)[1] if "\n" in h else "" for h in markdown.split("\n## ")[1:]}
+
+    def body(prefix: str) -> str:
+        return next((v for k, v in parts.items() if k.startswith(prefix)), "")
+
+    def bullets(prefix: str) -> int:
+        return sum(line.startswith("- ") for line in body(prefix).splitlines())
+    full = body("סיכום מלא")
+    return {"sections": len(section_headings(markdown)), "exec_bullets": bullets("סיכום מנהלים"),
+            "full_summary_words": len(full.split()),
+            "full_summary_sentences_naming_the_lecturer": lecturer_mentions(full.replace("\n", " ").split(". ")),
+            "highlights": bullets("★"), "concepts": bullets("מושגים"), "claims_flagged": bullets("טענות מסומנות"),
+            "questions": bullets("שאלות פתוחות"), "tasks": bullets("משימות"), "words": len(markdown.split())}
+
+
+def lecture_stats(db: Path, lecture_id: str) -> dict:
+    import sqlite3
+    con = sqlite3.connect(db)
+    con.row_factory = sqlite3.Row
+    lec = con.execute("select * from lectures where id = ?", (lecture_id,)).fetchone()
+    run = con.execute("select output_json from decisions where node = 'run' and lecture_id = ? order by ts desc "
+                      "limit 1", (lecture_id,)).fetchone()
+    dig = con.execute("select output_json from decisions where node = 'digest' and lecture_id = ? "
+                      "and input_ref like '%#digest' order by ts desc limit 1", (lecture_id,)).fetchone()
+    md = con.execute("select digest_md from lecture_summaries where lecture_id = ?", (lecture_id,)).fetchone()
+    keys = con.execute("select count(*), count(distinct lower(canonical_key)), count(distinct lower(text)) from items "
+                       "where lecture_id = ? and kind = 'concept'", (lecture_id,)).fetchone()
+    r, d = json.loads(run[0]), json.loads(dig[0])
+    over = con.execute("select count(*) from decisions where node = 'chunk' and lecture_id = ? and input_ref like ? "
+                       "and json_extract(output_json, '$.total_s') > 30",
+                       (lecture_id, "%")).fetchone()[0]
+    return {"source": lec["source"], "chunks": r["chunks"], "status": r["status"], "counts": r["counts"],
+            "audio_min": round(r["audio_s"] / 60, 1), "timing": r["timing"], "memory": r.get("memory", {}),
+            "chunks_over_budget_all_runs": over,
+            "digest": {k: d[k] for k in ("total_s", "blocks", "chunks", "minutes", "degraded")},
+            "digest_md": digest_stats(md[0]),
+            "concept_rows": keys[0], "concept_keys": keys[1], "concept_terms": keys[2]}
 
 
 # ---------- providers (run for real, not in tests) ----------
@@ -178,6 +227,12 @@ def cmd_sample_digest(_: argparse.Namespace) -> None:
     print(f"sample digest written ({len(list(folder.iterdir()))} files)")
 
 
+def cmd_lecture_stats(a: argparse.Namespace) -> None:
+    res = lecture_stats(Path(a.db), a.lecture)
+    _save(a.key, res)
+    print(json.dumps({k: v for k, v in res.items() if k != "memory"}, indent=2, ensure_ascii=True)[:1500])
+
+
 def cmd_report(a: argparse.Namespace) -> None:
     data = json.loads(RESULTS.read_text(encoding="utf-8")) if RESULTS.exists() else {}
     page = Path(a.page)
@@ -200,6 +255,11 @@ def main(argv: list[str] | None = None) -> None:
     d.add_argument("--key", default="digest_compare")
     d.set_defaults(fn=cmd_digest_compare)
     sub.add_parser("sample-digest").set_defaults(fn=cmd_sample_digest)
+    ls = sub.add_parser("lecture-stats")
+    ls.add_argument("lecture")
+    ls.add_argument("--key", required=True)
+    ls.add_argument("--db", default=str(DB_PATH))
+    ls.set_defaults(fn=cmd_lecture_stats)
     r = sub.add_parser("report")
     r.add_argument("--page", required=True)
     r.set_defaults(fn=cmd_report)

@@ -22,3 +22,11 @@ def test_the_sample_lecture_fills_every_section():
     from lecture_copilot.output.digest import SECTIONS, render_markdown, section_headings
     md = render_markdown(m2.sample_doc())
     assert section_headings(md) == SECTIONS and "אין." not in md and "המשך מ-W04" in md
+
+
+def test_digest_stats_count_what_each_section_holds():
+    md = m2.render_markdown(m2.sample_doc())
+    out = m2.digest_stats(md)
+    assert out["sections"] == 9 and out["concepts"] == 5 and out["highlights"] == 2 and out["claims_flagged"] == 3
+    assert out["questions"] == 2 and out["tasks"] == 2 and out["exec_bullets"] == 5
+    assert out["full_summary_words"] > 50 and out["full_summary_sentences_naming_the_lecturer"] == 0

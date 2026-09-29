@@ -388,19 +388,27 @@ def check_digest_sections(db: Path = DB_PATH) -> Result:
     return _ok("digest_sections", f"{len(rows)} Digest(s), each with the 9 sections in the fixed order")
 
 
-def check_digest_time(db: Path = DB_PATH, min_minutes: int = 60) -> Result:
+def check_digest_time(db: Path = DB_PATH, min_minutes: int = 60, max_minutes: int = 120) -> Result:
+    """The spec promises the Digest within two minutes for a lecture of up to two hours. The latest Digest of every
+    lecture of 60–120 minutes is judged; longer recordings (a four-hour Zoom day) are reported, not judged."""
     con = sqlite3.connect(db)
-    rows = [json.loads(o) for (o,) in con.execute(
-        "select output_json from decisions where node = 'digest' and input_ref like '%#digest' order by ts")]
-    long = [r for r in rows if r.get("minutes", 0) >= min_minutes]
-    if not long:
-        return _fail("digest_time", f"no Digest of a lecture of {min_minutes} min or more — replay a full lecture")
-    r = long[-1]
-    detail = (f"{r['minutes']} min lecture → Digest in {r['total_s']} s ({r['blocks']} blocks), "
-              f"budget {DIGEST_BUDGET_S} s")
-    if r["degraded"]:
-        return _fail("digest_time", f"{detail}; degraded: {', '.join(r['degraded'])}")
-    if r["total_s"] >= DIGEST_BUDGET_S:
+    latest: dict[str, dict] = {}
+    for lid, o in con.execute("select lecture_id, output_json from decisions where node = 'digest' "
+                              "and input_ref like '%#digest' order by ts"):
+        latest[lid] = json.loads(o)
+    judged = [r for r in latest.values() if min_minutes <= r.get("minutes", 0) <= max_minutes]
+    longer = [r for r in latest.values() if r.get("minutes", 0) > max_minutes]
+    if not judged:
+        return _fail("digest_time",
+                     f"no Digest of a lecture of {min_minutes}–{max_minutes} min — replay a full lecture")
+
+    def line(r: dict) -> str:
+        bad = f", degraded: {', '.join(r['degraded'])}" if r["degraded"] else ""
+        return f"{r['minutes']} min → {r['total_s']} s ({r['blocks']} blocks{bad})"
+    detail = f"{'; '.join(line(r) for r in judged)}, budget {DIGEST_BUDGET_S} s"
+    if longer:
+        detail += f" · longer, not judged: {'; '.join(line(r) for r in longer)}"
+    if any(r["degraded"] or r["total_s"] >= DIGEST_BUDGET_S for r in judged):
         return _fail("digest_time", detail)
     return _ok("digest_time", detail)
 
