@@ -1,7 +1,8 @@
-# M0 — grows one milestone at a time (see PLAN.md tech stack)
+# grows one milestone at a time (see PLAN.md tech stack)
 pydantic>=2.9,<3
 httpx>=0.27,<1
 numpy>=2,<3
 sqlite-vec>=0.1.6
+jinja2>=3.1,<4
 pytest>=8
 ruff>=0.6

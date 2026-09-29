@@ -47,6 +47,11 @@ def test_new_ids_sort_by_time():
     assert new_id(now_ms=1_000) < new_id(now_ms=2_000) < new_id(now_ms=2**40)
 
 
+def test_ids_minted_in_the_same_millisecond_keep_their_order():
+    ids = [new_id() for _ in range(2000)]
+    assert ids == sorted(ids)
+
+
 def test_new_ids_are_unique():
     assert len({new_id() for _ in range(1000)}) == 1000
 
@@ -189,3 +194,82 @@ def test_log_appends_a_decision_row(store):
 def test_log_rejects_an_unknown_node(store):
     with pytest.raises(sqlite3.IntegrityError):
         store.log("oracle", lecture_id=None, input_ref="x", output={})
+
+
+# ---------- M2: what the Digest reads and writes ----------
+
+def test_week_is_stored_and_updated_on_replay(store):
+    course = store.upsert_course("c", language="he")
+    kw = dict(audio_path="/x/a.m4a", source="file", title="t", date="2026-11-04", fact_check=True)
+    lid = store.upsert_lecture(course, week=5, **kw)
+    assert store.lecture(lid)["week"] == 5
+    store.upsert_lecture(course, week=6, **kw)
+    assert store.lecture(lid)["week"] == 6
+
+
+def test_chunk_summaries_in_order_without_failed_chunks(store):
+    lid = lecture(store)
+    store.write_chunk(lid, 2, segs("b", t0=60), asr="mw", result=result(summary="שני"))
+    store.write_chunk(lid, 1, segs("a", "a2"), asr="mw", result=result(summary="ראשון"))
+    store.write_chunk(lid, 3, segs("c", t0=120), asr="mw", result=None)
+    assert store.chunk_summaries(lid) == [(1, "ראשון"), (2, "שני")]
+
+
+def test_items_carry_their_chunk(store):
+    lid = lecture(store)
+    store.write_chunk(lid, 1, segs("a"), asr="mw", result=result(1, 0, 1))
+    store.write_chunk(lid, 2, segs("b", t0=60), asr="mw", result=result(1, 0, 0))
+    rows = store.items(lid)
+    assert [(r["chunk_id"], r["kind"], r["text"]) for r in rows] == [
+        (1, "concept", "T0"), (1, "question", "q0"), (2, "concept", "T0")]
+    assert [r["text"] for r in store.items(lid, kind="question")] == ["q0"]
+
+
+def test_claims_come_most_important_first(store):
+    lid = lecture(store)
+    res = ExtractResult(chunk_summary="s", concepts=[], items=[], claims=[
+        Claim(text="minor", normalized="n", importance=40), Claim(text="major", normalized="n", importance=90)])
+    store.write_chunk(lid, 1, segs("a"), asr="mw", result=res)
+    assert [(c["text"], c["importance"], c["status"]) for c in store.claims(lid)] == [
+        ("major", 90, "pending"), ("minor", 40, "pending")]
+
+
+def test_segments_in_time_order(store):
+    lid = lecture(store)
+    store.write_chunk(lid, 2, segs("c", t0=60), asr="mw", result=None)
+    store.write_chunk(lid, 1, segs("a", "b"), asr="mw", result=None)
+    assert [s["text"] for s in store.segments(lid)] == ["a", "b", "c"]
+
+
+def test_saving_a_digest_marks_the_lecture_digested_and_replaces_the_old_one(store):
+    lid = lecture(store)
+    store.save_digest(lid, bullets=["א", "ב"], digest_md="# first")
+    store.save_digest(lid, bullets=["ג"], digest_md="# second")
+    rows = store.con.execute("select * from lecture_summaries").fetchall()
+    assert len(rows) == 1 and rows[0]["digest_md"] == "# second" and json.loads(rows[0]["bullets_json"]) == ["ג"]
+    assert store.lecture(lid)["status"] == "digested"
+
+
+def test_digest_and_sink_are_loggable_nodes(store):
+    store.log("digest", lecture_id=None, input_ref="x", output={})
+    store.log("sink", lecture_id=None, input_ref="x", output={})
+
+
+def test_a_database_from_m1_is_migrated_and_keeps_its_rows(tmp_path):
+    path = tmp_path / "old.sqlite"
+    con = sqlite3.connect(path)
+    con.executescript("""
+        CREATE TABLE decisions (id TEXT PRIMARY KEY, lecture_id TEXT,
+            node TEXT NOT NULL CHECK (node IN ('extractor', 'memory', 'verifier', 'ranker', 'net', 'asr', 'chunk',
+                                               'run')),
+            input_ref TEXT, output_json TEXT, ms REAL, tokens_in INTEGER, tokens_out INTEGER, cost_usd REAL,
+            ts TEXT NOT NULL);
+        INSERT INTO decisions VALUES ('01A', 'L', 'run', 'R1', '{"chunks": 14}', 1.5, 1, 2, null, '2026-09-28');
+        PRAGMA user_version = 1;""")
+    con.close()
+    s = Store(path)
+    s.log("digest", lecture_id="L", input_ref="R2", output={"ok": True})
+    rows = s.con.execute("select id, node, output_json, ms from decisions order by ts").fetchall()
+    assert [tuple(r) for r in rows][0] == ("01A", "run", '{"chunks": 14}', 1.5) and rows[1]["node"] == "digest"
+    assert s.con.execute("pragma user_version").fetchone()[0] == SCHEMA_VERSION == 2
+    s.close()

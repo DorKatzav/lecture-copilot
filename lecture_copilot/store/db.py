@@ -15,10 +15,16 @@ from pathlib import Path
 from lecture_copilot.agents.schemas import ExtractResult
 from lecture_copilot.asr.base import Segment
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2: decisions.node gains digest, sink (M2)
 CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # spec nodes + asr / chunk / run (D-M1-1: per-chunk status and timing live in the log, not in a new table)
-NODES = ("extractor", "memory", "verifier", "ranker", "net", "asr", "chunk", "run")
+NODES = ("extractor", "memory", "verifier", "ranker", "net", "asr", "chunk", "run", "digest", "sink")
+
+DECISIONS = f"""CREATE TABLE IF NOT EXISTS decisions (
+    id TEXT PRIMARY KEY, lecture_id TEXT,
+    node TEXT NOT NULL CHECK (node IN ({", ".join(f"'{n}'" for n in NODES)})),
+    input_ref TEXT, output_json TEXT, ms REAL, tokens_in INTEGER, tokens_out INTEGER, cost_usd REAL,
+    ts TEXT NOT NULL);"""
 
 SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS courses (
@@ -51,18 +57,25 @@ CREATE TABLE IF NOT EXISTS lecture_summaries (
     lecture_id TEXT PRIMARY KEY, bullets_json TEXT, digest_md TEXT, embedding BLOB);
 CREATE TABLE IF NOT EXISTS fact_cache (
     cache_key TEXT PRIMARY KEY, verdict TEXT, sources_json TEXT, checked_at TEXT);
-CREATE TABLE IF NOT EXISTS decisions (
-    id TEXT PRIMARY KEY, lecture_id TEXT,
-    node TEXT NOT NULL CHECK (node IN ({", ".join(f"'{n}'" for n in NODES)})),
-    input_ref TEXT, output_json TEXT, ms REAL, tokens_in INTEGER, tokens_out INTEGER, cost_usd REAL, ts TEXT NOT NULL);
+{DECISIONS}
 CREATE INDEX IF NOT EXISTS decisions_lecture ON decisions (lecture_id, node);
 """
 
 
+_last = [0, 0]  # (ms, random part) of the last id minted from the clock
+
+
 def new_id(now_ms: int | None = None) -> str:
-    """ULID: 48-bit millisecond time + 80 random bits, Crockford base32, 26 chars; sorts by creation time."""
-    ms = int(time.time() * 1000) if now_ms is None else now_ms
-    n = (ms << 80) | secrets.randbits(80)
+    """ULID: 48-bit millisecond time + 80 random bits, Crockford base32, 26 chars. Ids minted from the clock are
+    monotonic: within one millisecond the random part counts up, so ids sort in the order they were minted."""
+    if now_ms is None:
+        ms, rand = int(time.time() * 1000), secrets.randbits(80)
+        if ms <= _last[0]:
+            ms, rand = _last[0], _last[1] + 1
+        _last[:] = ms, rand
+    else:
+        ms, rand = now_ms, secrets.randbits(80)
+    n = (ms << 80) | rand
     return "".join(CROCKFORD[(n >> (5 * i)) & 31] for i in reversed(range(26)))
 
 
@@ -78,8 +91,19 @@ class Store:
         self.con = sqlite3.connect(path)
         self.con.row_factory = sqlite3.Row
         self.con.execute("pragma journal_mode = wal")
+        self._migrate()
         self.con.executescript(SCHEMA)
         self.con.execute(f"pragma user_version = {SCHEMA_VERSION}")
+
+    def _migrate(self) -> None:
+        """SQLite cannot change a CHECK in place: when the allowed nodes grew, rebuild `decisions` and keep rows."""
+        version = self.con.execute("pragma user_version").fetchone()[0]
+        exists = self.con.execute("select 1 from sqlite_master where name = 'decisions'").fetchone()
+        if not exists or version >= SCHEMA_VERSION:
+            return
+        self.con.executescript(
+            "BEGIN; DROP INDEX IF EXISTS decisions_lecture; ALTER TABLE decisions RENAME TO decisions_old; "
+            + DECISIONS + " INSERT INTO decisions SELECT * FROM decisions_old; DROP TABLE decisions_old; COMMIT;")
 
     def close(self) -> None:
         self.con.close()
@@ -97,15 +121,16 @@ class Store:
         return dict(row) if row else None
 
     def upsert_lecture(self, course_id: str, *, audio_path: str, source: str, title: str, date: str,
-                       fact_check: bool) -> str:
+                       fact_check: bool, week: int | None = None) -> str:
         with self.con:
             return self.con.execute(
-                "insert into lectures (id, course_id, date, title, source, fact_check, started_at, audio_path, status) "
-                "values (?, ?, ?, ?, ?, ?, ?, ?, 'recording') "
-                "on conflict (course_id, source, audio_path) do update set date = excluded.date, "
-                "title = excluded.title, fact_check = excluded.fact_check, started_at = excluded.started_at, "
-                "ended_at = null, status = 'recording' returning id",
-                (new_id(), course_id, date, title, source, int(fact_check), now_iso(), audio_path)).fetchone()[0]
+                "insert into lectures (id, course_id, week, date, title, source, fact_check, started_at, audio_path, "
+                "status) values (?, ?, ?, ?, ?, ?, ?, ?, ?, 'recording') "
+                "on conflict (course_id, source, audio_path) do update set week = excluded.week, "
+                "date = excluded.date, title = excluded.title, fact_check = excluded.fact_check, "
+                "started_at = excluded.started_at, ended_at = null, status = 'recording' returning id",
+                (new_id(), course_id, week, date, title, source, int(fact_check), now_iso(),
+                 audio_path)).fetchone()[0]
 
     def lecture(self, lecture_id: str) -> dict | None:
         row = self.con.execute("select * from lectures where id = ?", (lecture_id,)).fetchone()
@@ -160,6 +185,37 @@ class Store:
     def counts(self, lecture_id: str) -> dict[str, int]:
         return {t: self.con.execute(f"select count(*) from {t} where lecture_id = ?", (lecture_id,)).fetchone()[0]
                 for t in ("segments", "items", "claims")}
+
+    # ---------- what the Digest reads and writes ----------
+
+    def chunk_summaries(self, lecture_id: str) -> list[tuple[int, str]]:
+        return [tuple(r) for r in self.con.execute(
+            "select chunk_id, chunk_summary from segments where lecture_id = ? and chunk_summary is not null "
+            "group by chunk_id order by chunk_id", (lecture_id,))]
+
+    def items(self, lecture_id: str, kind: str | None = None) -> list[dict]:
+        rows = self.con.execute(
+            "select i.*, s.chunk_id from items i left join segments s on s.id = i.segment_id "
+            "where i.lecture_id = ? and (? is null or i.kind = ?) order by s.chunk_id, i.id",
+            (lecture_id, kind, kind))
+        return [dict(r) for r in rows]
+
+    def claims(self, lecture_id: str) -> list[dict]:
+        rows = self.con.execute("select * from claims where lecture_id = ? order by importance desc, id",
+                                (lecture_id,))
+        return [dict(r) for r in rows]
+
+    def segments(self, lecture_id: str) -> list[dict]:
+        rows = self.con.execute("select * from segments where lecture_id = ? order by t0, id", (lecture_id,))
+        return [dict(r) for r in rows]
+
+    def save_digest(self, lecture_id: str, bullets: list[str], digest_md: str) -> None:
+        with self.con:
+            self.con.execute(
+                "insert into lecture_summaries (lecture_id, bullets_json, digest_md) values (?, ?, ?) "
+                "on conflict (lecture_id) do update set bullets_json = excluded.bullets_json, "
+                "digest_md = excluded.digest_md", (lecture_id, json.dumps(bullets, ensure_ascii=False), digest_md))
+            self.con.execute("update lectures set status = 'digested' where id = ?", (lecture_id,))
 
     # ---------- decisions ----------
 
