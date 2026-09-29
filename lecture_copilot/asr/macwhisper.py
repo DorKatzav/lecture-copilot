@@ -11,6 +11,7 @@ from lecture_copilot.config import BUDGET_S, MW_BIN, MW_MODELS
 
 class MacWhisperASR:
     name = "mw"
+    needs_warm_up = True   # the first run of a lecture is cold (stage 0: 11.5 s against a budget of 8)
 
     def __init__(self, binary: str = MW_BIN, models: dict[str, str] = MW_MODELS,
                  timeout_s: float = BUDGET_S["asr"] * 3):

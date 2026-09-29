@@ -123,3 +123,11 @@ def test_html_shows_the_continuation_when_there_is_one():
 def test_html_says_when_the_digest_is_degraded():
     assert "class=\"callout warn\"" in render_html(doc(degraded=["exec"], exec_summary=[]))
     assert "class=\"callout warn\"" not in render_html(doc())
+
+
+def test_the_root_is_not_invented_when_its_parent_is_missing(tmp_path):
+    # COURSES_ROOT defaults to a Google Drive path: never create a fake "Google Drive" folder
+    sink = FolderSink(tmp_path / "Google Drive" / "My Drive" / "Lecture-Copilot")
+    with pytest.raises(OSError, match="does not exist"):
+        sink.write_lecture(doc())
+    assert not (tmp_path / "Google Drive").exists()

@@ -221,3 +221,14 @@ def test_a_chunk_that_fails_on_replay_leaves_no_stale_rows(store, tmp_path):
     go(store, tmp_path, ListSource(chunks(tmp_path, 2)), FakeASR(script={2: ASRError("mw timed out")}),
        FakeOllama([reply()]))
     assert [r[0] for r in store.con.execute("select distinct chunk_id from segments")] == [1]
+
+
+def test_warm_up_skips_a_provider_that_needs_none(store, tmp_path):
+    fake, asr = FakeOllama(), FakeASR()
+    asr.needs_warm_up = False
+
+    async def main():
+        async with fake.async_client() as client:
+            await warm_up(make_ctx(store, asr, client, None, tmp_path))
+    asyncio.run(main())
+    assert asr.calls == [] and decisions(store, "asr") == []

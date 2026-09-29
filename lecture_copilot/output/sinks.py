@@ -68,6 +68,9 @@ class FolderSink:
         self.root = Path(root)
 
     def write_lecture(self, doc: DigestDoc) -> Path:
+        if not self.root.parent.is_dir():
+            raise OSError(f"{self.root.parent} does not exist — is Google Drive for desktop installed? "
+                          "(COURSES_ROOT sets the course folder)")
         course = self.root / safe_name(doc.course_name)
         folder = course / folder_name(doc)
         folder.mkdir(parents=True, exist_ok=True)

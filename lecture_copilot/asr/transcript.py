@@ -8,6 +8,7 @@ from lecture_copilot.asr.base import ASRError, Segment
 
 class TranscriptASR:
     name = "transcript"
+    needs_warm_up = False
 
     async def transcribe(self, wav: Path, language: str) -> list[Segment]:
         try:

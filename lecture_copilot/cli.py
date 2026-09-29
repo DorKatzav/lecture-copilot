@@ -1,9 +1,13 @@
-"""Command line. M1: `replay <audio file> --course NAME [--pace fast|realtime]`. Terminal output is English only;
-Hebrew content stays in the database and in the pages built from it."""
+"""Command line. Terminal output is English only; Hebrew stays in the database and in the files built from it.
+
+    replay <audio | .vtt | MacWhisper .json> --course NAME [--week N] [--pace fast|realtime]   pipeline, then Digest
+    digest [--lecture ID]                                                        rebuild the Digest of a lecture
+"""
 
 import argparse
 import asyncio
 import sys
+import time
 from collections.abc import Callable
 from datetime import date as date_cls
 from pathlib import Path
@@ -12,14 +16,19 @@ import httpx
 
 from lecture_copilot.asr.base import ASR
 from lecture_copilot.asr.macwhisper import MacWhisperASR
+from lecture_copilot.asr.transcript import TranscriptASR
 from lecture_copilot.audio.sources import ChunkSource, FileSource
-from lecture_copilot.config import CHUNK_BUDGET_S, DB_PATH, OLLAMA_URL, RUNS_DIR, Profile
+from lecture_copilot.audio.transcript import TranscriptSource
+from lecture_copilot.config import CHUNK_BUDGET_S, COURSES_ROOT, DB_PATH, DIGEST_BUDGET_S, OLLAMA_URL, RUNS_DIR, Profile
 from lecture_copilot.memprobe import MemoryProbe, total_gb
+from lecture_copilot.output.digest import digest, render_markdown, section_headings
+from lecture_copilot.output.sinks import FolderSink, Sink
 from lecture_copilot.pipeline import Ctx, run, warm_up
 from lecture_copilot.scriptcheck import terminal_text
 from lecture_copilot.store.db import Store, new_id
 
-TRANSCRIPT_SUFFIXES = {".vtt", ".srt", ".json", ".txt"}
+TRANSCRIPT_SUFFIXES = {".vtt", ".json"}
+UNSUPPORTED_SUFFIXES = {".srt", ".txt"}
 PRESSURE = {1: "normal", 2: "warning", 4: "critical"}
 
 
@@ -52,10 +61,49 @@ def fmt_summary(lecture_id: str, s: dict) -> list[str]:
     return lines
 
 
+async def make_digest(lecture_id: str, store: Store, client: httpx.AsyncClient, sink: Sink,
+                      echo: Callable[[str], None]) -> dict:
+    """ "סיום": the Digest, then the sink. A failing sink never loses the Digest — it is already in the database."""
+    t = time.perf_counter()
+    doc = await digest(lecture_id, store=store, client=client)
+    digest_s = round(time.perf_counter() - t, 1)
+    out = {"folder": None, "digest_s": digest_s, "degraded": doc.degraded,
+           "sections": len(section_headings(render_markdown(doc)))}
+    t = time.perf_counter()
+    try:
+        folder = sink.write_lecture(doc)
+        out["folder"] = str(folder)
+        log = {"status": "ok", "folder": str(folder), "files": sum(1 for p in folder.iterdir() if p.is_file())}
+    except OSError as e:
+        log = {"status": "failed", "error": f"{type(e).__name__}: {e}"}
+    store.log("sink", lecture_id=lecture_id, input_ref=lecture_id, ms=(time.perf_counter() - t) * 1000,
+              output={"sink": type(sink).__name__, **log})
+    over = f"  OVER BUDGET ({DIGEST_BUDGET_S} s)" if digest_s > DIGEST_BUDGET_S else ""
+    degraded = f" · degraded: {', '.join(doc.degraded)}" if doc.degraded else ""
+    echo(f"digest: {out['sections']} sections · {doc.minutes} min lecture · {digest_s} s{over}{degraded}")
+    echo(terminal_text(f"folder: {out['folder']}" if out["folder"] else f"sink failed: {log['error']}", 300))
+    return out
+
+
+async def rebuild_digest(lecture_id: str | None, *, db: Path, client: httpx.AsyncClient, sink: Sink,
+                         echo: Callable[[str], None] = print) -> dict:
+    store = Store(db)
+    try:
+        row = store.con.execute("select id from lectures where (? is null or id = ?) and status != 'recording' "
+                                "order by ended_at desc limit 1", (lecture_id, lecture_id)).fetchone()
+        if row is None:
+            raise RuntimeError("no lecture to digest" if lecture_id is None else f"no lecture {lecture_id}")
+        async with client:
+            return await make_digest(row[0], store, client, sink, echo)
+    finally:
+        store.close()
+
+
 async def replay(file: Path, course: str, language: str, title: str | None, date: str, pace: str, db: Path,
                  fact_check: bool, *, asr: ASR, client: httpx.AsyncClient,
                  source_factory: Callable[[str, Path, str], ChunkSource], runs_dir: Path,
-                 probe: MemoryProbe | None, echo: Callable[[str], None] = print) -> dict:
+                 probe: MemoryProbe | None, sink: Sink, week: int | None = None, source: str = "file",
+                 echo: Callable[[str], None] = print) -> dict:
     file = Path(file).resolve()
     store = Store(db)
     try:
@@ -63,10 +111,10 @@ async def replay(file: Path, course: str, language: str, title: str | None, date
         lang = store.course(course_id)["language"]
         if lang != language:
             echo(f"note: course language is {lang} (set when the course was created); --language {language} ignored")
-        lecture_id = store.upsert_lecture(course_id, audio_path=str(file), source="file", title=title or file.stem,
-                                          date=date, fact_check=fact_check)
+        lecture_id = store.upsert_lecture(course_id, audio_path=str(file), source=source, title=title or file.stem,
+                                          date=date, fact_check=fact_check, week=week)
         run_id = new_id()
-        echo(f"lecture {lecture_id} · run {run_id} · {file.name} · pace {pace} · language {lang}")
+        echo(terminal_text(f"lecture {lecture_id} · run {run_id} · {file.name} · pace {pace} · language {lang}", 300))
 
         def extra() -> dict:
             out = {"source": file.name, "pace": pace, "language": lang}
@@ -88,9 +136,10 @@ async def replay(file: Path, course: str, language: str, title: str | None, date
             finally:
                 if probe:
                     probe.stop()
-        store.end_lecture(lecture_id)
-        for line in fmt_summary(lecture_id, summary):
-            echo(line)
+            store.end_lecture(lecture_id)
+            for line in fmt_summary(lecture_id, summary):
+                echo(line)
+            summary["digest"] = await make_digest(lecture_id, store, client, sink, echo)
         return summary
     finally:
         store.close()
@@ -106,23 +155,37 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--title")
     r.add_argument("--date", default=date_cls.today().isoformat())
     r.add_argument("--pace", choices=["fast", "realtime"], default="fast")
-    r.add_argument("--db", type=Path, default=DB_PATH)
+    r.add_argument("--week", type=int)
     r.add_argument("--no-fact-check", dest="fact_check", action="store_false")
+    d = sub.add_parser("digest", help="rebuild the Digest of a lecture (default: the last one that ended)")
+    d.add_argument("--lecture")
+    for p in (r, d):
+        p.add_argument("--db", type=Path, default=DB_PATH)
+        p.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
     a = ap.parse_args(argv)
+    client = httpx.AsyncClient(base_url=OLLAMA_URL)
+    sink = FolderSink(a.courses_root)
 
-    if a.file.suffix.lower() in TRANSCRIPT_SUFFIXES:
-        print(f"{a.file.name}: transcript replay (TranscriptSource) arrives in M2", file=sys.stderr)
-        return 2
-    if not a.file.is_file():
-        print(f"{a.file}: not found", file=sys.stderr)
-        return 2
     try:
-        asyncio.run(replay(a.file, a.course, a.language, a.title, a.date, a.pace, a.db, a.fact_check,
-                           asr=MacWhisperASR(), client=httpx.AsyncClient(base_url=OLLAMA_URL),
-                           source_factory=lambda lid, f, pace: FileSource(lid, f, pace, runs_dir=RUNS_DIR),
-                           runs_dir=RUNS_DIR, probe=MemoryProbe(total_gb=total_gb())))
+        if a.cmd == "digest":
+            asyncio.run(rebuild_digest(a.lecture, db=a.db, client=client, sink=sink))
+            return 0
+        suffix = a.file.suffix.lower()
+        if suffix in UNSUPPORTED_SUFFIXES:
+            print(f"{a.file.name}: supported transcripts are .vtt and MacWhisper .json", file=sys.stderr)
+            return 2
+        if not a.file.is_file():
+            print(f"{a.file}: not found", file=sys.stderr)
+            return 2
+        transcript = suffix in TRANSCRIPT_SUFFIXES
+        asyncio.run(replay(
+            a.file, a.course, a.language, a.title, a.date, a.pace, a.db, a.fact_check, week=a.week, sink=sink,
+            source="transcript" if transcript else "file", asr=TranscriptASR() if transcript else MacWhisperASR(),
+            source_factory=(lambda lid, f, pace: TranscriptSource(lid, f, runs_dir=RUNS_DIR)) if transcript
+            else (lambda lid, f, pace: FileSource(lid, f, pace, runs_dir=RUNS_DIR)),
+            client=client, runs_dir=RUNS_DIR, probe=MemoryProbe(total_gb=total_gb())))
     except RuntimeError as e:
-        print(f"replay stopped: {e}", file=sys.stderr)
+        print(terminal_text(f"stopped: {e}", 300), file=sys.stderr)
         return 1
     return 0
 
