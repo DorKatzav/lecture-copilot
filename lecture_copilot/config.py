@@ -22,6 +22,14 @@ CHUNK_BUDGET_S = 30                                            # all processing 
 EXTRACT_TIMEOUT_S = BUDGET_S["extract"] * 2                    # per attempt; a longer call is a hang
 EXTRACT_OPTIONS = {"temperature": 0, "seed": 42}               # D-M1-2: reproducible replays
 
+# Digest (D-M2-2): map-reduce sized for the 4,096-token context
+TOKENS_PER_WORD = 3                                            # measured 2.86 for Hebrew on gemma3:12b
+DIGEST_MAP_INPUT_TOKENS = 2600                                 # chunk summaries + concepts of one block
+DIGEST_FULL_WORDS = (120, 550)                                 # full summary: short replay … full lecture
+DIGEST_OPTIONS = {"temperature": 0, "seed": 42}
+DIGEST_TIMEOUT_S = 90                                          # per attempt
+DIGEST_BUDGET_S = 120                                          # spec: Digest within 2 minutes of "סיום"
+
 MW_BIN = os.getenv("MW_BIN", "mw")                             # MacWhisper CLI (Settings → Advanced → Install CLI)
 # ASR model per course language (D-M0-8), explicit: never the app's current selection
 MW_MODELS = {"he": "whisper-cpp:ivrit-ai-largev3", "en": "whisperkit:openai_whisper-large-v3-v20240930"}
