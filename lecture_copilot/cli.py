@@ -188,13 +188,32 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--no-fact-check", dest="fact_check", action="store_false")
     d = sub.add_parser("digest", help="rebuild the Digest of a lecture (default: the last one that ended)")
     d.add_argument("--lecture")
-    for p in (r, d):
+    e = sub.add_parser("eval", help="verdict accuracy, Precision@5, cache, cost on eval/benchmark.json")
+    e.add_argument("--benchmark", type=Path, default=ROOT / "eval" / "benchmark.json")
+    for p in (r, d, e):
         p.add_argument("--db", type=Path, default=DB_PATH)
         p.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
     a = ap.parse_args(argv)
     client = httpx.AsyncClient(base_url=OLLAMA_URL)
     sink = FolderSink(a.courses_root)
     gemini = None
+    if a.cmd == "eval":
+        from lecture_copilot.eval import run_eval
+        try:
+            load_env(ENV_FILE, fact_check=True)
+        except RuntimeError as err:
+            print(str(err), file=sys.stderr)
+            return 2
+        if not a.benchmark.is_file():
+            print(f"{a.benchmark}: not found — label it first (PLAN §7)", file=sys.stderr)
+            return 2
+        out = asyncio.run(run_eval(a.db, a.benchmark, GeminiAPI(os.environ["GEMINI_API_KEY"])))
+        v = out["verdicts"]
+        print(f"eval ({out['labels_by'][:40]}): {v['n']} claims · accuracy {v['accuracy']:.0%} · injected caught "
+              f"{v['injected_caught']}/{v['injected']} · unchecked {out['unchecked']} · P@5 "
+              f"{', '.join(f'{k} {p:.0%}' for k, p in out['precision_at_5'].items())} · cache hit {out['cache_hit']} "
+              f"· ${out['cost_usd']:.4f} · {out['seconds']} s")
+        return 0
     if a.cmd == "replay":
         try:
             load_env(ENV_FILE, fact_check=a.fact_check)
