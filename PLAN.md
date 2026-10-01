@@ -134,7 +134,7 @@ class Claim(BaseModel):    text: str; normalized: str; importance: int = Field(g
 class Item(BaseModel):     kind: Literal["question","action","highlight","note","decision"]; text: str; owner: str | None = None; due: str | None = None
 class ExtractResult(BaseModel):
     chunk_summary: str; concepts: list[Concept]; claims: list[Claim]; items: list[Item]
-class MemoryHit(BaseModel): kind: str; id: str; lecture_id: str; text: str; score: float
+class MemoryHit(BaseModel): kind: str; id: str; lecture_id: str; text: str; score: float; explanation; canonical_key; week; title; importance   # store/search.py (dataclass)
 class Verdict(BaseModel):  verdict: Literal["correct","incorrect","imprecise","unverifiable"]; confidence: float; explanation: str; sources: list[str]
 class DigestSection(BaseModel): paragraphs: list[str]            # 1–3, map step (M2)
 class Continuation(BaseModel):  new: list[str]; repeated: list[str]; contradicts: list[str]
@@ -144,7 +144,8 @@ class DigestExec(BaseModel):    exec_summary: list[str]          # exactly 5; co
 ### 3.5 `agents/*.py` (four plain async functions + recap)
 ```python
 async def extract(segments: list[Segment], ctx: Ctx) -> ExtractResult          # one Ollama call, prompts/extract_v0.md, pydantic validate + 1 retry
-async def remember(res: ExtractResult, ctx: Ctx) -> ExtractResult             # batch embed; per concept/claim: search → already_said flag, contradiction → importance += 20
+async def recall(segments, ctx, ref) -> MemoryContext                        # M3: embed the chunk text, search earlier lectures (top-5) → known terms + earlier claims for the extractor
+async def remember(res, chunk, ctx, ref, memory) -> dict                      # M3: batch embed concepts + claims; already said (key / term / cosine ≥ 0.85) → first_seen_lecture_id; `contradicts` → +20, contradicts_id
 async def verify(claim_id: str, ctx: Ctx) -> Verdict                          # Gemini + grounding + tool get_course_context(topic); cache by normalized hash
 def rank(lecture_id: str) -> list[ClaimRow]                                    # ORDER BY importance DESC; labels: material (≥85) / minor
 async def recap(lecture_id: str, minutes: int = 5) -> str                      # last N chunk_summaries → one Ollama call → 3 lines
@@ -161,12 +162,15 @@ claims(id, lecture_id, segment_id, text, normalized, importance, status pending|
 lecture_summaries(lecture_id, bullets_json, digest_md, embedding BLOB)
 fact_cache(cache_key, verdict, sources_json, checked_at)
 decisions(id, lecture_id, node extractor|memory|verifier|ranker|net|asr|chunk|run (D-M1-1)|digest|sink (M2, schema v2), input_ref, output_json, ms, tokens_in, tokens_out, cost_usd, ts)
-items_fts / claims_fts  = FTS5(text, canonical_key)   ·   vec_items / vec_claims = sqlite-vec (bge-m3, 1024 dims)
+items_fts(id, lecture_id, text, explanation, canonical_key) / claims_fts(id, lecture_id, text, normalized) = FTS5 unicode61, kept in step by the Store (schema v3)
+vec_items / vec_claims = sqlite-vec vec0(id, embedding float[1024]) when it loads; the float32 blobs on the rows are the source of truth (numpy fallback)
+claims.contradicts_id (schema v4) · lectures.continues_id set by the Digest (previous digested lecture of the course)
 ```
 ```python
 class Store:
     def upsert_lecture(...); def add_segments(...); def add_items(...); def add_claims(...)
-    def search(self, query: str, course_id: str, k: int = 5) -> list[MemoryHit]   # RRF(FTS5 bm25, vec cosine); numpy fallback when sqlite-vec missing
+    def search(self, query, course_id, k=5, *, query_vec=None, exclude_lecture_id=None, before=None) -> list[MemoryHit]
+    # RRF over FTS5 bm25 (items + claims) and vector cosine (sqlite-vec vec0, or numpy over the blobs — VEC_BACKEND); `before` = only lectures that started earlier
     def previous_lecture(self, course_id: str) -> LectureRow | None
     def log(self, node: str, **fields) -> None                                     # decisions
 ```
@@ -219,7 +223,7 @@ WS   /ws              → pushes rows on every store write (items, claims, level
 | **M0 skeleton + stage-0** | 23–25.9 | repo, env `copilot`, `.cursor/rules`, `scripts/setup_models.sh`, fixture, `prompts/extract_v0.md`, stage-0 measurements in `docs/notes/STAGE0_HE.html` | `mw version` ok · 3 Ollama models present · sqlite-vec loads (or numpy fallback flagged) · fixture exists · `mw` 5 runs on 45 s: p50 logged, hot/cold verdict written · 10 real chunks → extract_v0 → ≥ 9/10 valid JSON · mic-from-seat test recorded (readable yes/no) · secret scan empty |
 | **M1 pipeline** | 4–5.10 (done 28.9) | `FileSource`, `vad.split`, `MacWhisperASR`, `extract`, `Store` (schema, ULID, upserts), `cli replay --pace fast`, `memprobe`, `scripts/ollama_serve.sh` | fixture → segments ≥ 10, items ≥ 5, claims ≥ 1 · rerun = one lecture, tables equal the last replay, no older rows (D-M1-5; identical counts asserted with stubs) · every chunk ≤ budget on the fixture (p95 logged) · `ASRError` on a corrupt wav marks the chunk failed and continues · peak memory: all three resident, pressure below critical, swap growth ≤ 1 GB (D-M1-6) · Ollama runs with the prompt cache off (D-M1-4) · tests with stubs green |
 | **M2 digest** | 6–7.10 | `digest()`, `FolderSink` (md + html + transcript + claims.json), `TranscriptSource` (.vtt + mw JSON), `prompts/digest_v0.md` | digest.md has all 9 sections in order · 60-min lecture → digest < 120 s wall · replay of a .vtt yields the same sections · course folder created under `COURSES_ROOT` · html renders RTL (screenshot) |
-| **M3 memory** | 8–10.10 | `embed`, FTS5 + sqlite-vec, `search` (RRF), `remember` (already_said / contradicts), `canonical_key`, `previous_lecture`, continuation chapter, "ממשיך את" bullets | 7/6 then 9/6 replay: ≥ 80% of shared concepts flagged already_said · injected contradiction raises importance by 20 · search("CAC") returns the 9/6 explanation top-1 · continuation chapter present in 9/6 digest · numpy fallback passes the same tests |
+| **M3 memory** | 8–10.10 (built 1.10) | `store/embed`, FTS5 + sqlite-vec, `Store.search` (RRF), `agents/memory` (`recall`, `remember`), `extract_v4` (earlier claims, `contradicts`), `previous_lecture`, continuation chapter, returned concepts, forward link in `index.md` | 7/6 then 9/6 replay: ≥ 80% of Dor's labelled shared concepts flagged (SKIP until `eval/benchmark.json` exists; candidates from `scripts/m3.py candidates`) · live two-lecture contradiction raises importance by 20 and links the claims · 10 sampled terms of 9/6: search(term) returns their concept first ≥ 80% (the course has no CAC) · continuation chapter in the 9/6 Digest with the model's lists · memory per chunk p95 ≤ 3 s · numpy fallback passes the same tests and agrees with sqlite-vec on the real DB |
 | **M4 verifier + ranker + eval** | 11–12.10 | `verify` (Gemini, grounding, `get_course_context` tool, cache), verifier worker, offline mode, `rank`, `eval.py`, `benchmark.json` (labels from Sukkot) | eval: verdict accuracy ≥ 80% on 40 claims · Precision@5 material ≥ 80% · wifi off mid-replay → claims `unchecked`, batch-verified at stop · cost per lecture < $0.20 from `decisions` · cache hit on repeated claim · CI never calls Gemini |
 | **M5 live product** | 13–15.10 | `LiveSource` + meter, `cli copilot` launcher (starts Ollama, checks mw, opens tab), web page before/during/after, ★ mark, notes, recap, crash-recovery banner, `course_page()` + search box | 20-min live simulation (YouTube lecture through speakers, 3 m): rows arrive, no popups, digest < 120 s after stop · kill process mid-lecture → reopen shows banner, resume finishes digest with chunks so far · meter reads > −40 dB within 10 s · course.html lists glossary across both lectures · RTL screenshots |
 | **M6 Notion** | 16.10 | `NotionSink`: 5 DBs created once (`cli notion-init`), lecture page via markdown endpoint, glossary/claims/tasks rows, idempotent re-sync | after M5 replay: Lectures page exists with 9 sections · Glossary rows == distinct canonical_keys · re-sync twice → no duplicates · NOTION_TOKEN absent → sink skipped with a logged reason, folder sink still writes |
@@ -243,7 +247,7 @@ failure is a logged row, never an exception that stops the lecture.
 - [ ] Always: start Ollama with `scripts/ollama_serve.sh` (`--restart` if it is already up), never a plain `ollama serve` (D-M1-4).
 - [ ] Suggested: MacWhisper → Settings → turn off automatic updates until 18.10 (it updated itself mid-run on 28.9).
 - [ ] Still open (1 min, D-M0-11): start any transcription in the MacWhisper app, then run `python scripts/stage0.py mw-bench --busy` while it runs.
-- [ ] Sukkot: label `eval/benchmark.json` from the two `.vtt` files (~3 h): 30 real claims + verdicts, 10 injected errors (5 contradicting 7/6), 30 concepts, shared-concept pairs.
+- [ ] Sukkot: label `eval/benchmark.json` from the two `.vtt` files (~3 h): 30 real claims + verdicts, 10 injected errors (5 contradicting 7/6), 30 concepts, shared-concept pairs. **Shared concepts (M3, ~15 min):** open `runs/m3/SHARED_CONCEPTS_HE.html`, prune `eval/benchmark_candidates.json`, save it as `eval/benchmark.json` (gitignored: course material).
 - [ ] M2: install Google Drive for desktop (not installed as of 2026-09-26); `COURSES_ROOT` inside its folder (current installs mount at `~/Library/CloudStorage/GoogleDrive-<account>/My Drive`, not the config default); create course "יזמות וחדשנות" (he) and any English course (en).
 - [ ] M6: Notion internal integration → `NOTION_TOKEN`; share the "🎓 לימודים" page with it; run `cli notion-init` once.
 - [ ] M7 (optional): install BlackHole 2ch; Audio MIDI Setup: Multi-Output (speakers + BlackHole), Aggregate (mic + BlackHole, drift correction on).

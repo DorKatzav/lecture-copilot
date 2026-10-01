@@ -90,6 +90,7 @@ during a lecture.** No submission, no grade: this is a tool Dor uses from the fi
   24 GB together — measured in M1: peak 22.2 GB with Dor's apps open, pressure "warning", no swap growth (D-M1-6). Every extraction output passes a foreign-script check that lists
   forbidden scripts explicitly (Cyrillic, Arabic, CJK, Latin Extended Additional); accented Latin (é, ü) is allowed.
 - **IDs are ULIDs minted in Python before any write.** Replaying the same lecture is an upsert, never a duplicate.
+- **Memory is chronological.** "Already said" means said in a lecture that started earlier (`Store.search(..., before=lecture_id)`); replaying old lectures after new ones must not invert it.
 - **MacWhisper is a provider, not a dependency.** We call `mw transcribe` on files; we never read its internal SQLite,
   never use `--persist`. Speaker names come in through an exported transcript → `TranscriptSource`.
 - **Prompts are files with versions.** Changing a prompt = new file + a line in `PROJECT_LOG.md` with before/after on the fixture. The versions in use are named in `config.py` (`EXTRACT_PROMPT`, `DIGEST_MAP_PROMPT`, `DIGEST_EXEC_PROMPT`); compare versions with `scripts/m2.py extract-compare` / `digest-compare` on the same transcripts.
