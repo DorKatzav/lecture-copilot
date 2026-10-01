@@ -14,9 +14,10 @@ def seed(tmp_path):
                          fact_check=True)
     b = s.upsert_lecture(course, audio_path="/b.vtt", source="transcript", title="9-6", date="2026-06-09",
                          fact_check=True)
-    for lid, concepts in ((a, [("git", "מערכת גרסאות", "git"), ("commit", "שמירת השינויים בקוד למאגר המקומי של הגרסאות", "commit")]),
+    commit_explained = "שמירת השינויים בקוד למאגר המקומי של הגרסאות"
+    for lid, concepts in ((a, [("git", "מערכת גרסאות", "git"), ("commit", commit_explained, "commit")]),
                           (b, [("Git", "ניהול גרסאות", "git"), ("branch", "ענף", "branch"),
-                               ("קומיט", "שמירת השינויים בקוד למאגר המקומי של הגרסאות", "save_changes")])):
+                               ("קומיט", commit_explained, "save_changes")])):
         res = ExtractResult(chunk_summary="s", items=[], claims=[],
                             concepts=[Concept(term=t, explanation=e, canonical_key=k) for t, e, k in concepts])
         s.write_chunk(lid, 1, [Segment(t0=0, t1=40, text="x")], asr="transcript", result=res)

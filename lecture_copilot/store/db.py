@@ -258,8 +258,8 @@ class Store:
                              "where id = ?", (bonus, earlier_claim_id, claim_id))
 
     def earlier_concepts(self, course_id: str, before_lecture_id: str) -> list[dict]:
-        """Concepts of the course's other lectures: key, term, the lecture they were first seen in."""
-        lectures = self.course_lectures(course_id, exclude=before_lecture_id)
+        """Concepts of the course's earlier lectures: key, term, the lecture they were first seen in."""
+        lectures = self.course_lectures(course_id, before=before_lecture_id)
         if not lectures:
             return []
         marks = ",".join("?" * len(lectures))
@@ -268,15 +268,22 @@ class Store:
             f"where kind = 'concept' and lecture_id in ({marks})", lectures)
         return [dict(r) for r in rows]
 
-    def course_lectures(self, course_id: str, exclude: str | None = None) -> list[str]:
+    def course_lectures(self, course_id: str, exclude: str | None = None, before: str | None = None) -> list[str]:
+        """The course's lectures in order; `before` keeps only those that started earlier than that lecture."""
+        if before:
+            me = self.lecture(before)
+            return [r[0] for r in self.con.execute(
+                "select id from lectures where course_id = ? and id != ? and (date, started_at) < (?, ?) "
+                "order by date, started_at", (course_id, before, me["date"], me["started_at"]))]
         return [r[0] for r in self.con.execute(
             "select id from lectures where course_id = ? and (? is null or id != ?) order by date, started_at",
             (course_id, exclude, exclude))]
 
     def search(self, query: str, course_id: str, k: int = 5, *, query_vec: list[float] | None = None,
-               exclude_lecture_id: str | None = None) -> list[MemoryHit]:
-        """RRF over FTS5 bm25 (items + claims) and vector cosine (items + claims), inside one course."""
-        lectures = self.course_lectures(course_id, exclude_lecture_id)
+               exclude_lecture_id: str | None = None, before: str | None = None) -> list[MemoryHit]:
+        """RRF over FTS5 bm25 (items + claims) and vector cosine (items + claims), inside one course.
+        `before` limits the memory to lectures that started before that one (what "already said" means)."""
+        lectures = self.course_lectures(course_id, exclude_lecture_id, before)
         if not lectures:
             return []
         marks = ",".join("?" * len(lectures))

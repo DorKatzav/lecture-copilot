@@ -62,8 +62,7 @@ async def recall(segments: list[Segment], ctx: Ctx, ref: str) -> MemoryContext:
     except EmbedError as e:
         mem.embed_error = str(e)
     embed_ms = (time.perf_counter() - t0) * 1000
-    mem.hits = ctx.store.search(text, ctx.course_id, k=MEMORY_K, query_vec=query_vec,
-                                exclude_lecture_id=ctx.lecture_id)
+    mem.hits = ctx.store.search(text, ctx.course_id, k=MEMORY_K, query_vec=query_vec, before=ctx.lecture_id)
     ctx.store.log("memory", lecture_id=ctx.lecture_id, input_ref=ref, ms=(time.perf_counter() - t0) * 1000,
                   output={"step": "recall", "hits": len(mem.hits), "embed_ms": round(embed_ms, 1),
                           "embed_error": mem.embed_error,
@@ -102,7 +101,7 @@ async def remember(result: ExtractResult, chunk: AudioChunk, ctx: Ctx, ref: str,
     for i, row in enumerate(concepts):
         match = by_key.get(_norm(row["canonical_key"])) or by_term.get(_norm(row["text"]))
         if match is None and i < len(vecs):
-            hits = store.search("", ctx.course_id, k=1, query_vec=vecs[i], exclude_lecture_id=ctx.lecture_id)
+            hits = store.search("", ctx.course_id, k=1, query_vec=vecs[i], before=ctx.lecture_id)
             if hits and hits[0].kind == "concept":
                 hit_vec = store.con.execute("select embedding from items where id = ?", (hits[0].id,)).fetchone()[0]
                 if hit_vec and cosine(vecs[i], unpack(hit_vec)) >= ALREADY_SAID_COSINE:

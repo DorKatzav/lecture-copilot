@@ -198,3 +198,18 @@ def test_remember_survives_an_embedding_failure(store):
     out = run(lambda c: remember(res, AudioChunk(w5, 1, store.path, 0, 40), ctx_for(store, w5, course, c),
                                  "R#0001"), FakeOllama(fail_loads=True))
     assert out["embed_error"] and store.items(w5, kind="concept")[0]["first_seen_lecture_id"] == w4  # key still works
+
+
+def test_memory_only_looks_at_lectures_that_started_earlier(store):
+    """Replaying an old lecture after a newer one: the newer one is not 'already said'."""
+    fake = FakeOllama()
+    course, w4, w5 = seed_previous_lecture(store, fake)
+    w3 = store.upsert_lecture(course, audio_path="/w3", source="file", title="W3", date="2026-10-21",
+                              fact_check=True, week=3)
+    res = ExtractResult(chunk_summary="s", items=[], claims=[], concepts=[concept("CAC", "עלות רכישת לקוח", "cac")])
+    store.write_chunk(w3, 1, [Segment(t0=0, t1=40, text="x")], asr="mw", result=res)
+    mem = run(lambda c: recall([Segment(t0=0, t1=1, text="CAC")], ctx_for(store, w3, course, c), "R#0001"), fake)
+    out = run(lambda c: remember(res, AudioChunk(w3, 1, store.path, 0, 40), ctx_for(store, w3, course, c),
+                                 "R#0001", memory=mem), fake)
+    assert mem.hits == [] and out["already_said"] == 0
+    assert store.items(w3, kind="concept")[0]["first_seen_lecture_id"] == w3
