@@ -134,6 +134,16 @@ def cmd_lecture_stats(a: argparse.Namespace) -> None:
     print(json.dumps({k: v for k, v in out.items() if k != "timing"}, indent=2))
 
 
+def cmd_contradiction(_: argparse.Namespace) -> None:
+    """The gate's live two-lecture test, with its numbers kept for the report."""
+    from scripts import gate
+    r = gate.check_contradiction()
+    nums = [int(x) for x in r.detail.replace("→", " ").split() if x.isdigit()]
+    _save("contradiction", {"status": r.status, "before": nums[0] if len(nums) > 1 else None,
+                            "after": nums[1] if len(nums) > 1 else None, "detail": r.detail})
+    print(r.status, r.detail)
+
+
 def cmd_report(a: argparse.Namespace) -> None:
     data = json.loads(RESULTS.read_text(encoding="utf-8")) if RESULTS.exists() else {}
     page = Path(a.page)
@@ -152,6 +162,7 @@ def main(argv: list[str] | None = None) -> None:
     ls.add_argument("--key", required=True)
     ls.add_argument("--db", default=str(DB_PATH))
     ls.set_defaults(fn=cmd_lecture_stats)
+    sub.add_parser("contradiction").set_defaults(fn=cmd_contradiction)
     r = sub.add_parser("report")
     r.add_argument("--page", required=True)
     r.set_defaults(fn=cmd_report)
