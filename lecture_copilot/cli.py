@@ -30,6 +30,7 @@ from lecture_copilot.config import (
     OLLAMA_URL,
     ROOT,
     RUNS_DIR,
+    VERIFY_MIN_IMPORTANCE,
     Profile,
     load_env,
 )
@@ -111,6 +112,40 @@ async def make_digest(lecture_id: str, store: Store, client: httpx.AsyncClient, 
     return out
 
 
+async def verify_lecture(lecture_id: str | None, *, db: Path, gemini: VerifierBackend, client: httpx.AsyncClient,
+                         sink: Sink, echo: Callable[[str], None] = print) -> dict:
+    """Fact-check a lecture that was replayed without it (or whose claims went unchecked), then rebuild its Digest.
+    Claims below the threshold stay skipped; verified ones are not checked again."""
+    from lecture_copilot.agents.verifier import material
+    store = Store(db)
+    try:
+        row = store.con.execute("select id from lectures where (? is null or id = ?) and status != 'recording' "
+                                "order by ended_at desc limit 1", (lecture_id, lecture_id)).fetchone()
+        if row is None:
+            raise RuntimeError("no lecture to verify" if lecture_id is None else f"no lecture {lecture_id}")
+        lid = row[0]
+        store.con.execute("update claims set status = 'pending' where lecture_id = ? and status in ('skipped', "
+                          "'unchecked') and importance >= ?", (lid, VERIFY_MIN_IMPORTANCE))
+        store.con.commit()
+        worker = VerifierWorker(Verifier(store, Net(store), gemini), lid)
+        task = asyncio.create_task(worker.run())
+        todo = [c["id"] for c in material(store.claims(lid)) if c["status"] == "pending"]
+        for claim_id in todo:
+            worker.enqueue(claim_id)
+        out = {"verifier": await worker.finish(), "queued": len(todo)}
+        await task
+        net = store.con.execute("select coalesce(sum(cost_usd), 0), count(*) from decisions where node = 'net' "
+                                "and lecture_id = ?", (lid,)).fetchone()
+        v = out["verifier"]
+        echo(f"verifier: {len(todo)} queued · {v['verified']} verified · {v['unchecked']} unchecked · "
+             f"{v['skipped']} skipped · {net[1]} calls so far · ${float(net[0]):.4f}")
+        async with client:
+            out["digest"] = await make_digest(lid, store, client, sink, echo)
+        return out
+    finally:
+        store.close()
+
+
 async def rebuild_digest(lecture_id: str | None, *, db: Path, client: httpx.AsyncClient, sink: Sink,
                          echo: Callable[[str], None] = print) -> dict:
     store = Store(db)
@@ -190,7 +225,9 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--lecture")
     e = sub.add_parser("eval", help="verdict accuracy, Precision@5, cache, cost on eval/benchmark.json")
     e.add_argument("--benchmark", type=Path, default=ROOT / "eval" / "benchmark.json")
-    for p in (r, d, e):
+    v = sub.add_parser("verify", help="fact-check a lecture's material claims (default: the last one), then its Digest")
+    v.add_argument("--lecture")
+    for p in (r, d, e, v):
         p.add_argument("--db", type=Path, default=DB_PATH)
         p.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
     a = ap.parse_args(argv)
@@ -213,6 +250,15 @@ def main(argv: list[str] | None = None) -> int:
               f"{v['injected_caught']}/{v['injected']} · unchecked {out['unchecked']} · P@5 "
               f"{', '.join(f'{k} {p:.0%}' for k, p in out['precision_at_5'].items())} · cache hit {out['cache_hit']} "
               f"· ${out['cost_usd']:.4f} · {out['seconds']} s")
+        return 0
+    if a.cmd == "verify":
+        try:
+            load_env(ENV_FILE, fact_check=True)
+        except RuntimeError as err:
+            print(str(err), file=sys.stderr)
+            return 2
+        asyncio.run(verify_lecture(a.lecture, db=a.db, gemini=GeminiAPI(os.environ["GEMINI_API_KEY"]), client=client,
+                                   sink=sink))
         return 0
     if a.cmd == "replay":
         try:

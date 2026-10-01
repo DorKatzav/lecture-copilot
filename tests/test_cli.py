@@ -190,3 +190,23 @@ def test_main_refuses_fact_checking_without_a_key(tmp_path, monkeypatch, capsys)
     f.write_bytes(b"x")
     assert cli.main(["replay", str(f), "--course", "X"]) == 2
     assert "GEMINI_API_KEY" in capsys.readouterr().err
+
+
+def test_verify_command_checks_pending_material_claims_and_rebuilds_the_digest(tmp_path):
+    from tests.stubs import FakeGemini
+    material = json.dumps({"chunk_summary": "סיכום", "concepts": [], "items": [],
+                           "claims": [{"text": "t1", "normalized": "n1", "importance": 90},
+                                      {"text": "t2", "normalized": "n2", "importance": 50}]})
+    replay(tmp_path, n=1, replies=[material, SECTION, EXEC], fact_check=False, gemini=None)   # no verdicts yet
+    ok = {"verdict": "correct", "confidence": 0.9, "explanation": "נכון.", "sources": ["https://a"]}
+    gemini, lines = FakeGemini([ok]), []
+    out = asyncio.run(cli.verify_lecture(None, db=tmp_path / "copilot.sqlite", gemini=gemini,
+                                         client=FakeOllama([SECTION, EXEC]).async_client(),
+                                         sink=FolderSink(tmp_path / "courses"), echo=lines.append))
+    assert out["verifier"] == {"verified": 1, "unchecked": 0, "skipped": 1, "retried": 0} and len(gemini.calls) == 1
+    s = Store(tmp_path / "copilot.sqlite")
+    rows = {r["text"]: r["status"] for r in s.con.execute("select text, status from claims")}
+    assert rows == {"t1": "verified", "t2": "skipped"}
+    assert "נכון" in s.con.execute("select digest_md from lecture_summaries").fetchone()[0]
+    s.close()
+    assert any(line.startswith("verifier:") for line in lines)
