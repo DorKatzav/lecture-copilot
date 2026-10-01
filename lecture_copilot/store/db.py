@@ -18,7 +18,7 @@ from lecture_copilot.config import EMBED_DIMS, VEC_BACKEND
 from lecture_copilot.store.embed import pack, unpack
 from lecture_copilot.store.search import MemoryHit, fts_query, make_backend, rrf
 
-SCHEMA_VERSION = 4   # 2: decisions.node gains digest, sink (M2) · 3: FTS5 tables · 4: claims.contradicts_id (M3)
+SCHEMA_VERSION = 5   # 2: digest, sink nodes · 3: FTS5 tables · 4: claims.contradicts_id · 5: claims.explanation (M4)
 CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # spec nodes + asr / chunk / run (D-M1-1: per-chunk status and timing live in the log, not in a new table)
 NODES = ("extractor", "memory", "verifier", "ranker", "net", "asr", "chunk", "run", "digest", "sink")
@@ -53,7 +53,8 @@ CREATE INDEX IF NOT EXISTS items_segment ON items (segment_id);
 CREATE TABLE IF NOT EXISTS claims (
     id TEXT PRIMARY KEY, lecture_id TEXT NOT NULL, segment_id TEXT, text TEXT NOT NULL, normalized TEXT,
     importance INTEGER, status TEXT NOT NULL CHECK (status IN ('pending', 'verified', 'skipped', 'unchecked')),
-    verdict TEXT, confidence REAL, sources_json TEXT, cache_key TEXT, embedding BLOB, contradicts_id TEXT);
+    verdict TEXT, confidence REAL, sources_json TEXT, cache_key TEXT, embedding BLOB, contradicts_id TEXT,
+    explanation TEXT);
 CREATE INDEX IF NOT EXISTS claims_lecture ON claims (lecture_id);
 CREATE INDEX IF NOT EXISTS claims_segment ON claims (segment_id);
 CREATE TABLE IF NOT EXISTS lecture_summaries (
@@ -120,10 +121,11 @@ class Store:
             self.con.executescript(
                 "BEGIN; DROP INDEX IF EXISTS decisions_lecture; ALTER TABLE decisions RENAME TO decisions_old; "
                 + DECISIONS + " INSERT INTO decisions SELECT * FROM decisions_old; DROP TABLE decisions_old; COMMIT;")
-        if version < 4 and self.con.execute("select 1 from sqlite_master where name = 'claims'").fetchone():
+        if version < 5 and self.con.execute("select 1 from sqlite_master where name = 'claims'").fetchone():
             cols = [r[1] for r in self.con.execute("pragma table_info(claims)")]
-            if "contradicts_id" not in cols:
-                self.con.execute("alter table claims add column contradicts_id text")
+            for col in ("contradicts_id", "explanation"):
+                if col not in cols:
+                    self.con.execute(f"alter table claims add column {col} text")
         return version
 
     def _backfill_index(self) -> None:
@@ -256,6 +258,38 @@ class Store:
         with self.con:
             self.con.execute("update claims set importance = min(100, importance + ?), contradicts_id = ? "
                              "where id = ?", (bonus, earlier_claim_id, claim_id))
+
+    def claim(self, claim_id: str) -> dict | None:
+        row = self.con.execute("select * from claims where id = ?", (claim_id,)).fetchone()
+        return dict(row) if row else None
+
+    def set_verdict(self, claim_id: str, *, status: str, verdict: str | None = None, confidence: float | None = None,
+                    explanation: str | None = None, sources: list[str] | None = None,
+                    cache_key: str | None = None) -> None:
+        with self.con:
+            self.con.execute(
+                "update claims set status = ?, verdict = coalesce(?, verdict), confidence = coalesce(?, confidence), "
+                "explanation = coalesce(?, explanation), sources_json = coalesce(?, sources_json), "
+                "cache_key = coalesce(?, cache_key) where id = ?",
+                (status, verdict, confidence, explanation,
+                 json.dumps(sources, ensure_ascii=False) if sources is not None else None, cache_key, claim_id))
+
+    def set_claim_status(self, lecture_id: str, from_status: str, to_status: str, below: int | None = None) -> int:
+        with self.con:
+            cur = self.con.execute(
+                "update claims set status = ? where lecture_id = ? and status = ? and (? is null or importance < ?)",
+                (to_status, lecture_id, from_status, below, below))
+        return cur.rowcount
+
+    def cached_verdict(self, key: str) -> dict | None:
+        row = self.con.execute("select sources_json from fact_cache where cache_key = ?", (key,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def cache_verdict(self, key: str, verdict: dict) -> None:
+        with self.con:
+            self.con.execute("insert or replace into fact_cache (cache_key, verdict, sources_json, checked_at) "
+                             "values (?, ?, ?, ?)", (key, verdict["verdict"], json.dumps(verdict, ensure_ascii=False),
+                                                     now_iso()))
 
     def earlier_concepts(self, course_id: str, before_lecture_id: str) -> list[dict]:
         """Concepts of the course's earlier lectures: key, term, the lecture they were first seen in."""

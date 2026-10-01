@@ -271,5 +271,5 @@ def test_a_database_from_m1_is_migrated_and_keeps_its_rows(tmp_path):
     s.log("digest", lecture_id="L", input_ref="R2", output={"ok": True})
     rows = s.con.execute("select id, node, output_json, ms from decisions order by ts").fetchall()
     assert [tuple(r) for r in rows][0] == ("01A", "run", '{"chunks": 14}', 1.5) and rows[1]["node"] == "digest"
-    assert s.con.execute("pragma user_version").fetchone()[0] == SCHEMA_VERSION == 4
+    assert s.con.execute("pragma user_version").fetchone()[0] == SCHEMA_VERSION == 5
     s.close()

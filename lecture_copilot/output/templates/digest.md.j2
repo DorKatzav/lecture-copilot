@@ -38,7 +38,10 @@
 @@
 ## טענות מסומנות
 
-{% if doc.claims %}{% for c in doc.claims %}- המרצה אמר: "{{ c.text }}" · [{{ c.label }}]
+{% if doc.claims %}{% for c in doc.claims %}- המרצה אמר: "{{ c.text }}" · [{{ c.label }}]{% if c.explanation %}
+
+  בפועל: {{ c.explanation }}{% if c.sources %} · מקור: {{ c.sources[0] }}{% endif %}{% endif %}
+
 {% endfor %}{% else %}אין.
 {% endif %}
 @@

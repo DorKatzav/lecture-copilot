@@ -18,6 +18,7 @@ from lecture_copilot.config import (
     EXTRACT_TIMEOUT_S,
     LIVE_MODEL,
     OLLAMA_KEEP_ALIVE,
+    STRONG_SIGNALS,
 )
 from lecture_copilot.llm import chat_json
 from lecture_copilot.scriptcheck import forbidden_scripts
@@ -47,6 +48,15 @@ def script_problem(r: ExtractResult) -> str | None:
     return None
 
 
+def keep_strong_highlights(result: ExtractResult, text: str) -> tuple[ExtractResult, int]:
+    """D-M4-2: a ★ needs a strong signal in the transcript ("זה במבחן", "תזכרו", "חשוב מאוד"…), not just "חשוב"."""
+    if any(sig in text for sig in STRONG_SIGNALS):
+        return result, 0
+    kept = [it for it in result.items if it.kind != "highlight"]
+    dropped = len(result.items) - len(kept)
+    return (result.model_copy(update={"items": kept}) if dropped else result), dropped
+
+
 async def extract(chunk: AudioChunk, segments: list[Segment], ctx: Ctx, ref: str,
                   prompt: str = EXTRACT_PROMPT, memory: MemoryContext | None = None) -> ExtractResult:
     prev = ctx.store.previous_chunk_summary(ctx.lecture_id, chunk.idx)
@@ -62,13 +72,16 @@ async def extract(chunk: AudioChunk, segments: list[Segment], ctx: Ctx, ref: str
                            check=script_problem, keep_alive=OLLAMA_KEEP_ALIVE, timeout_s=EXTRACT_TIMEOUT_S,
                            backoff_s=ctx.backoff_s)
     v = call.value
+    dropped = 0
+    if v is not None:
+        v, dropped = keep_strong_highlights(v, "\n".join(s.text for s in segments))
     ctx.store.log("extractor", lecture_id=ctx.lecture_id, input_ref=ref, ms=round(sum(call.ms), 1),
                   tokens_in=call.tokens_in, tokens_out=call.tokens_out, output={
                       "status": "ok" if v else "failed", "model": LIVE_MODEL, "prompt": prompt,
                       "attempts": call.attempts, "first_valid": call.first_valid, "error": call.error,
                       "load_ms": round(call.load_ms, 1), "attempt_ms": [round(m) for m in call.ms],
                       "concepts": len(v.concepts) if v else 0, "claims": len(v.claims) if v else 0,
-                      "items": len(v.items) if v else 0})
+                      "items": len(v.items) if v else 0, "highlights_dropped": dropped})
     if v is None:
         raise ExtractError(call.error or "no valid output")
     return v

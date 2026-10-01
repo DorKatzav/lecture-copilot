@@ -92,5 +92,19 @@
     "before": 80,
     "after": 100,
     "detail": "B's claim contradicts A's: importance 80 → 100, linked"
+  },
+  "strong_signal_filter": {
+    "lecture_slice": {
+      "v4_highlights": 4,
+      "kept_by_strong_signal": 0
+    },
+    "Lecture 7-6": {
+      "v4_highlights": 63,
+      "kept_by_strong_signal": 7
+    },
+    "Lecture 9-6": {
+      "v4_highlights": 104,
+      "kept_by_strong_signal": 8
+    }
   }
 }

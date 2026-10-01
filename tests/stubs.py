@@ -135,3 +135,31 @@ class ListSource:
             if self.fail_after is not None and i == self.fail_after:
                 raise RuntimeError("ffmpeg could not decode lecture.m4a")
             yield c
+
+
+class FakeGemini:
+    """Scripted verifier backend. Each reply is a Verdict-shaped dict, or an exception to raise."""
+
+    def __init__(self, replies=()):
+        self.replies = list(replies)
+        self.calls: list[tuple[str, str]] = []
+        self.in_flight = 0
+        self.max_in_flight = 0
+
+    async def generate(self, system: str, user: str) -> tuple[str, dict]:
+        import asyncio
+        import json
+        self.calls.append((system, user))
+        self.in_flight += 1
+        self.max_in_flight = max(self.max_in_flight, self.in_flight)
+        try:
+            await asyncio.sleep(0.01)
+            reply = self.replies.pop(0) if self.replies else {"verdict": "unverifiable", "confidence": 0.0,
+                                                               "explanation": "אין מקור", "sources": []}
+            if isinstance(reply, Exception):
+                raise reply
+            text = json.dumps(reply, ensure_ascii=False)
+            return text, {"tokens_in": 170, "tokens_out": 150, "bytes_out": len(user.encode()),
+                          "bytes_in": len(text.encode()), "grounding": reply.get("grounding", [])}
+        finally:
+            self.in_flight -= 1

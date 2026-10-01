@@ -6,6 +6,7 @@
 
 import argparse
 import asyncio
+import os
 import sys
 import time
 from collections.abc import Callable
@@ -14,19 +15,34 @@ from pathlib import Path
 
 import httpx
 
+from lecture_copilot.agents.verifier import GeminiAPI, Verifier, VerifierBackend, VerifierWorker
 from lecture_copilot.asr.base import ASR
 from lecture_copilot.asr.macwhisper import MacWhisperASR
 from lecture_copilot.asr.transcript import TranscriptASR
 from lecture_copilot.audio.sources import ChunkSource, FileSource
 from lecture_copilot.audio.transcript import TranscriptSource
-from lecture_copilot.config import CHUNK_BUDGET_S, COURSES_ROOT, DB_PATH, DIGEST_BUDGET_S, OLLAMA_URL, RUNS_DIR, Profile
+from lecture_copilot.config import (
+    CHUNK_BUDGET_S,
+    COST_BUDGET_USD,
+    COURSES_ROOT,
+    DB_PATH,
+    DIGEST_BUDGET_S,
+    OLLAMA_URL,
+    ROOT,
+    RUNS_DIR,
+    VERIFY_MIN_IMPORTANCE,
+    Profile,
+    load_env,
+)
 from lecture_copilot.memprobe import MemoryProbe, total_gb
 from lecture_copilot.output.digest import digest, render_markdown, section_headings
 from lecture_copilot.output.sinks import FolderSink, Sink
 from lecture_copilot.pipeline import Ctx, run, warm_up
 from lecture_copilot.scriptcheck import terminal_text
 from lecture_copilot.store.db import Store, new_id
+from lecture_copilot.store.net import Net
 
+ENV_FILE = ROOT / ".env"
 TRANSCRIPT_SUFFIXES = {".vtt", ".json"}
 UNSUPPORTED_SUFFIXES = {".srt", ".txt"}
 PRESSURE = {1: "normal", 2: "warning", 4: "critical"}
@@ -55,6 +71,13 @@ def fmt_summary(lecture_id: str, s: dict) -> list[str]:
              "p95: " + " · ".join(f"{k.removesuffix('_s')} {t[k]['p95']} s"
                                  for k in ("asr_s", "memory_s", "extract_s", "total_s") if k in t)
              + f" (max total {t['total_s']['max']} s, budget {CHUNK_BUDGET_S} s)"]
+    if s.get("verifier") is not None:
+        v = s["verifier"]
+        over = f"  OVER BUDGET (${COST_BUDGET_USD})" if s["cost_usd"] > COST_BUDGET_USD else ""
+        lines.append(f"verifier: {v['verified']} verified · {v['unchecked']} unchecked · {v['skipped']} skipped · "
+                     f"{v['retried']} retried at stop · {s['net_calls']} calls · ${s['cost_usd']:.4f}{over}")
+    else:
+        lines.append("verifier: fact-checking off — every claim skipped, nothing left the machine")
     m = s.get("memory")
     if m and m.get("samples"):
         models = ", ".join(f"{k} {v} GB" for k, v in m["models_at_peak_gb"].items()) or "none"
@@ -89,6 +112,40 @@ async def make_digest(lecture_id: str, store: Store, client: httpx.AsyncClient, 
     return out
 
 
+async def verify_lecture(lecture_id: str | None, *, db: Path, gemini: VerifierBackend, client: httpx.AsyncClient,
+                         sink: Sink, echo: Callable[[str], None] = print) -> dict:
+    """Fact-check a lecture that was replayed without it (or whose claims went unchecked), then rebuild its Digest.
+    Claims below the threshold stay skipped; verified ones are not checked again."""
+    from lecture_copilot.agents.verifier import material
+    store = Store(db)
+    try:
+        row = store.con.execute("select id from lectures where (? is null or id = ?) and status != 'recording' "
+                                "order by ended_at desc limit 1", (lecture_id, lecture_id)).fetchone()
+        if row is None:
+            raise RuntimeError("no lecture to verify" if lecture_id is None else f"no lecture {lecture_id}")
+        lid = row[0]
+        store.con.execute("update claims set status = 'pending' where lecture_id = ? and status in ('skipped', "
+                          "'unchecked') and importance >= ?", (lid, VERIFY_MIN_IMPORTANCE))
+        store.con.commit()
+        worker = VerifierWorker(Verifier(store, Net(store), gemini), lid)
+        task = asyncio.create_task(worker.run())
+        todo = [c["id"] for c in material(store.claims(lid)) if c["status"] == "pending"]
+        for claim_id in todo:
+            worker.enqueue(claim_id)
+        out = {"verifier": await worker.finish(), "queued": len(todo)}
+        await task
+        net = store.con.execute("select coalesce(sum(cost_usd), 0), count(*) from decisions where node = 'net' "
+                                "and lecture_id = ?", (lid,)).fetchone()
+        v = out["verifier"]
+        echo(f"verifier: {len(todo)} queued · {v['verified']} verified · {v['unchecked']} unchecked · "
+             f"{v['skipped']} skipped · {net[1]} calls so far · ${float(net[0]):.4f}")
+        async with client:
+            out["digest"] = await make_digest(lid, store, client, sink, echo)
+        return out
+    finally:
+        store.close()
+
+
 async def rebuild_digest(lecture_id: str | None, *, db: Path, client: httpx.AsyncClient, sink: Sink,
                          echo: Callable[[str], None] = print) -> dict:
     store = Store(db)
@@ -107,7 +164,7 @@ async def replay(file: Path, course: str, language: str, title: str | None, date
                  fact_check: bool, *, asr: ASR, client: httpx.AsyncClient,
                  source_factory: Callable[[str, Path, str], ChunkSource], runs_dir: Path,
                  probe: MemoryProbe | None, sink: Sink, week: int | None = None, source: str = "file",
-                 echo: Callable[[str], None] = print) -> dict:
+                 gemini: VerifierBackend | None = None, echo: Callable[[str], None] = print) -> dict:
     file = Path(file).resolve()
     store = Store(db)
     try:
@@ -128,9 +185,12 @@ async def replay(file: Path, course: str, language: str, title: str | None, date
             return out
 
         async with client:
+            verifier = None
+            if fact_check and gemini is not None:
+                verifier = VerifierWorker(Verifier(store, Net(store), gemini), lecture_id)
             ctx = Ctx(lecture_id=lecture_id, course_id=course_id, course_name=course, lecture_title=title or file.stem,
-                      profile=Profile(fact_check=fact_check, language=lang), store=store, asr=asr, ollama=client,
-                      run_id=run_id, runs_dir=runs_dir)
+                      profile=Profile(fact_check=fact_check and gemini is not None, language=lang), store=store,
+                      asr=asr, ollama=client, run_id=run_id, runs_dir=runs_dir, verifier=verifier)
             if probe:
                 probe.start()
             try:
@@ -163,12 +223,51 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--no-fact-check", dest="fact_check", action="store_false")
     d = sub.add_parser("digest", help="rebuild the Digest of a lecture (default: the last one that ended)")
     d.add_argument("--lecture")
-    for p in (r, d):
+    e = sub.add_parser("eval", help="verdict accuracy, Precision@5, cache, cost on eval/benchmark.json")
+    e.add_argument("--benchmark", type=Path, default=ROOT / "eval" / "benchmark.json")
+    v = sub.add_parser("verify", help="fact-check a lecture's material claims (default: the last one), then its Digest")
+    v.add_argument("--lecture")
+    for p in (r, d, e, v):
         p.add_argument("--db", type=Path, default=DB_PATH)
         p.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
     a = ap.parse_args(argv)
     client = httpx.AsyncClient(base_url=OLLAMA_URL)
     sink = FolderSink(a.courses_root)
+    gemini = None
+    if a.cmd == "eval":
+        from lecture_copilot.eval import run_eval
+        try:
+            load_env(ENV_FILE, fact_check=True)
+        except RuntimeError as err:
+            print(str(err), file=sys.stderr)
+            return 2
+        if not a.benchmark.is_file():
+            print(f"{a.benchmark}: not found — label it first (PLAN §7)", file=sys.stderr)
+            return 2
+        out = asyncio.run(run_eval(a.db, a.benchmark, GeminiAPI(os.environ["GEMINI_API_KEY"])))
+        v = out["verdicts"]
+        p_at_k = ", ".join(f"{d} {p['precision']:.0%} (k={p['k']})" for d, p in out["precision_at_5"].items())
+        print(f"eval ({out['labels_by'][:40]}): {v['n']} claims · accuracy {v['accuracy']:.0%} · injected caught "
+              f"{v['injected_caught']}/{v['injected']} · unchecked {out['unchecked']} · P@k {p_at_k} "
+              f"· cache hit {out['cache_hit']} · ${out['cost_usd']:.4f} · {out['seconds']} s")
+        return 0
+    if a.cmd == "verify":
+        try:
+            load_env(ENV_FILE, fact_check=True)
+        except RuntimeError as err:
+            print(str(err), file=sys.stderr)
+            return 2
+        asyncio.run(verify_lecture(a.lecture, db=a.db, gemini=GeminiAPI(os.environ["GEMINI_API_KEY"]), client=client,
+                                   sink=sink))
+        return 0
+    if a.cmd == "replay":
+        try:
+            load_env(ENV_FILE, fact_check=a.fact_check)
+        except RuntimeError as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        if a.fact_check:
+            gemini = GeminiAPI(os.environ["GEMINI_API_KEY"])
 
     try:
         if a.cmd == "digest":
@@ -187,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
             source="transcript" if transcript else "file", asr=TranscriptASR() if transcript else MacWhisperASR(),
             source_factory=(lambda lid, f, pace: TranscriptSource(lid, f, runs_dir=RUNS_DIR)) if transcript
             else (lambda lid, f, pace: FileSource(lid, f, pace, runs_dir=RUNS_DIR)),
-            client=client, runs_dir=RUNS_DIR, probe=MemoryProbe(total_gb=total_gb())))
+            client=client, runs_dir=RUNS_DIR, probe=MemoryProbe(total_gb=total_gb()), gemini=gemini))
     except RuntimeError as e:
         print(terminal_text(f"stopped: {e}", 300), file=sys.stderr)
         return 1

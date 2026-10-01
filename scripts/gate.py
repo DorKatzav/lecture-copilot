@@ -8,6 +8,7 @@ import argparse
 import asyncio
 import json
 import math
+import os
 import sqlite3
 import subprocess
 import sys
@@ -21,6 +22,7 @@ import httpx
 from lecture_copilot.config import (
     BUDGET_S,
     CHUNK_BUDGET_S,
+    COST_BUDGET_USD,
     COURSES_ROOT,
     DB_PATH,
     DIGEST_BUDGET_S,
@@ -651,6 +653,145 @@ def check_contradiction(work: Path | None = None, client: httpx.AsyncClient | No
     return _ok("contradiction", f"B's claim contradicts A's: importance {before} → {c['importance']}, linked")
 
 
+# ---------- M4: verifier, ranker, eval ----------
+
+RESULTS = ROOT / "eval" / "results.json"
+
+
+def _results(path: Path) -> dict | None:
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+
+def check_verdict_accuracy(path: Path = RESULTS, min_accuracy: float = 0.8) -> Result:
+    r = _results(path)
+    if r is None:
+        return _fail("verdict_accuracy", "no eval/results.json — python -m lecture_copilot.cli eval")
+    v = r["verdicts"]
+    detail = (f"{v['accuracy']:.0%} on {v['n']} claims, injected errors caught {v['injected_caught']}/{v['injected']}, "
+              f"unchecked {r.get('unchecked', 0)} · labels: {r.get('labels_by', '?')}")
+    return _ok("verdict_accuracy", detail) if v["accuracy"] >= min_accuracy else _fail("verdict_accuracy", detail)
+
+
+def check_precision(path: Path = RESULTS, min_precision: float = 0.8) -> Result:
+    """Precision@5 of 'material' on the ranked claims; a lecture with fewer than five labelled material claims
+    is reported at its own k and not judged (D-M4-4)."""
+    r = _results(path)
+    if r is None:
+        return _fail("precision_at_5", "no eval/results.json — python -m lecture_copilot.cli eval")
+    judged = {d: p for d, p in r["precision_at_5"].items() if p["k"] >= 5}
+    parts = [f"{d} {p['precision']:.0%} (k={p['k']})" for d, p in r["precision_at_5"].items()]
+    detail = " · ".join(parts)
+    detail += f" · judged: {', '.join(judged)}" if judged else " · no lecture with 5 material claims"
+    if not judged:
+        return _fail("precision_at_5", detail)
+    avg = sum(p["precision"] for p in judged.values()) / len(judged)
+    return _ok("precision_at_5", detail) if avg >= min_precision else _fail("precision_at_5", detail)
+
+
+def check_cache_hit(path: Path = RESULTS) -> Result:
+    r = _results(path)
+    if r is None:
+        return _fail("cache_hit", "no eval/results.json")
+    return (_ok("cache_hit", "a repeated claim was answered from fact_cache without a call") if r.get("cache_hit")
+            else _fail("cache_hit", "the repeated claim reached the network again"))
+
+
+def check_cost(db: Path = DB_PATH) -> Result:
+    con = sqlite3.connect(db)
+    rows = con.execute("select lecture_id, sum(cost_usd), count(*) from decisions where node = 'net' "
+                       "and lecture_id in (select id from lectures) group by lecture_id").fetchall()
+    if not rows:
+        return _fail("cost_per_lecture", "no outbound call logged for any lecture — replay or verify one")
+    worst = max(rows, key=lambda r: r[1] or 0)
+    detail = (f"{len(rows)} lecture(s) with calls; most expensive ${worst[1]:.4f} over {worst[2]} calls "
+              f"(budget ${COST_BUDGET_USD})")
+    return _ok("cost_per_lecture", detail) if worst[1] < COST_BUDGET_USD else _fail("cost_per_lecture", detail)
+
+
+def check_ci_offline() -> Result:
+    """CI never calls Gemini: tests do not import the SDK, the workflow has no key, .env is not tracked."""
+    hits = subprocess.run(["git", "-C", str(ROOT), "grep", "-lE", r"^(from|import) google", "--", "tests"],
+                          capture_output=True, text=True).stdout.split()
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    tracked = subprocess.run(["git", "-C", str(ROOT), "ls-files", ".env"], capture_output=True, text=True).stdout
+    problems = []
+    if hits:
+        problems.append(f"tests import the SDK: {', '.join(hits)}")
+    if "GEMINI" in ci:
+        problems.append("ci.yml mentions GEMINI")
+    if tracked.strip():
+        problems.append(".env is tracked")
+    if problems:
+        return _fail("ci_offline", "; ".join(problems))
+    return _ok("ci_offline", "tests use stubs only, ci.yml has no key, .env is not tracked")
+
+
+OUTAGE_VTT = """WEBVTT
+
+00:00:01.000 --> 00:00:40.000
+נדבר על תקופת ההחזר. תקופת ההחזר המקובלת למיזם היא 18 חודשים. זה המספר שהמשקיעים מצפים לו.
+"""
+
+
+class _Flaky:
+    """A verifier backend whose first call fails like a lost connection."""
+
+    def __init__(self, backend):
+        self.backend, self.calls = backend, 0
+
+    async def generate(self, system, user):
+        self.calls += 1
+        if self.calls == 1:
+            raise httpx.ConnectError("wifi off")
+        return await self.backend.generate(system, user)
+
+
+async def _outage_run(work: Path, client: httpx.AsyncClient, gemini) -> tuple[dict, list[dict]]:
+    from lecture_copilot.agents.verifier import Verifier, VerifierWorker
+    from lecture_copilot.asr.transcript import TranscriptASR
+    from lecture_copilot.audio.transcript import TranscriptSource
+    from lecture_copilot.pipeline import Ctx, run
+    from lecture_copilot.store.db import Store, new_id
+    from lecture_copilot.store.net import Net
+
+    store = Store(work / "gate_m4.sqlite")
+    try:
+        course = store.upsert_course("gate", language="he")
+        (work / "a.vtt").write_text(OUTAGE_VTT, encoding="utf-8")
+        lid = store.upsert_lecture(course, audio_path=str(work / "a.vtt"), source="transcript", title="a",
+                                   date="2026-10-01", fact_check=True)
+        async with client:
+            worker = VerifierWorker(Verifier(store, Net(store, backoff_s=0), _Flaky(gemini)), lid)
+            ctx = Ctx(lecture_id=lid, course_id=course, course_name="gate", lecture_title="a",
+                      profile=Profile(fact_check=True, language="he"), store=store, asr=TranscriptASR(),
+                      ollama=client, run_id=new_id(), runs_dir=work, verifier=worker)
+            summary = await run(TranscriptSource(lid, work / "a.vtt", runs_dir=work), ctx)
+        log = [json.loads(o) for (o,) in store.con.execute(
+            "select output_json from decisions where node = 'verifier' and lecture_id = ? order by ts", (lid,))]
+        return summary, log
+    finally:
+        store.close()
+
+
+def check_outage(work: Path | None = None, client: httpx.AsyncClient | None = None, gemini=None) -> Result:
+    """Break it on purpose: the network drops on the first verification; the claim must go unchecked and be
+    verified in the batch at stop."""
+    with tempfile.TemporaryDirectory() as tmp:
+        work = work or Path(tmp)
+        if gemini is None:
+            from lecture_copilot.agents.verifier import GeminiAPI
+            from lecture_copilot.config import load_env
+            load_env()
+            gemini = GeminiAPI(os.environ["GEMINI_API_KEY"])
+        summary, log = asyncio.run(_outage_run(work, client or httpx.AsyncClient(base_url=OLLAMA_URL), gemini))
+    v = summary.get("verifier") or {}
+    statuses = [row["status"] for row in log]
+    detail = f"verifier log: {' → '.join(statuses) or 'empty'}; at stop: {v}"
+    if "unchecked" not in statuses or not v.get("retried") or v.get("verified", 0) < 1 or v.get("unchecked"):
+        return _fail("outage", detail)
+    return _ok("outage", detail)
+
+
 # ---------- runner ----------
 
 def _stage0() -> dict:
@@ -666,6 +807,17 @@ CHECKS: dict[int, list[tuple[str, Callable[[], Result]]]] = {
         ("mw_bench", lambda: check_mw_bench(_stage0())),
         ("extract_bench", lambda: check_extract_bench(_stage0())),
         ("mic_seat", lambda: check_mic(_stage0())),
+        ("secret_scan", check_secret_scan),
+    ],
+    4: [
+        ("verdict_accuracy", check_verdict_accuracy),
+        ("precision_at_5", check_precision),
+        ("outage", check_outage),
+        ("cost_per_lecture", check_cost),
+        ("cache_hit", check_cache_hit),
+        ("ci_offline", check_ci_offline),
+        ("prompt_cache", check_prompt_cache),
+        ("tests", check_tests),
         ("secret_scan", check_secret_scan),
     ],
     3: [

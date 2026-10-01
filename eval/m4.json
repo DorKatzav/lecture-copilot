@@ -1,0 +1,97 @@
+{
+  "verify": {
+    "l0607": {
+      "calls": 17,
+      "cost_usd": 0.0122,
+      "avg_ms": 3893,
+      "tokens_in": 6348,
+      "tokens_out": 1981,
+      "status": {
+        "skipped": 12,
+        "verified": 17
+      },
+      "verdicts": {
+        "correct": 6,
+        "imprecise": 3,
+        "unverifiable": 8
+      },
+      "cost_per_claim_usd": 0.00072
+    },
+    "l0609": {
+      "calls": 9,
+      "cost_usd": 0.0061,
+      "avg_ms": 3389,
+      "tokens_in": 3364,
+      "tokens_out": 957,
+      "status": {
+        "skipped": 8,
+        "verified": 9
+      },
+      "verdicts": {
+        "incorrect": 2,
+        "unverifiable": 7
+      },
+      "cost_per_claim_usd": 0.00068
+    }
+  },
+  "eval": {
+    "labels_by": "Claude, draft of 2026-10-02 — Dor replaces with his own labels",
+    "model": "gemini-3.7-flash",
+    "verdicts": {
+      "n": 42,
+      "accuracy": 0.833,
+      "injected": 10,
+      "injected_caught": 8,
+      "confusion": {
+        "correct": {
+          "imprecise": 1,
+          "correct": 6,
+          "unverifiable": 2,
+          "incorrect": 1
+        },
+        "incorrect": {
+          "incorrect": 8,
+          "imprecise": 1
+        },
+        "imprecise": {
+          "imprecise": 2,
+          "correct": 1
+        },
+        "unverifiable": {
+          "unverifiable": 19,
+          "correct": 1
+        }
+      }
+    },
+    "unchecked": 0,
+    "precision_at_5": {
+      "2026-06-07": {
+        "k": 5,
+        "precision": 1.0,
+        "material_labelled": 9
+      },
+      "2026-06-09": {
+        "k": 2,
+        "precision": 0.5,
+        "material_labelled": 2
+      }
+    },
+    "cache_hit": true,
+    "cost_usd": 0.0136,
+    "seconds": 70.6
+  },
+  "strong_signal_filter": {
+    "lecture_slice": {
+      "v4_highlights": 4,
+      "kept_by_strong_signal": 0
+    },
+    "Lecture 7-6": {
+      "v4_highlights": 63,
+      "kept_by_strong_signal": 7
+    },
+    "Lecture 9-6": {
+      "v4_highlights": 104,
+      "kept_by_strong_signal": 8
+    }
+  }
+}
