@@ -24,16 +24,18 @@ SECTION = json.dumps({"paragraphs": ["פסקה על git."]}, ensure_ascii=False)
 EXEC = json.dumps({"exec_summary": [f"נקודה {i}" for i in range(5)], "continuation": None}, ensure_ascii=False)
 
 
-def replay(tmp_path, n=2, replies=None, sink="folder", **kw):
+def replay(tmp_path, n=2, replies=None, sink="folder", gemini="fake", **kw):
+    from tests.stubs import FakeGemini
     fake = FakeOllama(replies or [REPLY] * n + [SECTION, EXEC])
     lines = []
     args = dict(file=tmp_path / "tirgul.m4a", course="AI Developers — Python", language="he", title=None,
                 date="2026-06-19", pace="fast", db=tmp_path / "copilot.sqlite", fact_check=True)
     args.update(kw)
     sink = FolderSink(tmp_path / "courses") if sink == "folder" else sink
+    gemini = FakeGemini() if gemini == "fake" else gemini
     summary = asyncio.run(cli.replay(**args, asr=FakeASR(), client=fake.async_client(),
                                      source_factory=list_source(n), runs_dir=tmp_path / "runs", probe=None,
-                                     sink=sink, echo=lines.append))
+                                     sink=sink, gemini=gemini, echo=lines.append))
     return summary, lines
 
 
@@ -161,3 +163,30 @@ def test_chunk_line_never_prints_a_localized_error():
     line = cli.fmt_chunk({"idx": 2, "t0": 0.0, "t1": 30.0, "status": "asr_failed", "asr_s": 1.0, "extract_s": None,
                           "total_s": 1.0, "segments": 0, "error": MW_HE_ERROR})
     assert not any("֐" <= ch <= "׿" for ch in line) and "\n" not in line
+
+
+# ---------- M4: fact-checking from the command line ----------
+
+def test_replay_with_fact_checking_verifies_and_reports_the_cost(tmp_path):
+    from tests.stubs import FakeGemini
+    ok = {"verdict": "correct", "confidence": 0.9, "explanation": "נכון.", "sources": ["https://a"]}
+    material = json.dumps({"chunk_summary": "סיכום", "concepts": [], "items": [],
+                           "claims": [{"text": "t", "normalized": "n", "importance": 90}]})
+    summary, lines = replay(tmp_path, replies=[material, material, SECTION, EXEC], gemini=FakeGemini([ok, ok]))
+    assert summary["verifier"]["verified"] == 2 and summary["cost_usd"] > 0
+    assert any(line.startswith("verifier:") and "2 verified" in line and "$" in line for line in lines)
+
+
+def test_replay_without_fact_checking_makes_no_network_call(tmp_path):
+    summary, lines = replay(tmp_path, fact_check=False, gemini=None)
+    assert summary["verifier"] is None and summary["net_calls"] == 0
+    assert any("fact-checking off" in line for line in lines)
+
+
+def test_main_refuses_fact_checking_without_a_key(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr(cli, "ENV_FILE", tmp_path / "missing.env")
+    f = tmp_path / "x.m4a"
+    f.write_bytes(b"x")
+    assert cli.main(["replay", str(f), "--course", "X"]) == 2
+    assert "GEMINI_API_KEY" in capsys.readouterr().err

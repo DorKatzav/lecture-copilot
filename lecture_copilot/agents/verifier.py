@@ -62,7 +62,8 @@ class GeminiAPI:
         from google.genai import types
         config = types.GenerateContentConfig(
             system_instruction=system, tools=[types.Tool(google_search=types.GoogleSearch())],
-            response_mime_type="application/json", response_schema=Verdict, temperature=0)
+            response_mime_type="application/json", response_schema=Verdict, temperature=0,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
         resp = await self.client.aio.models.generate_content(model=self.model, contents=user, config=config)
         return parse_gemini_response(resp, bytes_out=len((system + user).encode()))
 

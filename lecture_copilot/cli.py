@@ -6,6 +6,7 @@
 
 import argparse
 import asyncio
+import os
 import sys
 import time
 from collections.abc import Callable
@@ -14,19 +15,33 @@ from pathlib import Path
 
 import httpx
 
+from lecture_copilot.agents.verifier import GeminiAPI, Verifier, VerifierBackend, VerifierWorker
 from lecture_copilot.asr.base import ASR
 from lecture_copilot.asr.macwhisper import MacWhisperASR
 from lecture_copilot.asr.transcript import TranscriptASR
 from lecture_copilot.audio.sources import ChunkSource, FileSource
 from lecture_copilot.audio.transcript import TranscriptSource
-from lecture_copilot.config import CHUNK_BUDGET_S, COURSES_ROOT, DB_PATH, DIGEST_BUDGET_S, OLLAMA_URL, RUNS_DIR, Profile
+from lecture_copilot.config import (
+    CHUNK_BUDGET_S,
+    COST_BUDGET_USD,
+    COURSES_ROOT,
+    DB_PATH,
+    DIGEST_BUDGET_S,
+    OLLAMA_URL,
+    ROOT,
+    RUNS_DIR,
+    Profile,
+    load_env,
+)
 from lecture_copilot.memprobe import MemoryProbe, total_gb
 from lecture_copilot.output.digest import digest, render_markdown, section_headings
 from lecture_copilot.output.sinks import FolderSink, Sink
 from lecture_copilot.pipeline import Ctx, run, warm_up
 from lecture_copilot.scriptcheck import terminal_text
 from lecture_copilot.store.db import Store, new_id
+from lecture_copilot.store.net import Net
 
+ENV_FILE = ROOT / ".env"
 TRANSCRIPT_SUFFIXES = {".vtt", ".json"}
 UNSUPPORTED_SUFFIXES = {".srt", ".txt"}
 PRESSURE = {1: "normal", 2: "warning", 4: "critical"}
@@ -55,6 +70,13 @@ def fmt_summary(lecture_id: str, s: dict) -> list[str]:
              "p95: " + " · ".join(f"{k.removesuffix('_s')} {t[k]['p95']} s"
                                  for k in ("asr_s", "memory_s", "extract_s", "total_s") if k in t)
              + f" (max total {t['total_s']['max']} s, budget {CHUNK_BUDGET_S} s)"]
+    if s.get("verifier") is not None:
+        v = s["verifier"]
+        over = f"  OVER BUDGET (${COST_BUDGET_USD})" if s["cost_usd"] > COST_BUDGET_USD else ""
+        lines.append(f"verifier: {v['verified']} verified · {v['unchecked']} unchecked · {v['skipped']} skipped · "
+                     f"{v['retried']} retried at stop · {s['net_calls']} calls · ${s['cost_usd']:.4f}{over}")
+    else:
+        lines.append("verifier: fact-checking off — every claim skipped, nothing left the machine")
     m = s.get("memory")
     if m and m.get("samples"):
         models = ", ".join(f"{k} {v} GB" for k, v in m["models_at_peak_gb"].items()) or "none"
@@ -107,7 +129,7 @@ async def replay(file: Path, course: str, language: str, title: str | None, date
                  fact_check: bool, *, asr: ASR, client: httpx.AsyncClient,
                  source_factory: Callable[[str, Path, str], ChunkSource], runs_dir: Path,
                  probe: MemoryProbe | None, sink: Sink, week: int | None = None, source: str = "file",
-                 echo: Callable[[str], None] = print) -> dict:
+                 gemini: VerifierBackend | None = None, echo: Callable[[str], None] = print) -> dict:
     file = Path(file).resolve()
     store = Store(db)
     try:
@@ -128,9 +150,12 @@ async def replay(file: Path, course: str, language: str, title: str | None, date
             return out
 
         async with client:
+            verifier = None
+            if fact_check and gemini is not None:
+                verifier = VerifierWorker(Verifier(store, Net(store), gemini), lecture_id)
             ctx = Ctx(lecture_id=lecture_id, course_id=course_id, course_name=course, lecture_title=title or file.stem,
-                      profile=Profile(fact_check=fact_check, language=lang), store=store, asr=asr, ollama=client,
-                      run_id=run_id, runs_dir=runs_dir)
+                      profile=Profile(fact_check=fact_check and gemini is not None, language=lang), store=store,
+                      asr=asr, ollama=client, run_id=run_id, runs_dir=runs_dir, verifier=verifier)
             if probe:
                 probe.start()
             try:
@@ -169,6 +194,15 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     client = httpx.AsyncClient(base_url=OLLAMA_URL)
     sink = FolderSink(a.courses_root)
+    gemini = None
+    if a.cmd == "replay":
+        try:
+            load_env(ENV_FILE, fact_check=a.fact_check)
+        except RuntimeError as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        if a.fact_check:
+            gemini = GeminiAPI(os.environ["GEMINI_API_KEY"])
 
     try:
         if a.cmd == "digest":
@@ -187,7 +221,7 @@ def main(argv: list[str] | None = None) -> int:
             source="transcript" if transcript else "file", asr=TranscriptASR() if transcript else MacWhisperASR(),
             source_factory=(lambda lid, f, pace: TranscriptSource(lid, f, runs_dir=RUNS_DIR)) if transcript
             else (lambda lid, f, pace: FileSource(lid, f, pace, runs_dir=RUNS_DIR)),
-            client=client, runs_dir=RUNS_DIR, probe=MemoryProbe(total_gb=total_gb())))
+            client=client, runs_dir=RUNS_DIR, probe=MemoryProbe(total_gb=total_gb()), gemini=gemini))
     except RuntimeError as e:
         print(terminal_text(f"stopped: {e}", 300), file=sys.stderr)
         return 1
