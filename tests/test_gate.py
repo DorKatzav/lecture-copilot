@@ -747,3 +747,87 @@ def test_m3_checks():
     assert [name for name, _ in gate.CHECKS[3]] == ["shared_concepts", "contradiction", "search_top1", "continuation",
                                                     "memory_budget", "numpy_fallback", "prompt_cache", "tests",
                                                     "secret_scan"]
+
+
+# ---------- M4 ----------
+
+def results(tmp_path, accuracy=0.83, p=None, cache=True):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    r = {"labels_by": "Claude, draft",
+         "verdicts": {"n": 42, "accuracy": accuracy, "injected": 10, "injected_caught": 8},
+         "precision_at_5": p or {"2026-06-07": {"k": 5, "precision": 1.0, "material_labelled": 9},
+                                 "2026-06-09": {"k": 2, "precision": 0.5, "material_labelled": 2}},
+         "cache_hit": cache, "cost_usd": 0.0136, "unchecked": 0}
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(r), encoding="utf-8")
+    return path
+
+
+def test_m4_accuracy_passes_at_80_percent_and_names_the_labels(tmp_path):
+    r = gate.check_verdict_accuracy(results(tmp_path))
+    assert r.status == "PASS" and "83%" in r.detail and "Claude, draft" in r.detail and "8/10" in r.detail
+
+
+def test_m4_accuracy_fails_below_80_percent_or_without_results(tmp_path):
+    assert gate.check_verdict_accuracy(results(tmp_path, accuracy=0.79)).status == "FAIL"
+    assert gate.check_verdict_accuracy(tmp_path / "missing.json").status == "FAIL"
+
+
+def test_m4_precision_judges_lectures_with_five_material_claims_and_reports_the_rest(tmp_path):
+    r = gate.check_precision(results(tmp_path))
+    assert r.status == "PASS" and "100%" in r.detail and "k=2" in r.detail
+
+
+def test_m4_precision_fails_when_a_judged_lecture_is_low_or_none_is_judged(tmp_path):
+    low = {"2026-06-07": {"k": 5, "precision": 0.6, "material_labelled": 9}}
+    assert gate.check_precision(results(tmp_path, p=low)).status == "FAIL"
+    none = {"2026-06-09": {"k": 2, "precision": 1.0, "material_labelled": 2}}
+    assert gate.check_precision(results(tmp_path / "b", p=none)).status == "FAIL"
+
+
+def test_m4_cache_hit(tmp_path):
+    assert gate.check_cache_hit(results(tmp_path)).status == "PASS"
+    assert gate.check_cache_hit(results(tmp_path / "b", cache=False)).status == "FAIL"
+
+
+def test_m4_cost_per_lecture_from_the_net_rows(tmp_path):
+    from lecture_copilot.store.db import Store
+    s = Store(tmp_path / "copilot.sqlite")
+    course = s.upsert_course("c", language="he")
+    lid = s.upsert_lecture(course, audio_path="/a", source="transcript", title="t", date="d", fact_check=True)
+    for cost in (0.01, 0.0122):
+        s.log("net", lecture_id=lid, input_ref="x", output={"host": "h", "status": "ok"}, cost_usd=cost)
+    s.close()
+    r = gate.check_cost(tmp_path / "copilot.sqlite")
+    assert r.status == "PASS" and "0.0222" in r.detail
+    s = Store(tmp_path / "copilot.sqlite")
+    s.log("net", lecture_id=lid, input_ref="x", output={"host": "h", "status": "ok"}, cost_usd=0.3)
+    s.close()
+    assert gate.check_cost(tmp_path / "copilot.sqlite").status == "FAIL"
+
+
+def test_m4_ci_never_calls_gemini():
+    assert gate.check_ci_offline().status == "PASS"
+
+
+def test_m4_outage_check_passes_when_the_claim_goes_unchecked_then_verified(tmp_path):
+    from tests.stubs import FakeGemini
+    ok = {"verdict": "correct", "confidence": 0.9, "explanation": "נכון.", "sources": ["https://a"]}
+    extraction = json.dumps({"chunk_summary": "s", "concepts": [], "items": [],
+                             "claims": [{"text": "18 חודשים", "normalized": "18 months", "importance": 80}]},
+                            ensure_ascii=False)
+    r = gate.check_outage(work=tmp_path, client=FakeOllama([extraction]).async_client(), gemini=FakeGemini([ok, ok]))
+    assert r.status == "PASS" and "unchecked" in r.detail and "verified" in r.detail
+
+
+def test_m4_outage_check_fails_when_nothing_was_retried(tmp_path):
+    from tests.stubs import FakeGemini
+    extraction = json.dumps({"chunk_summary": "s", "concepts": [], "items": [],
+                             "claims": [{"text": "x", "normalized": "x", "importance": 40}]}, ensure_ascii=False)
+    r = gate.check_outage(work=tmp_path, client=FakeOllama([extraction]).async_client(), gemini=FakeGemini())
+    assert r.status == "FAIL"
+
+
+def test_m4_checks():
+    assert [name for name, _ in gate.CHECKS[4]] == ["verdict_accuracy", "precision_at_5", "outage", "cost_per_lecture",
+                                                    "cache_hit", "ci_offline", "prompt_cache", "tests", "secret_scan"]
