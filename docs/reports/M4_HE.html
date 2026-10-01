@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M4 · בודק העובדות</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;800&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F6F6F2; --panel:#FFFFFF; --panel2:#EEEFEA; --ink:#1C2030; --ink2:#4D5468; --mute:#7C8398; --line:#D9DBD3;
+  --accent:#C8412F; --accent-soft:#FBE9E5; --local:#1E6F80; --local-soft:#E1F0F2; --cloud:#7A4FA8; --cloud-soft:#EFE7F8;
+  --ok:#2E7D4F; --ok-soft:#E3F2E8; --warn:#B7791F; --warn-soft:#FBF1DC; --code:#F0F1EC;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 6px 20px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+    --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+    --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+  --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+  --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Assistant',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;margin:0;direction:rtl}
+.wrap{max-width:880px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;margin-block:0 12px;padding-top:6px}
+h3{font-size:1.05rem;font-weight:700;margin-block:20px 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--ink2);max-width:62ch}
+a{color:var(--local)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+header.hero{padding-block:36px 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--mute);font-size:.9rem;margin-top:14px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;margin-bottom:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--panel2);color:var(--ink2);text-decoration:none;font-size:.88rem;font-weight:600;margin-inline-end:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section{margin-bottom:48px;scroll-margin-top:64px}
+.callout{border-inline-start:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:6px;margin:16px 0}
+.callout.local{border-color:var(--local);background:var(--local-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:480px}
+th,td{padding:10px 12px;text-align:right;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-family:'Heebo',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:700;font-family:'Heebo',sans-serif;white-space:nowrap}
+.yes{background:var(--ok-soft);color:var(--ok)} .no{background:var(--accent-soft);color:var(--accent)} .maybe{background:var(--warn-soft);color:var(--warn)}
+.loc{background:var(--local-soft);color:var(--local)} .cld{background:var(--cloud-soft);color:var(--cloud)} .mw{background:var(--panel2);color:var(--ink2)}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em;direction:ltr;unicode-bidi:embed}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;direction:ltr;text-align:left;font-size:.85rem;line-height:1.55;margin:12px 0 18px}
+pre.rtl{direction:rtl;text-align:right;font-family:'Assistant',sans-serif;font-size:.95rem;white-space:pre-wrap}
+pre code{background:none;padding:0}
+ul,ol{padding-inline-start:22px;margin:0 0 12px}
+li{margin-bottom:6px}
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:14px 0 20px}
+.step{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;box-shadow:var(--shadow)}
+.step b{display:block;font-family:'Heebo',sans-serif;font-size:.95rem}
+.step small{display:block;color:var(--mute);font-size:.82rem;line-height:1.4;margin-top:4px}
+.step.local{border-top:3px solid var(--local)} .step.cloud{border-top:3px solid var(--cloud)} .step.hot{border-top:3px solid var(--accent)} .step.mw{border-top:3px solid var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--mute);margin-top:-8px;margin-bottom:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:5px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow);margin:14px 0 20px}
+.mock .bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font-size:.85rem;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.mock .title{font-family:'Heebo',sans-serif;font-size:1.05rem;font-weight:700;color:var(--ink)}
+.mock .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media (max-width:600px){.mock .grid{grid-template-columns:1fr}}
+.mock .box{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--paper)}
+.mock .box h4{margin:0 0 10px;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--mute);font-weight:600;letter-spacing:.04em}
+.field{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.95rem}
+.field span.in{flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--panel)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.seg span{border:1px solid var(--line);border-radius:6px;padding:5px 12px;color:var(--mute);font-size:.9rem;background:var(--panel)}
+.seg span.on{border-color:var(--local);color:var(--local);background:var(--local-soft);font-weight:700}
+.recbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--accent);color:#fff;border-radius:10px;padding:16px;font-family:'Heebo',sans-serif;font-size:1.2rem;font-weight:800;margin:6px 0 8px}
+.recbtn i{width:14px;height:14px;border-radius:50%;background:#fff;display:inline-block}
+.mock .hint{color:var(--mute);font-size:.82rem}
+.mock .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.mock .row:last-child{border:0}
+.wk{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.wk .w{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.wk .w.off{background:var(--panel2);box-shadow:none;color:var(--mute)}
+.wk h4{margin:0 0 4px;font-family:'Heebo',sans-serif;font-size:1rem}
+.wk .d{color:var(--mute);font-size:.82rem;font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
+.wk ul{padding-inline-start:18px;font-size:.92rem;margin:0}
+.wk .goal{margin-top:8px;font-size:.88rem;color:var(--local);font-weight:700}
+.sources{font-size:.9rem;color:var(--ink2)}
+.sources li{margin-bottom:4px}
+.diff{font-size:.9rem;color:var(--ink2)}
+.diff b{color:var(--ink)}
+.dec{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.95rem}
+.dec b{color:var(--warn)}
+</style>
+</head>
+<body>
+<style>
+.num{font-family:'IBM Plex Mono',monospace;font-weight:500;direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.ask{border:2px solid var(--local);background:var(--local-soft);border-radius:10px;padding:14px 18px;margin:18px 0}
+.ask b{color:var(--local)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:16px 0 8px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);border-top:3px solid var(--ok)}
+.kpi b{display:block;font-family:'Heebo',sans-serif;font-size:1.35rem}
+.kpi small{color:var(--mute);font-size:.82rem}
+.id{direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.shots{display:grid;grid-template-columns:2.4fr 1fr;gap:14px;align-items:start;margin:14px 0}
+.shots img{width:100%;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.shots figure{margin:0}
+.shots figcaption{color:var(--mute);font-size:.85rem;margin-top:6px}
+@media (max-width:600px){.shots{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">docs/reports · M4 · 2.10.2026</div>
+  <h1 style="margin-top:8px">M4 — בודק העובדות, הדירוג וה-Eval</h1>
+  <p class="lead" style="margin-top:12px">מעכשיו טענה מהותית שהמרצה אומר נבדקת בשקט: Gemini מקבל את הטענה ואת מה שנאמר עליה קודם בקורס, מחפש ברשת, ומחזיר פסק דין עם מקור. התוצאה מופיעה ב-Digest כ"המרצה אמר / בפועל / מקור". שום דבר לא קופץ. ה-Eval אומר כמה אפשר לסמוך על זה, ועל אילו תיוגים זה נשען.</p>
+  <div class="meta"><span>ענף <code>feat/m4-verifier</code></span><span>המספרים מ-<code>eval/results.json</code> ו-<code>eval/m4.json</code></span><span>נבנה לפני המועד (תוכנן ל-<span class="num">11–12.10</span>)</span></div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><b class="num">9/9</b><small>שער M4</small></div>
+  <div class="kpi"><b><span class="num" data-metric="eval.verdicts.accuracy">0.833</span></b><small>דיוק הפסיקות על <span class="num" data-metric="eval.verdicts.n">42</span> טענות</small></div>
+  <div class="kpi"><b class="num"><span data-metric="eval.verdicts.injected_caught">8</span>/<span data-metric="eval.verdicts.injected">10</span></b><small>שגיאות מוזרקות שנתפסו</small></div>
+  <div class="kpi"><b><span class="num">$<span data-metric="verify.l0607.cost_usd">0.0122</span></span></b><small>עלות הרצאה שלמה · תקציב <span class="num">$0.20</span></small></div>
+</div>
+
+<section id="how">
+  <h2>איך זה עובד</h2>
+  <ul>
+    <li><b>מה יוצא מהמחשב:</b> הטקסט של הטענה ושלוש השורות הקרובות ביותר מזיכרון הקורס. לא אודיו, לא תמלול. כל קריאה עוברת דלת אחת (<code>store/net.py</code>) ונרשמת: שרת, בייטים, טוקנים, עלות.</li>
+    <li><b>מתי:</b> בעובד נפרד, שתי טענות במקביל, אף פעם לא בתוך לולאת הקטעים. רק טענות מהותיות (חשיבות <span class="num">70</span> ומעלה).</li>
+    <li><b>בלי רשת:</b> הטענה מסומנת "לא נבדקה" וההרצאה ממשיכה; בסיום מנסים שוב. השער מנתק את הרשת בכוונה בקריאה הראשונה ובודק שזה קורה.</li>
+    <li><b>מטמון:</b> טענה שכבר נבדקה לא נשלחת שוב.</li>
+    <li><b>הדירוג:</b> החשיבות שהחילוץ נותן מסדרת, אבל טענה שנמצאה "לא ניתנת לאימות" (דעה, מנהלה) או שמנוסחת בגוף ראשון יורדת למטה (<span class="id">D-M4-3</span>).</li>
+  </ul>
+</section>
+
+<section id="numbers">
+  <h2>המספרים</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>מה</th><th>תוצאה</th><th>יעד</th></tr></thead>
+    <tbody>
+      <tr><td>דיוק הפסיקות (<span class="num" data-metric="eval.verdicts.n">42</span> טענות: <span class="num">32</span> מההרצאות + <span class="num">10</span> שגיאות מוזרקות)</td><td><span class="num" data-metric="eval.verdicts.accuracy">0.833</span></td><td><span class="num">0.80</span></td></tr>
+      <tr><td>שגיאות מוזרקות שנתפסו</td><td><span class="num" data-metric="eval.verdicts.injected_caught">8</span> מתוך <span class="num" data-metric="eval.verdicts.injected">10</span></td><td>—</td></tr>
+      <tr><td>Precision@5 של "מהותי", הרצאת 7/6</td><td><span class="num" data-metric="eval.precision_at_5.2026-06-07.precision">1.0</span></td><td><span class="num">0.80</span></td></tr>
+      <tr><td>Precision@k של "מהותי", הרצאת 9/6 (k = <span class="num" data-metric="eval.precision_at_5.2026-06-09.k">2</span>)</td><td><span class="num" data-metric="eval.precision_at_5.2026-06-09.precision">0.5</span></td><td>מדווח, לא נשפט</td></tr>
+      <tr><td>עלות ה-Eval כולו</td><td><span class="num">$<span data-metric="eval.cost_usd">0.0136</span></span></td><td>—</td></tr>
+      <tr><td>עלות בדיקת הרצאה שלמה (7/6, <span class="num" data-metric="verify.l0607.calls">17</span> טענות)</td><td><span class="num">$<span data-metric="verify.l0607.cost_usd">0.0122</span></span></td><td><span class="num">$0.20</span></td></tr>
+      <tr><td>זמן לטענה, ממוצע</td><td><span class="num"><span data-metric="verify.l0607.avg_ms">3893</span> ms</span></td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>על אילו תיוגים זה נשען:</b> <span class="num" data-metric="eval.labels_by">Claude, draft of 2026-10-02 — Dor replaces with his own labels</span>. הסכמת שאני אתייג כטיוטה ואתה תחליף. בשתי הרצות של ה-Eval הדיוק יצא <span class="num">88%</span> ו-<span class="num">83%</span> — החיפוש ברשת לא דטרמיניסטי.</p>
+  <p><b>מה פוספס:</b> שלוש טענות נכונות נשפטו "לא מדויק" (קפדנות על ניסוח), ושגיאה מוזרקת אחת ("git נכתב ב-2015") נשפטה "לא מדויק" במקום "לא נכון". בשביל סטודנט שתיהן אותו דגל.</p>
+</section>
+
+<section id="star">
+  <h2>פרק ★ אחרי ההחלטה שלך</h2>
+  <p>ביקשת סימנים חזקים בלבד. גרסת פרומפט שאמרה את זה למודל מחקה את כל ההדגשות, גם במקום שהתמלול אומר "חשוב מאוד". לכן הכלל נאכף בקוד: הדגשה נשארת רק אם בקטע עצמו מופיע ביטוי חזק (<span class="id">D-M4-2</span>).</p>
+  <ul>
+    <li><b>הרצאת 7/6:</b> <span class="num" data-metric="strong_signal_filter.Lecture 7-6.v4_highlights">63</span> הדגשות ← <span class="num" data-metric="strong_signal_filter.Lecture 7-6.kept_by_strong_signal">7</span>.</li>
+    <li><b>הרצאת 9/6:</b> <span class="num" data-metric="strong_signal_filter.Lecture 9-6.v4_highlights">104</span> ← <span class="num" data-metric="strong_signal_filter.Lecture 9-6.kept_by_strong_signal">8</span>.</li>
+  </ul>
+</section>
+
+<section id="decisions">
+  <h2>ההחלטות של M4</h2>
+  <div class="dec"><b><span class="id">D-M4-1</span> — ההקשר מהקורס נכנס לפרומפט ולא ככלי:</b> ה-API דורש מצב מיוחד כדי לשלב חיפוש מובנה עם קריאת פונקציה. אותו מידע, סיבוב אחד.</div>
+  <div class="dec"><b><span class="id">D-M4-2</span> — ★ רק על סימן חזק, בקוד.</b></div>
+  <div class="dec"><b><span class="id">D-M4-3</span> — הדירוג מוריד "לא ניתן לאימות" וגוף ראשון:</b> לפני: Precision@5 של <span class="num">40%</span> ב-7/6. אחרי: <span class="num" data-metric="eval.precision_at_5.2026-06-07.precision">1.0</span>. על התיוגים שלי.</div>
+  <div class="dec"><b><span class="id">D-M4-4</span> — Precision@k:</b> הרצאה עם פחות מחמש טענות מהותיות נמדדת ב-k שלה ולא נשפטת. ל-9/6 יש שתיים.</div>
+</section>
+
+<section id="next">
+  <h2>מה הלאה</h2>
+  <ul>
+    <li><b>אצלך:</b> להחליף את התיוגים שלי ב-<code>eval/benchmark.json</code> כשיהיה זמן; Google Drive for desktop.</li>
+    <li><b>M5:</b> המוצר החי — מיקרופון, הדף, ★, הערות, "מה פספסתי", שחזור אחרי קריסה, דף הקורס.</li>
+  </ul>
+</section>
+</div>
+</body>
+</html>

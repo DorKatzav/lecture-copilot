@@ -168,3 +168,4 @@ Decision ids: `D-M<milestone>-<n>`. Spec-level decisions 1–8 live in `DESIGN_H
 - Gate seen failing (tests): accuracy < 80%, low or absent judged lecture, cost over budget, cache miss, outage not retried. Live: `GATE M4: PASS 9/9` — the outage check drops the first Gemini call on purpose and sees "unchecked → verified" with the real model.
 - Not built, on purpose: `get_course_context` as a tool (D-M4-1), Flash-Lite (3.7 Flash is within budget), re-rank (cut ladder).
 - Open: Dor's own labels; the 7/6 Digest claims section now shows verdicts (e.g. "print לא מחזירה כלום" judged imprecise — a wording issue to watch in M5's UI).
+- GitHub: `feat/m4-verifier` → **PR #9**; Hebrew report `docs/reports/M4_HE.html` on `docs/m4-report` (Playwright at 1200 px: 0 direction failures; a "8/10" ratio rendered reversed and was made one span — the M0 lesson again). `metrics_page` now keeps small floats (0.0122) instead of rounding them to 0.01. Merged on D-M4-0.
