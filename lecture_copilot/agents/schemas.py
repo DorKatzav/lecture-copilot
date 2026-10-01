@@ -15,6 +15,7 @@ class Claim(BaseModel):
     text: str
     normalized: str
     importance: int = Field(ge=0, le=100)
+    contradicts: str | None = None   # the earlier claim (from the recalled list) this one contradicts (M3)
 
 
 class Item(BaseModel):

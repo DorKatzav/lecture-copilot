@@ -49,6 +49,9 @@ OLLAMA_LOAD_OPTIONS = {"num_ctx": OLLAMA_NUM_CTX, "use_mmap": True}
 # memory (M3): bge-m3 vectors; sqlite-vec when it loads, numpy otherwise (set VEC_BACKEND to force one)
 EMBED_DIMS = 1024
 VEC_BACKEND = os.getenv("VEC_BACKEND")                        # None = auto, "sqlite-vec", "numpy"
+MEMORY_K = 5                                                  # hits recalled per chunk (spec: top-5)
+ALREADY_SAID_COSINE = 0.85                                    # a concept this close to an earlier one was already said
+CONTRADICTION_BONUS = 20                                      # spec: a contradiction of an earlier lecture, +20
 
 
 class Profile(BaseModel):

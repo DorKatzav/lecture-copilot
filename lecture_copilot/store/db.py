@@ -18,7 +18,7 @@ from lecture_copilot.config import EMBED_DIMS, VEC_BACKEND
 from lecture_copilot.store.embed import pack, unpack
 from lecture_copilot.store.search import MemoryHit, fts_query, make_backend, rrf
 
-SCHEMA_VERSION = 3   # 2: decisions.node gains digest, sink (M2) · 3: FTS5 tables (M3)
+SCHEMA_VERSION = 4   # 2: decisions.node gains digest, sink (M2) · 3: FTS5 tables · 4: claims.contradicts_id (M3)
 CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # spec nodes + asr / chunk / run (D-M1-1: per-chunk status and timing live in the log, not in a new table)
 NODES = ("extractor", "memory", "verifier", "ranker", "net", "asr", "chunk", "run", "digest", "sink")
@@ -53,7 +53,7 @@ CREATE INDEX IF NOT EXISTS items_segment ON items (segment_id);
 CREATE TABLE IF NOT EXISTS claims (
     id TEXT PRIMARY KEY, lecture_id TEXT NOT NULL, segment_id TEXT, text TEXT NOT NULL, normalized TEXT,
     importance INTEGER, status TEXT NOT NULL CHECK (status IN ('pending', 'verified', 'skipped', 'unchecked')),
-    verdict TEXT, confidence REAL, sources_json TEXT, cache_key TEXT, embedding BLOB);
+    verdict TEXT, confidence REAL, sources_json TEXT, cache_key TEXT, embedding BLOB, contradicts_id TEXT);
 CREATE INDEX IF NOT EXISTS claims_lecture ON claims (lecture_id);
 CREATE INDEX IF NOT EXISTS claims_segment ON claims (segment_id);
 CREATE TABLE IF NOT EXISTS lecture_summaries (
@@ -120,6 +120,10 @@ class Store:
             self.con.executescript(
                 "BEGIN; DROP INDEX IF EXISTS decisions_lecture; ALTER TABLE decisions RENAME TO decisions_old; "
                 + DECISIONS + " INSERT INTO decisions SELECT * FROM decisions_old; DROP TABLE decisions_old; COMMIT;")
+        if version < 4 and self.con.execute("select 1 from sqlite_master where name = 'claims'").fetchone():
+            cols = [r[1] for r in self.con.execute("pragma table_info(claims)")]
+            if "contradicts_id" not in cols:
+                self.con.execute("alter table claims add column contradicts_id text")
         return version
 
     def _backfill_index(self) -> None:
@@ -229,6 +233,26 @@ class Store:
         with self.con:
             self.con.execute(f"update {table} set embedding = ? where id = ?", (pack(vec), row_id))
             self.vec.upsert(table, row_id, vec)
+
+    def set_first_seen(self, item_id: str, lecture_id: str) -> None:
+        with self.con:
+            self.con.execute("update items set first_seen_lecture_id = ? where id = ?", (lecture_id, item_id))
+
+    def set_contradiction(self, claim_id: str, earlier_claim_id: str | None, bonus: int) -> None:
+        with self.con:
+            self.con.execute("update claims set importance = min(100, importance + ?), contradicts_id = ? "
+                             "where id = ?", (bonus, earlier_claim_id, claim_id))
+
+    def earlier_concepts(self, course_id: str, before_lecture_id: str) -> list[dict]:
+        """Concepts of the course's other lectures: key, term, the lecture they were first seen in."""
+        lectures = self.course_lectures(course_id, exclude=before_lecture_id)
+        if not lectures:
+            return []
+        marks = ",".join("?" * len(lectures))
+        rows = self.con.execute(
+            f"select id, text, canonical_key, first_seen_lecture_id, lecture_id from items "
+            f"where kind = 'concept' and lecture_id in ({marks})", lectures)
+        return [dict(r) for r in rows]
 
     def course_lectures(self, course_id: str, exclude: str | None = None) -> list[str]:
         return [r[0] for r in self.con.execute(

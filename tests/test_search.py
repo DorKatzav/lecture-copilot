@@ -58,9 +58,9 @@ def test_rrf_breaks_ties_by_first_appearance():
 
 # ---------- the store ----------
 
-def test_schema_has_fts_tables_and_version_3(store):
+def test_schema_has_fts_tables_and_the_current_version(store):
     names = {r[0] for r in store.con.execute("select name from sqlite_master")}
-    assert {"items_fts", "claims_fts"} <= names and SCHEMA_VERSION == 3
+    assert {"items_fts", "claims_fts"} <= names and SCHEMA_VERSION == 4
 
 
 def test_text_search_finds_a_concept_by_term_and_by_explanation(store):
