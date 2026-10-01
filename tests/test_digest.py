@@ -294,3 +294,18 @@ def test_without_a_previous_lecture_null_is_fine(store):
     fake = FakeOllama([SECTION, EXEC])
     doc = run(store, lecture(store), fake)
     assert doc.continuation is None and len(fake.requests) == 2
+
+
+def test_an_english_continuation_is_retried_and_none_placeholders_are_dropped(store):
+    w4, w5 = with_previous(store)
+    english = json.dumps({"exec_summary": [f"נקודה {i}" for i in range(1, 6)],
+                          "continuation": {"new": ["This lecture adds LTV"], "repeated": [], "contradicts": ["None"]}},
+                         ensure_ascii=False)
+    hebrew = json.dumps({"exec_summary": [f"נקודה {i}" for i in range(1, 6)],
+                         "continuation": {"new": ["LTV נוסף"], "repeated": ["none"], "contradicts": ["-"]}},
+                        ensure_ascii=False)
+    fake = FakeOllama([SECTION, english, hebrew])
+    doc = run(store, w5, fake)
+    assert "Hebrew" in fake.requests[2]["messages"][-1]["content"]
+    c = doc.continuation
+    assert c.new == ["LTV נוסף"] and c.repeated == [] and c.contradicts == []

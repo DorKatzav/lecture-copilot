@@ -178,11 +178,23 @@ def section_headings(markdown: str) -> list[str]:
 
 # ---------- the document ----------
 
-def _script_check(texts):
+_PLACEHOLDERS = {"none", "-", "—", "n/a", "אין", "אין."}
+
+
+def _clean(items: list[str]) -> list[str]:
+    return [i.strip() for i in items if i.strip().lower() not in _PLACEHOLDERS]
+
+
+def _script_check(texts, hebrew=None):
+    """`texts`: every free-text field (no foreign scripts); `hebrew`: fields that must be written in Hebrew."""
     def check(value) -> str | None:
         found = set().union(*(forbidden_scripts(t) for t in texts(value)))
         if found:
             return f"The output contains {', '.join(sorted(found))} letters. Write only Hebrew and English."
+        if hebrew:
+            latin = [t for t in _clean(hebrew(value)) if not any("\u0590" <= c <= "\u05ff" for c in t)]
+            if latin:
+                return f"These items are not in Hebrew: {' | '.join(latin[:3])}. Write every item in Hebrew."
         return None
     return check
 
@@ -251,12 +263,12 @@ async def digest(lecture_id: str, *, store: Store, client: httpx.AsyncClient, ba
     blocks = plan_blocks(lines, by_chunk) if lines else []
     common = dict(language=doc.language, course_name=doc.course_name, lecture_title=doc.title)
 
-    async def call(step: str, prompt: str, schema, texts, fallback=None, **values):
+    async def call(step: str, prompt: str, schema, texts, fallback=None, hebrew=None, **values):
         """`fallback`: a looser schema tried on the last raw answer when the strict one failed twice."""
         system, user = prompts.load(prompt).render(**common, **values)
         c = await chat_json(MODEL, system, user, schema, client=client, options=DIGEST_OPTIONS,
-                            check=_script_check(texts), keep_alive=OLLAMA_KEEP_ALIVE, timeout_s=DIGEST_TIMEOUT_S,
-                            backoff_s=backoff_s)
+                            check=_script_check(texts, hebrew), keep_alive=OLLAMA_KEEP_ALIVE,
+                            timeout_s=DIGEST_TIMEOUT_S, backoff_s=backoff_s)
         value, degraded = c.value, step
         if value is None and fallback and c.raw:
             try:
@@ -283,13 +295,19 @@ async def digest(lecture_id: str, *, store: Store, client: httpx.AsyncClient, ba
         doc.full_summary += section.paragraphs if section else [" ".join(t for _, t in b.lines)]
     if lines:
         schema = DigestExecWithPrevious if doc.prev_title else DigestExec
-        ex = await call("exec", exec_prompt, schema, lambda v: v.exec_summary,
+        def cont_items(v):
+            return (v.continuation.new + v.continuation.repeated + v.continuation.contradicts) if v.continuation else []
+        ex = await call("exec", exec_prompt, schema, lambda v: v.exec_summary + cont_items(v), hebrew=cont_items,
                         fallback=DigestExec if doc.prev_title else None, date=doc.date,
                         minutes=doc.minutes, full_summary="\n\n".join(doc.full_summary),
                         highlights=" · ".join(doc.highlights) or "(none)", prev_title=doc.prev_title or "none",
                         prev_bullets="\n".join(f"- {b}" for b in doc.prev_bullets) if doc.prev_bullets else "(none)")
         doc.exec_summary = ex.exec_summary if ex else []
         doc.continuation = ex.continuation if ex else None
+        if doc.continuation:
+            c = doc.continuation
+            doc.continuation = Continuation(new=_clean(c.new), repeated=_clean(c.repeated),
+                                            contradicts=_clean(c.contradicts))
     markdown = render_markdown(doc)
     if save:
         store.save_digest(lecture_id, bullets=doc.exec_summary, digest_md=markdown)
