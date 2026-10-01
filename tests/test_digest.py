@@ -309,3 +309,9 @@ def test_an_english_continuation_is_retried_and_none_placeholders_are_dropped(st
     assert "Hebrew" in fake.requests[2]["messages"][-1]["content"]
     c = doc.continuation
     assert c.new == ["LTV נוסף"] and c.repeated == [] and c.contradicts == []
+
+
+def test_a_bare_term_in_the_continuation_passes_the_hebrew_check(store):
+    w4, w5 = with_previous(store)
+    doc = run(store, w5, FakeOllama([SECTION, CONT]))       # CONT lists "LTV" and "CAC"
+    assert doc.continuation.new == ["LTV"] and doc.degraded == []

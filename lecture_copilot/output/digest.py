@@ -178,7 +178,7 @@ def section_headings(markdown: str) -> list[str]:
 
 # ---------- the document ----------
 
-_PLACEHOLDERS = {"none", "-", "—", "n/a", "אין", "אין."}
+_PLACEHOLDERS = {"none", "-", "—", "n/a", "אין", "אין.", "אף אחת", "אף אחד", "אין סתירות", "לא"}
 
 
 def _clean(items: list[str]) -> list[str]:
@@ -192,7 +192,9 @@ def _script_check(texts, hebrew=None):
         if found:
             return f"The output contains {', '.join(sorted(found))} letters. Write only Hebrew and English."
         if hebrew:
-            latin = [t for t in _clean(hebrew(value)) if not any("\u0590" <= c <= "\u05ff" for c in t)]
+            # a bare term (CAC, Git branch) is fine; a sentence must be Hebrew
+            latin = [t for t in _clean(hebrew(value))
+                     if len(t.split()) > 3 and not any("\u0590" <= c <= "\u05ff" for c in t)]
             if latin:
                 return f"These items are not in Hebrew: {' | '.join(latin[:3])}. Write every item in Hebrew."
         return None
