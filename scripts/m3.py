@@ -139,7 +139,7 @@ def cmd_contradiction(_: argparse.Namespace) -> None:
     sys.path.insert(0, str(ROOT))
     from scripts import gate
     r = gate.check_contradiction()
-    nums = [int(x) for x in r.detail.replace("→", " ").split() if x.isdigit()]
+    nums = [int(x.strip(",.")) for x in r.detail.replace("→", " ").split() if x.strip(",.").isdigit()]
     _save("contradiction", {"status": r.status, "before": nums[0] if len(nums) > 1 else None,
                             "after": nums[1] if len(nums) > 1 else None, "detail": r.detail})
     print(r.status, r.detail)
