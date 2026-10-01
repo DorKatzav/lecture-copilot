@@ -96,7 +96,7 @@ class Store:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
-        self.con = sqlite3.connect(path)
+        self.con = sqlite3.connect(path, check_same_thread=False)   # the web server's loop thread is not the opener's
         self.con.row_factory = sqlite3.Row
         self.con.execute("pragma journal_mode = wal")
         version = self._migrate()
@@ -227,6 +227,19 @@ class Store:
                                  "values (?, ?, ?, ?, ?)", [(i[0], i[1], i[4], i[5], i[6]) for i in items])
             self.con.executemany("insert into claims_fts (id, lecture_id, text, normalized) values (?, ?, ?, ?)",
                                  [(c[0], c[1], c[3], c[4]) for c in claims])
+
+    def add_item(self, lecture_id: str, segment_id: str | None, kind: str, text: str, *, owner: str | None = None,
+                 due: str | None = None, t0: float | None = None) -> str:
+        """A row the student adds in class (★ mark, note): first seen here, never replaced by a chunk rewrite."""
+        item_id = new_id()
+        with self.con:
+            self.con.execute(
+                "insert into items (id, lecture_id, segment_id, kind, text, owner, due, first_seen_lecture_id, t0) "
+                "values (?, ?, ?, ?, ?, ?, ?, ?, ?)", (item_id, lecture_id, segment_id, kind, text, owner, due,
+                                                     lecture_id, t0))
+            self.con.execute("insert into items_fts (id, lecture_id, text, explanation, canonical_key) "
+                             "values (?, ?, ?, '', '')", (item_id, lecture_id, text))
+        return item_id
 
     def prune_chunks(self, lecture_id: str, last_idx: int) -> None:
         """After a complete run: drop chunks a previous run of the same lecture produced beyond the last one."""
