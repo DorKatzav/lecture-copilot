@@ -15,7 +15,12 @@ COURSES_ROOT = Path(os.getenv("COURSES_ROOT", "~/Google Drive/My Drive/Lecture-C
 CHUNK_MIN_S, CHUNK_MAX_S, SILENCE_DB = 30, 60, -40
 # one local LLM for live extraction and the Digest (D-M0-10: qwen3:8b leaked foreign scripts into Hebrew)
 LIVE_MODEL, DIGEST_MODEL, EMBED_MODEL = "gemma3:12b", "gemma3:12b", "bge-m3"
-VERIFIER_MODEL = "gemini-3.7-flash"
+VERIFIER_MODEL = "gemini-3.7-flash"                           # listed for Dor's key on 2026-10-01
+GEMINI_HOST = "generativelanguage.googleapis.com"
+GEMINI_PRICE_PER_M = {"in": 0.75, "out": 3.75}                 # USD per 1M tokens, prices of 2026-09-22 (PROJECT_LOG)
+VERIFY_TIMEOUT_S = 30
+VERIFY_CONCURRENCY = 2                                         # spec: semaphore 2, never in the chunk loop
+COST_BUDGET_USD = 0.20                                         # spec: per lecture
 VERIFY_MIN_IMPORTANCE, MATERIAL_MIN_IMPORTANCE = 70, 85
 BUDGET_S = {"asr": 8, "extract": 15, "embed": 2}
 CHUNK_BUDGET_S = 30                                            # all processing of one ~45 s chunk
@@ -61,3 +66,22 @@ CONTRADICTION_BONUS = 20                                      # spec: a contradi
 class Profile(BaseModel):
     fact_check: bool = True
     language: Literal["he", "en"] = "he"
+
+
+def load_env(path: Path = ROOT / ".env", fact_check: bool = True) -> set[str]:
+    """`.env` → os.environ, never overriding what is already set. Returns the names it set.
+    Raises only when fact-checking is on and no GEMINI_API_KEY is available."""
+    loaded = set()
+    if path.is_file():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            name, value = line.split("=", 1)
+            name, value = name.strip(), value.strip().strip('"').strip("'")
+            if name and name not in os.environ:
+                os.environ[name] = value
+                loaded.add(name)
+    if fact_check and not os.environ.get("GEMINI_API_KEY"):
+        raise RuntimeError("GEMINI_API_KEY is not set (.env) — needed for fact-checking; use --no-fact-check to skip")
+    return loaded
