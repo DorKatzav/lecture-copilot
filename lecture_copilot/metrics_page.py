@@ -18,7 +18,7 @@ def _lookup(results: dict, path: str) -> object:
 
 def _fmt(v: object) -> str:
     if isinstance(v, float):
-        return str(round(v, 2))
+        return f"{round(v, 4):g}" if abs(v) < 1 else str(round(v, 2))   # 0.0122 stays 0.0122; 94.33 stays
     if v is None:
         return "—"
     return str(v)
