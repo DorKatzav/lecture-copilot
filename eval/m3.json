@@ -89,8 +89,8 @@
   },
   "contradiction": {
     "status": "PASS",
-    "before": null,
-    "after": null,
+    "before": 80,
+    "after": 100,
     "detail": "B's claim contradicts A's: importance 80 → 100, linked"
   }
 }

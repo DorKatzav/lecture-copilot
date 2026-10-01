@@ -147,3 +147,4 @@ Decision ids: `D-M<milestone>-<n>`. Spec-level decisions 1–8 live in `DESIGN_H
 - Gate seen failing: `FAIL 7/9` (continuation empty, real); in tests — labels below 80%, slow memory, index emptied, folder/link checks, model missing the contradiction.
 - Gate: `GATE M3: SKIP 8/9` — `shared_concepts` waits for `eval/benchmark.json` (Dor, ~15 min with the candidates page).
 - Not built, on purpose: re-rank (cut ladder), search box (M5), `get_course_context` for Gemini (M4, same `search`).
+- GitHub: `feat/m3-memory` pushed, **PR #7**. Hebrew report `docs/reports/M3_HE.html` on `docs/m3-report`, verified with Playwright (the Chrome extension dropped mid-session) at 1200 px and 400 px: `dir`/`lang` set, 0 direction or alignment failures, no overflow, every metric filled. Obsidian updated. Waiting for Dor: the shared-concept labels (15 min), the ★ question, approval to merge.

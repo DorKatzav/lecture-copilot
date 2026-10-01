@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M3 · זיכרון הקורס</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;800&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F6F6F2; --panel:#FFFFFF; --panel2:#EEEFEA; --ink:#1C2030; --ink2:#4D5468; --mute:#7C8398; --line:#D9DBD3;
+  --accent:#C8412F; --accent-soft:#FBE9E5; --local:#1E6F80; --local-soft:#E1F0F2; --cloud:#7A4FA8; --cloud-soft:#EFE7F8;
+  --ok:#2E7D4F; --ok-soft:#E3F2E8; --warn:#B7791F; --warn-soft:#FBF1DC; --code:#F0F1EC;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 6px 20px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+    --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+    --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+  --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+  --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Assistant',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;margin:0;direction:rtl}
+.wrap{max-width:880px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;margin-block:0 12px;padding-top:6px}
+h3{font-size:1.05rem;font-weight:700;margin-block:20px 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--ink2);max-width:62ch}
+a{color:var(--local)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+header.hero{padding-block:36px 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--mute);font-size:.9rem;margin-top:14px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;margin-bottom:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--panel2);color:var(--ink2);text-decoration:none;font-size:.88rem;font-weight:600;margin-inline-end:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section{margin-bottom:48px;scroll-margin-top:64px}
+.callout{border-inline-start:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:6px;margin:16px 0}
+.callout.local{border-color:var(--local);background:var(--local-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:480px}
+th,td{padding:10px 12px;text-align:right;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-family:'Heebo',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:700;font-family:'Heebo',sans-serif;white-space:nowrap}
+.yes{background:var(--ok-soft);color:var(--ok)} .no{background:var(--accent-soft);color:var(--accent)} .maybe{background:var(--warn-soft);color:var(--warn)}
+.loc{background:var(--local-soft);color:var(--local)} .cld{background:var(--cloud-soft);color:var(--cloud)} .mw{background:var(--panel2);color:var(--ink2)}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em;direction:ltr;unicode-bidi:embed}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;direction:ltr;text-align:left;font-size:.85rem;line-height:1.55;margin:12px 0 18px}
+pre.rtl{direction:rtl;text-align:right;font-family:'Assistant',sans-serif;font-size:.95rem;white-space:pre-wrap}
+pre code{background:none;padding:0}
+ul,ol{padding-inline-start:22px;margin:0 0 12px}
+li{margin-bottom:6px}
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:14px 0 20px}
+.step{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;box-shadow:var(--shadow)}
+.step b{display:block;font-family:'Heebo',sans-serif;font-size:.95rem}
+.step small{display:block;color:var(--mute);font-size:.82rem;line-height:1.4;margin-top:4px}
+.step.local{border-top:3px solid var(--local)} .step.cloud{border-top:3px solid var(--cloud)} .step.hot{border-top:3px solid var(--accent)} .step.mw{border-top:3px solid var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--mute);margin-top:-8px;margin-bottom:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:5px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow);margin:14px 0 20px}
+.mock .bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font-size:.85rem;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.mock .title{font-family:'Heebo',sans-serif;font-size:1.05rem;font-weight:700;color:var(--ink)}
+.mock .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media (max-width:600px){.mock .grid{grid-template-columns:1fr}}
+.mock .box{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--paper)}
+.mock .box h4{margin:0 0 10px;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--mute);font-weight:600;letter-spacing:.04em}
+.field{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.95rem}
+.field span.in{flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--panel)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.seg span{border:1px solid var(--line);border-radius:6px;padding:5px 12px;color:var(--mute);font-size:.9rem;background:var(--panel)}
+.seg span.on{border-color:var(--local);color:var(--local);background:var(--local-soft);font-weight:700}
+.recbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--accent);color:#fff;border-radius:10px;padding:16px;font-family:'Heebo',sans-serif;font-size:1.2rem;font-weight:800;margin:6px 0 8px}
+.recbtn i{width:14px;height:14px;border-radius:50%;background:#fff;display:inline-block}
+.mock .hint{color:var(--mute);font-size:.82rem}
+.mock .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.mock .row:last-child{border:0}
+.wk{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.wk .w{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.wk .w.off{background:var(--panel2);box-shadow:none;color:var(--mute)}
+.wk h4{margin:0 0 4px;font-family:'Heebo',sans-serif;font-size:1rem}
+.wk .d{color:var(--mute);font-size:.82rem;font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
+.wk ul{padding-inline-start:18px;font-size:.92rem;margin:0}
+.wk .goal{margin-top:8px;font-size:.88rem;color:var(--local);font-weight:700}
+.sources{font-size:.9rem;color:var(--ink2)}
+.sources li{margin-bottom:4px}
+.diff{font-size:.9rem;color:var(--ink2)}
+.diff b{color:var(--ink)}
+.dec{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.95rem}
+.dec b{color:var(--warn)}
+</style>
+</head>
+<body>
+<style>
+.num{font-family:'IBM Plex Mono',monospace;font-weight:500;direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.ask{border:2px solid var(--local);background:var(--local-soft);border-radius:10px;padding:14px 18px;margin:18px 0}
+.ask b{color:var(--local)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:16px 0 8px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);border-top:3px solid var(--ok)}
+.kpi b{display:block;font-family:'Heebo',sans-serif;font-size:1.35rem}
+.kpi small{color:var(--mute);font-size:.82rem}
+.id{direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.shots{display:grid;grid-template-columns:2.4fr 1fr;gap:14px;align-items:start;margin:14px 0}
+.shots img{width:100%;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.shots figure{margin:0}
+.shots figcaption{color:var(--mute);font-size:.85rem;margin-top:6px}
+@media (max-width:600px){.shots{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">docs/reports · M3 · 1.10.2026 · מחכה לאישור שלך</div>
+  <h1 style="margin-top:8px">M3 — זיכרון הקורס</h1>
+  <p class="lead" style="margin-top:12px">עד עכשיו כל הרצאה עמדה לבד. מ-M3 הקורס זוכר: כל מושג וכל טענה מקבלים וקטור ואינדקס טקסט, וכשמגיע קטע חדש הצנרת בודקת מה כבר נאמר בהרצאות קודמות ומה סותר אותן. ה-Digest מקבל את פרק "המשך מההרצאה הקודמת", ומושג שחזר מסומן עם השבוע שבו הוסבר לראשונה.</p>
+  <div class="meta"><span>ענף <code>feat/m3-memory</code></span><span>המספרים מ-<code>eval/m3.json</code></span><span>נבנה לפני המועד (תוכנן ל-<span class="num">8–10.10</span>)</span></div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><b class="num">8/9</b><small>שער M3 · אחד מחכה לתיוג שלך</small></div>
+  <div class="kpi"><b class="num">448</b><small>בדיקות (היו 358), ruff נקי</small></div>
+  <div class="kpi"><b><span class="num" data-metric="l0609.memory_p95_s">0.18</span> שנ'</b><small>הזיכרון לקטע, p95 · תקציב 3</small></div>
+  <div class="kpi"><b><span class="num" data-metric="l0609.returned">156</span></b><small>מושגים שחזרו מ-7/6 ב-9/6</small></div>
+</div>
+
+<section id="how">
+  <h2>איך זה עובד</h2>
+  <ul>
+    <li><b>לפני החילוץ (recall):</b> הטקסט של הקטע הופך לווקטור ומחופש מול ההרצאות הקודמות: חיפוש טקסט (FTS5) וחיפוש משמעות (וקטורים), והתוצאות משולבות (RRF). חמשת הממצאים הטובים נכנסים לפרומפט של החילוץ כ"מושגים שכבר הוסברו" ו"טענות שנאמרו קודם".</li>
+    <li><b>החילוץ:</b> הפרומפט <code>extract_v4</code> יכול לסמן טענה שסותרת טענה קודמת. סתירה מעלה את החשיבות ב-20 ומקשרת בין שתי הטענות (<span class="id">D-M3-1</span>).</li>
+    <li><b>אחרי החילוץ (remember):</b> המושגים והטענות של הקטע מקבלים וקטורים ונכנסים לאינדקס. מושג שהרצאה קודמת כבר הסבירה (אותו מפתח, אותו מונח, או משמעות קרובה מספיק) שומר את ההרצאה ההיא כ"נראה לראשונה ב".</li>
+    <li><b>תקציב:</b> קריאת embeddings אחת לפני ואחת אחרי, יחד עם החיפוש, בפחות מ-3 שניות לקטע.</li>
+    <li><b>וקטורים:</b> sqlite-vec כשהוא נטען, ואחרת numpy על אותם וקטורים. אותן בדיקות עוברות בשני המסלולים.</li>
+  </ul>
+</section>
+
+<section id="numbers">
+  <h2>המספרים: 7/6 ואז 9/6, מהתמלולים</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>הרצאה</th><th>קטעים</th><th>מושגים</th><th>חזרו מהרצאה קודמת</th><th>טענות</th><th>סתירות שסומנו</th><th>זיכרון לקטע, p95</th></tr></thead>
+    <tbody>
+      <tr><td>7/6 (ראשונה)</td><td><span class="num" data-metric="l0607.chunks">259</span></td><td><span class="num" data-metric="l0607.concepts">314</span></td><td><span class="num" data-metric="l0607.returned">0</span></td><td><span class="num" data-metric="l0607.claims">29</span></td><td><span class="num" data-metric="l0607.claims_linked">0</span></td><td><span class="num" data-metric="l0607.memory_p95_s">0.08</span> שנ'</td></tr>
+      <tr><td>9/6 (ממשיכה את 7/6)</td><td><span class="num" data-metric="l0609.chunks">303</span></td><td><span class="num" data-metric="l0609.concepts">481</span></td><td><span class="num" data-metric="l0609.returned">156</span></td><td><span class="num" data-metric="l0609.claims">17</span></td><td><span class="num" data-metric="l0609.claims_linked">0</span></td><td><span class="num" data-metric="l0609.memory_p95_s">0.18</span> שנ'</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>סתירה בכוונה:</b> שתי הרצאות קטנות שכתבתי, האחת אומרת 18 חודשים והשנייה 12. המודל סימן את הסתירה, והחשיבות עלתה מ-<span class="num" data-metric="contradiction.before">80</span> ל-<span class="num" data-metric="contradiction.after">100</span>. השער מריץ את זה בכל פעם, עם המודל האמיתי.</li>
+    <li><b>חיפוש:</b> עשרה מונחים לדוגמה מההרצאה של 9/6; לכל אחד בודקים אם החיפוש מחזיר את המושג שלו ראשון. התוצאה: <span class="num">8/10</span>. באפיון הדוגמה הייתה "CAC", אבל בקורס הזה אין CAC.</li>
+    <li><b>האטה אחרי Digest:</b> מאה הקטעים הראשונים של 9/6 רצו לאט (חילוץ p95 של 24 שנ') מיד אחרי ה-Digest של 7/6, ומהקטע ה-101 חזרו ל-11–13 שנ'. זה סדר שקורה רק בהרצות רצופות; בשיעור אמיתי ה-Digest סוגר את היום. לא הזיכרון — הוא לוקח <span class="num"><span data-metric="l0609.memory_p95_s">0.18</span></span> שנ'.</li>
+    <li><b>פחות טענות:</b> הפרומפט החדש (<code>extract_v4</code>) מוציא פחות טענות מאותם תמלולים (83 ← 29 ב-7/6); העובדות המרכזיות נשארו, החזרות נעלמו. דיוק — עם התיוג של M4.</li>
+  </ul>
+</section>
+
+<section id="labels">
+  <h2>מה מחכה לך: תיוג המושגים המשותפים</h2>
+  <p>הקריטריון "<span class="num">80%</span> מהמושגים המשותפים מזוהים כ'נאמר כבר'" צריך אמת מידה שלך, לא שלי. הזיכרון מצא <span class="num" data-metric="candidates.pairs">63</span> זוגות מועמדים בין 7/6 ל-9/6 (<span class="num" data-metric="candidates.by_how.key">54</span> לפי מפתח, <span class="num" data-metric="candidates.by_how.term">6</span> לפי מונח, <span class="num" data-metric="candidates.by_how.meaning">3</span> לפי משמעות), ו-<span class="num" data-metric="candidates.flagged">63</span> מהם סומנו בהרצה.</p>
+  <div class="ask"><p><b>כרבע שעה אצלך:</b> לפתוח את <code>runs/m3/SHARED_CONCEPTS_HE.html</code>, למחוק מ-<code>eval/benchmark_candidates.json</code> זוגות שאינם באמת אותו מושג, להוסיף מושגים משותפים שחסרים, ולשמור בשם <code>eval/benchmark.json</code>. אחר כך <code>python scripts/gate.py --m 3</code> שופט את הבדיקה החסרה. הקובץ לא נכנס לגיט (<span class="id">D-M3-4</span>).</p></div>
+</section>
+
+<section id="decisions">
+  <h2>ההחלטות של M3</h2>
+  <div class="dec"><b><span class="id">D-M3-1</span> — הסתירה נקבעת בקריאת החילוץ:</b> הטענות הקודמות נכנסות לפרומפט והמודל מסמן. חלופה: קריאה נוספת לכל זוג טענות קרובות — עוד 3–5 שניות לקטע. המחיר: המודל רואה רק את חמשת הממצאים הקרובים.</div>
+  <div class="dec"><b><span class="id">D-M3-2</span> — "נאמר כבר" הוא כרונולוגי:</b> רק הרצאות שהתחילו קודם. נתפס בהרצה: בהרצה החוזרת של 7/6 התרגול של 19/6 נחשב "ידע קודם". תוקן והופסק באמצע.</div>
+  <div class="dec"><b><span class="id">D-M3-3</span> — "נאמר כבר" לפי שלושה סימנים:</b> אותו מפתח, אותו מונח, או וקטור קרוב (<span class="num">0.85</span>). חלופה: רק המפתח — מפספס כתיבים שונים של אותו מושג.</div>
+  <div class="dec"><b><span class="id">D-M3-4</span> — קבצי התיוג לא נכנסים לגיט.</b> הם מכילים טענות מהשיעורים.</div>
+  <div class="dec"><b><span class="id">D-M3-5</span> — פרק ההמשך הוא חובה כשיש הרצאה קודמת:</b> בהרצה הראשונה המודל החזיר "אין השוואה", ואחר כך השוואה באנגלית. עכשיו תשובה ריקה או לא בעברית נשלחת שוב; אם גם אז אין, הנקודות נשמרות והפרק אומר שהמודל לא השווה.</div>
+  <p>ועוד: גרסאות 3 ו-4 של המסד (אינדקס טקסט, עמודת סתירה), עם העברה אוטומטית של המסד הקיים.</p>
+</section>
+
+<section id="caught">
+  <h2>מה נתפס בדרך</h2>
+  <ul>
+    <li><b>כרונולוגיה:</b> ראיתי "זיכרון 0.0 שנ'" בלוג, בדקתי, ומצאתי שהרצאה ישנה למדה מהרצאה חדשה ממנה. בדיקה חדשה, תיקון, הרצה מחדש.</li>
+    <li><b>פרק ההמשך הריק:</b> השער נכשל (<code>FAIL 7/9</code>) כי המודל לא השווה. תוקן בשני סבבים ונבנה מחדש.</li>
+    <li><b>שבירה מכוונת:</b> מחיקת וקטורים ישנים, החרגת ההרצאה הנוכחית, התאמה לפי מונח ולפי משמעות — כל אחת נתפסה בבדיקה.</li>
+  </ul>
+</section>
+
+<section id="next">
+  <h2>מה לא נבנה, ומה הלאה</h2>
+  <ul>
+    <li><b>לא נבנה, בכוונה:</b> re-rank ב-Digest (סולם הוויתורים), תיבת החיפוש בדף הקורס (M5), <code>get_course_context</code> ל-Gemini (M4, על אותו <code>search</code>).</li>
+    <li><b>אצלך:</b> תיוג המושגים המשותפים (למעלה); להתקין Google Drive for desktop; השאלה על פרק ★ מ-M2 עדיין פתוחה.</li>
+    <li><b>M4 (<span class="num">11–12.10</span>):</b> בודק העובדות (Gemini), דירוג, ו-Eval — צריך את <code>eval/benchmark.json</code> המלא.</li>
+  </ul>
+  <div class="ask"><p><b>מה אני צריך ממך:</b> לקרוא את הדוח, לתייג את המושגים המשותפים, ולאשר את המיזוג.</p></div>
+</section>
+</div>
+</body>
+</html>
