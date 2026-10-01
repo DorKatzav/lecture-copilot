@@ -288,5 +288,21 @@
     "concept_rows": 339,
     "concept_keys": 205,
     "concept_terms": 245
+  },
+  "extract_compare_lecture_v4": {
+    "extract_v4": {
+      "chunks": 20,
+      "failed": 0,
+      "concepts": 32,
+      "claims": 5,
+      "claims_flagged": 5,
+      "highlights": 4,
+      "questions": 3,
+      "actions": 0,
+      "chunks_with_a_claim": 4,
+      "p50_s": 6.69,
+      "p95_s": 10.61,
+      "summaries_naming_the_lecturer": 20
+    }
   }
 }
