@@ -18,12 +18,13 @@ from lecture_copilot.store.db import Store
 from tests.stubs import FakeASR, FakeOllama, ListSource
 
 
-def reply(summary="סיכום", concepts=1, claims=1, items=0, term="CAC", explanation="עלות רכישת לקוח", key="cac"):
+def reply(summary="סיכום", concepts=1, claims=1, items=0, term="CAC", explanation="עלות רכישת לקוח", key="cac",
+          kind="question"):
     return json.dumps({
         "chunk_summary": summary,
         "concepts": [{"term": term, "explanation": explanation, "canonical_key": key}] * concepts,
         "claims": [{"text": "CAC ירד ב-2024", "normalized": "CAC fell in 2024", "importance": 60}] * claims,
-        "items": [{"kind": "question", "text": "למה?", "owner": None, "due": None}] * items,
+        "items": [{"kind": kind, "text": "למה?", "owner": None, "due": None}] * items,
     }, ensure_ascii=False)
 
 
@@ -269,3 +270,18 @@ def test_a_memory_failure_never_stops_the_chunk(store, tmp_path):
     _, summary = go(store, tmp_path, ListSource(chunks(tmp_path, 1)), FakeASR(), fake)
     assert summary["status"] == {"ok": 1}
     assert all(d["output"]["embed_error"] for d in decisions(store, "memory"))
+
+
+# ---------- M4: ★ only on a strong signal (D-M4-2) ----------
+
+def test_a_highlight_survives_only_with_a_strong_signal_in_the_chunk(store, tmp_path):
+    from lecture_copilot.asr.base import Segment
+    strong = [Segment(t0=0, t1=5, text="תזכרו: CAC הוא עלות רכישת לקוח")]
+    weak = [Segment(t0=0, t1=5, text="חשוב: CAC הוא עלות רכישת לקוח")]
+    asr = FakeASR(script={1: strong, 2: weak})
+    fake = FakeOllama([reply(items=1, kind="highlight"), reply(items=1, kind="highlight")])
+    ctx, _ = go(store, tmp_path, ListSource(chunks(tmp_path, 2)), asr, fake)
+    rows = store.items(ctx.lecture_id, kind="highlight")
+    assert [r["chunk_id"] for r in rows] == [1]
+    ext = decisions(store, "extractor")
+    assert ext[1]["output"]["highlights_dropped"] == 1 and ext[0]["output"]["highlights_dropped"] == 0
