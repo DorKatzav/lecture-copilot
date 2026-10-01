@@ -148,3 +148,9 @@ Decision ids: `D-M<milestone>-<n>`. Spec-level decisions 1–8 live in `DESIGN_H
 - Gate: `GATE M3: SKIP 8/9` — `shared_concepts` waits for `eval/benchmark.json` (Dor, ~15 min with the candidates page).
 - Not built, on purpose: re-rank (cut ladder), search box (M5), `get_course_context` for Gemini (M4, same `search`).
 - GitHub: `feat/m3-memory` pushed, **PR #7**. Hebrew report `docs/reports/M3_HE.html` on `docs/m3-report`, verified with Playwright (the Chrome extension dropped mid-session) at 1200 px and 400 px: `dir`/`lang` set, 0 direction or alignment failures, no overflow, every metric filled. Obsidian updated. Waiting for Dor: the shared-concept labels (15 min), the ★ question, approval to merge.
+
+## 2026-10-01 — Dor's rulings before M4
+- Dor: "continue until there is a finished product, all the milestones; ask when there are questions; check yourself at every step." Three answers to my questions:
+  - **Merges (D-M4-0):** from M4 on I merge each milestone's PRs myself once the gate passes and CI is green; Dor reads the Hebrew reports when he wants. PR #7 and PR #8 (M3) merged on this ruling.
+  - **Labels:** I draft `eval/benchmark.json` from the 7/6 and 9/6 transcripts and mark it as mine; Dor replaces it with his own when he has time. Every eval number says whose labels it rests on.
+  - **★ section:** strong signals only ("זה במבחן", "תזכרו", "אל תשכחו", "חשוב מאוד"); a plain "חשוב" is not enough. → extraction prompt v5, measured before/after.
