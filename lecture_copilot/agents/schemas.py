@@ -15,6 +15,7 @@ class Claim(BaseModel):
     text: str
     normalized: str
     importance: int = Field(ge=0, le=100)
+    contradicts: str | None = None   # the earlier claim (from the recalled list) this one contradicts (M3)
 
 
 class Item(BaseModel):
@@ -49,3 +50,8 @@ class DigestExec(BaseModel):
     """Reduce step of the Digest."""
     exec_summary: list[Text] = Field(min_length=5, max_length=5)
     continuation: Continuation | None = None
+
+
+class DigestExecWithPrevious(DigestExec):
+    """When a previous lecture is given the comparison is required: a null answer is retried (D-M3-5)."""
+    continuation: Continuation

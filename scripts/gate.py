@@ -464,6 +464,193 @@ def check_html_rtl(db: Path = DB_PATH, img_dir: Path = IMG_DIR) -> Result:
     return _ok("html_rtl", 'lang="he" dir="rtl", 9 sections; browser screenshots at full and phone width')
 
 
+# ---------- M3: the course memory (real state in db/copilot.sqlite; one live run) ----------
+
+BENCHMARK = ROOT / "eval" / "benchmark.json"
+MEMORY_BUDGET_S = BUDGET_S["embed"] + 1          # one batch of embeddings + one search (spec: ≤ 2 + ≤ 1)
+
+
+def _transcript_lectures(con: sqlite3.Connection) -> list[sqlite3.Row]:
+    con.row_factory = sqlite3.Row
+    return con.execute("select * from lectures where source = 'transcript' order by date, started_at").fetchall()
+
+
+def _two_lectures(db: Path) -> tuple[sqlite3.Connection, sqlite3.Row, sqlite3.Row] | None:
+    con = sqlite3.connect(db)
+    rows = _transcript_lectures(con)
+    return (con, rows[-2], rows[-1]) if len(rows) >= 2 else None
+
+
+def check_shared_concepts(db: Path = DB_PATH, benchmark_path: Path = BENCHMARK, min_share: float = 0.8) -> Result:
+    """Dor's labels: eval/benchmark.json → shared_concepts[{term, first, again}] (dates). A labelled term counts
+    as flagged when the later lecture has it (term or key) with first_seen pointing at the earlier lecture."""
+    if not benchmark_path.is_file():
+        return Result("shared_concepts", "SKIP", "needs eval/benchmark.json with shared_concepts — Dor's labelling "
+                                                 "(PLAN §7); candidates: scripts/m3.py candidates")
+    labels = json.loads(benchmark_path.read_text(encoding="utf-8")).get("shared_concepts", [])
+    pair = _two_lectures(db)
+    if not labels or pair is None:
+        return _fail("shared_concepts", "no labels or fewer than two transcript lectures replayed")
+    con, first, again = pair
+    flagged, missed = 0, []
+    for lab in labels:
+        term = lab["term"].strip().lower()
+        row = con.execute(
+            "select first_seen_lecture_id from items where lecture_id = ? and kind = 'concept' "
+            "and (lower(text) = ? or lower(canonical_key) = ?)", (again["id"], term, term)).fetchone()
+        if row and row[0] == first["id"]:
+            flagged += 1
+        else:
+            missed.append(lab["term"])
+    detail = f"{flagged}/{len(labels)} labelled shared concepts flagged as already said"
+    if flagged < math.ceil(min_share * len(labels)):
+        return _fail("shared_concepts", f"{detail}; missed: {', '.join(missed[:8])}")
+    return _ok("shared_concepts", detail)
+
+
+def check_search_top1(db: Path = DB_PATH, n: int = 10, min_share: float = 0.8) -> Result:
+    """Every k-th concept of the latest transcript lecture: search(term) must return that concept (or one with
+    its key) first. The spec's example query, CAC, is not in this course."""
+    from lecture_copilot.store.db import Store
+    pair = _two_lectures(db)
+    if pair is None:
+        return _fail("search_top1", "fewer than two transcript lectures replayed")
+    con, _, latest = pair
+    con.close()
+    store = Store(db)
+    try:
+        rows = store.items(latest["id"], kind="concept")
+        if not rows:
+            return _fail("search_top1", "the latest lecture has no concepts")
+        step = max(1, len(rows) // n)
+        sample = rows[::step][:n]
+        hits, misses = 0, []
+        for r in sample:
+            top = store.search(r["text"], latest["course_id"], k=1)
+            same_key = (top[0].canonical_key or "").lower() == (r["canonical_key"] or "").lower() if top else False
+            if top and (top[0].id == r["id"] or same_key or top[0].text.lower() == r["text"].lower()):
+                hits += 1
+            else:
+                misses.append(r["text"])
+        detail = f"{hits}/{len(sample)} sampled terms return their own concept first"
+        if hits < math.ceil(min_share * len(sample)):
+            return _fail("search_top1", f"{detail}; missed: {', '.join(terminal_text(m, 30) for m in misses[:6])}")
+        return _ok("search_top1", detail)
+    finally:
+        store.close()
+
+
+def check_continuation(db: Path = DB_PATH) -> Result:
+    pair = _two_lectures(db)
+    if pair is None:
+        return _fail("continuation", "fewer than two transcript lectures replayed")
+    con, first, latest = pair
+    row = con.execute("select digest_md from lecture_summaries where lecture_id = ?", (latest["id"],)).fetchone()
+    if row is None:
+        return _fail("continuation", "the latest transcript lecture has no Digest")
+    md = row[0]
+    if latest["continues_id"] != first["id"] or "## המשך מ-" not in md:
+        return _fail("continuation", "the Digest does not continue the previous lecture")
+    if "לא השווה" in md.split("## המשך מ-", 1)[1].split("\n## ")[0] or "**מה חדש:**" not in md:
+        return _fail("continuation", "the continuation chapter is present but the model wrote nothing in it")
+    return _ok("continuation", "the latest Digest continues the previous lecture with new / repeated / contradicts")
+
+
+def check_memory_budget(db: Path = DB_PATH) -> Result:
+    con = sqlite3.connect(db)
+    row = con.execute("select output_json from decisions where node = 'run' order by ts desc limit 1").fetchone()
+    if row is None:
+        return _fail("memory_budget", "no run logged")
+    p95 = (json.loads(row[0]).get("timing", {}).get("memory_s") or {}).get("p95")
+    if p95 is None:
+        return _fail("memory_budget", "the last run has no memory timing")
+    detail = f"memory per chunk p95 {p95} s (embed ≤ {BUDGET_S['embed']} + search ≤ 1)"
+    return _ok("memory_budget", detail) if p95 <= MEMORY_BUDGET_S else _fail("memory_budget", detail)
+
+
+def check_numpy_fallback(db: Path = DB_PATH, tests: tuple[tuple[str, ...], ...] = (
+        (sys.executable, "-m", "pytest", "-q", "tests/test_search.py", "tests/test_memory.py"),)) -> Result:
+    """The same tests pass with both vector backends (they are parametrized), and on the real database the numpy
+    backend returns the same first hit as sqlite-vec for the sampled terms."""
+    from lecture_copilot.store.db import Store
+    for cmd in tests:
+        p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+        if p.returncode != 0:
+            return _fail("numpy_fallback", f"{' '.join(cmd[-2:])} exit {p.returncode}")
+    pair = _two_lectures(db)
+    if pair is None:
+        return _fail("numpy_fallback", "fewer than two transcript lectures replayed")
+    con, _, latest = pair
+    con.close()
+    agree, total = 0, 0
+    a, b = Store(db, vec_backend="sqlite-vec"), Store(db, vec_backend="numpy")
+    try:
+        for r in a.items(latest["id"], kind="concept")[::7][:10]:
+            total += 1
+            ha, hb = a.search(r["text"], latest["course_id"], k=1), b.search(r["text"], latest["course_id"], k=1)
+            agree += bool(ha) and bool(hb) and ha[0].id == hb[0].id
+    finally:
+        a.close()
+        b.close()
+    detail = f"tests pass with both backends; numpy agrees with sqlite-vec on {agree}/{total} first hits"
+    return _ok("numpy_fallback", detail) if total and agree == total else _fail("numpy_fallback", detail)
+
+
+CONTRADICTION_A = """WEBVTT
+
+00:00:01.000 --> 00:00:40.000
+נדבר על תקופת ההחזר. תקופת ההחזר המקובלת למיזם היא 18 חודשים. זה המספר שהמשקיעים מצפים לו.
+"""
+CONTRADICTION_B = """WEBVTT
+
+00:00:01.000 --> 00:00:40.000
+תיקון לשבוע שעבר: תקופת ההחזר המקובלת למיזם היא 12 חודשים, לא 18. המשקיעים מצפים ל-12.
+"""
+
+
+async def _contradiction_run(work: Path, client: httpx.AsyncClient) -> list[dict]:
+    from lecture_copilot.asr.transcript import TranscriptASR
+    from lecture_copilot.audio.transcript import TranscriptSource
+    from lecture_copilot.pipeline import Ctx, run
+    from lecture_copilot.store.db import Store, new_id
+
+    store = Store(work / "gate_m3.sqlite")
+    try:
+        course = store.upsert_course("gate", language="he")
+        claims = []
+        async with client:
+            lectures = (("a.vtt", CONTRADICTION_A, "2026-10-01"), ("b.vtt", CONTRADICTION_B, "2026-10-08"))
+            for name, text, date in lectures:
+                (work / name).write_text(text, encoding="utf-8")
+                lid = store.upsert_lecture(course, audio_path=str(work / name), source="transcript", title=name,
+                                           date=date, fact_check=False)
+                ctx = Ctx(lecture_id=lid, course_id=course, course_name="gate", lecture_title=name,
+                          profile=Profile(fact_check=False, language="he"), store=store, asr=TranscriptASR(),
+                          ollama=client, run_id=new_id(), runs_dir=work)
+                await run(TranscriptSource(lid, work / name, runs_dir=work), ctx)
+                store.end_lecture(lid)
+                claims.append(store.claims(lid))
+        return claims
+    finally:
+        store.close()
+
+
+def check_contradiction(work: Path | None = None, client: httpx.AsyncClient | None = None) -> Result:
+    """Break it on purpose: lecture B says the opposite of lecture A; B's claim must gain +20 and link to A's."""
+    with tempfile.TemporaryDirectory() as tmp:
+        work = work or Path(tmp)
+        a, b = asyncio.run(_contradiction_run(work, client or httpx.AsyncClient(base_url=OLLAMA_URL)))
+    if not a:
+        return _fail("contradiction", "lecture A produced no claim to contradict")
+    linked = [c for c in b if c["contradicts_id"]]
+    if not linked:
+        return _fail("contradiction", f"lecture B's {len(b)} claim(s) were not marked as contradicting A "
+                                      f"(A had {len(a)})")
+    c = linked[0]
+    before = c["importance"] - 20
+    return _ok("contradiction", f"B's claim contradicts A's: importance {before} → {c['importance']}, linked")
+
+
 # ---------- runner ----------
 
 def _stage0() -> dict:
@@ -479,6 +666,17 @@ CHECKS: dict[int, list[tuple[str, Callable[[], Result]]]] = {
         ("mw_bench", lambda: check_mw_bench(_stage0())),
         ("extract_bench", lambda: check_extract_bench(_stage0())),
         ("mic_seat", lambda: check_mic(_stage0())),
+        ("secret_scan", check_secret_scan),
+    ],
+    3: [
+        ("shared_concepts", check_shared_concepts),
+        ("contradiction", check_contradiction),
+        ("search_top1", check_search_top1),
+        ("continuation", check_continuation),
+        ("memory_budget", check_memory_budget),
+        ("numpy_fallback", check_numpy_fallback),
+        ("prompt_cache", check_prompt_cache),
+        ("tests", check_tests),
         ("secret_scan", check_secret_scan),
     ],
     2: [

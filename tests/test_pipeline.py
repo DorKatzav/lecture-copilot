@@ -18,10 +18,10 @@ from lecture_copilot.store.db import Store
 from tests.stubs import FakeASR, FakeOllama, ListSource
 
 
-def reply(summary="סיכום", concepts=1, claims=1, items=0, term="CAC"):
+def reply(summary="סיכום", concepts=1, claims=1, items=0, term="CAC", explanation="עלות רכישת לקוח", key="cac"):
     return json.dumps({
         "chunk_summary": summary,
-        "concepts": [{"term": term, "explanation": "עלות רכישת לקוח", "canonical_key": "cac"}] * concepts,
+        "concepts": [{"term": term, "explanation": explanation, "canonical_key": key}] * concepts,
         "claims": [{"text": "CAC ירד ב-2024", "normalized": "CAC fell in 2024", "importance": 60}] * claims,
         "items": [{"kind": "question", "text": "למה?", "owner": None, "due": None}] * items,
     }, ensure_ascii=False)
@@ -232,3 +232,40 @@ def test_warm_up_skips_a_provider_that_needs_none(store, tmp_path):
             await warm_up(make_ctx(store, asr, client, None, tmp_path))
     asyncio.run(main())
     assert asr.calls == [] and decisions(store, "asr") == []
+
+
+# ---------- M3: the course memory in the loop ----------
+
+def test_recall_feeds_the_prompt_and_remember_indexes_the_result(store, tmp_path):
+    from lecture_copilot.agents.schemas import Claim, Concept, ExtractResult
+    course = store.upsert_course("AI Developers — Python", language="he")
+    w4 = store.upsert_lecture(course, audio_path="/w4", source="file", title="W4", date="2026-06-07", fact_check=True,
+                              week=4)
+    earlier = ExtractResult(chunk_summary="s", items=[], concepts=[Concept(term="CAC", explanation="עלות רכישת לקוח",
+                                                                           canonical_key="cac")],
+                            claims=[Claim(text="CAC ירד ב-2023", normalized="n", importance=70)])
+    store.write_chunk(w4, 1, [Segment(t0=0, t1=40, text="CAC")], asr="mw", result=earlier)
+    fake = FakeOllama([reply(term="CAC"), reply(term="LTV", explanation="ערך חיי לקוח לאורך זמן", key="ltv")])
+    ctx, summary = go(store, tmp_path, ListSource(chunks(tmp_path, 2)), FakeASR(), fake)
+    user = fake.requests[0]["messages"][1]["content"]
+    assert "CAC — עלות רכישת לקוח (W04)" in user and "CAC ירד ב-2023" in user
+    assert fake.embed_calls[0] == ["שלום, היום נדבר על CAC"]                     # recall embeds the chunk text
+    assert len(fake.embed_calls) == 4                                              # recall + remember, twice
+    rows = {r["text"]: r["first_seen_lecture_id"] for r in store.items(ctx.lecture_id, kind="concept")}
+    assert rows["CAC"] == w4 and rows["LTV"] == ctx.lecture_id
+    assert summary["status"] == {"ok": 2}
+
+
+def test_memory_steps_are_logged_and_timed_per_chunk(store, tmp_path):
+    go(store, tmp_path, ListSource(chunks(tmp_path, 1)), FakeASR(), FakeOllama([reply()]))
+    mem = decisions(store, "memory")
+    assert [d["output"]["step"] for d in mem] == ["recall", "remember"]
+    chunk = decisions(store, "chunk")[0]["output"]
+    assert chunk["memory_s"] is not None and chunk["already_said"] == 0
+
+
+def test_a_memory_failure_never_stops_the_chunk(store, tmp_path):
+    fake = FakeOllama([reply()], fail_loads=True)
+    _, summary = go(store, tmp_path, ListSource(chunks(tmp_path, 1)), FakeASR(), fake)
+    assert summary["status"] == {"ok": 1}
+    assert all(d["output"]["embed_error"] for d in decisions(store, "memory"))

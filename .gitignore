@@ -18,3 +18,6 @@ __pycache__/
 # course material never leaves the machine, wherever it is dropped
 *.vtt
 *.srt
+
+# labels and candidates hold claims from the lectures: course material
+eval/benchmark*.json

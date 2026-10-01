@@ -1,3 +1,4 @@
+import json
 import subprocess
 
 import httpx
@@ -617,3 +618,132 @@ def test_m2_html_fails_when_the_page_is_not_rtl(tmp_path):
 def test_m2_checks():
     assert [name for name, _ in gate.CHECKS[2]] == ["digest_sections", "digest_time", "vtt_replay", "course_folder",
                                                     "html_rtl", "prompt_cache", "tests", "secret_scan"]
+
+
+# ---------- M3 ----------
+
+def m3_store(tmp_path, *, with_digest=True, continuation=True, first_seen_share=1.0, memory_p95=1.2):
+    """7/6 and 9/6 as transcript lectures; 9/6's concepts partly first seen in 7/6."""
+    from lecture_copilot.agents.schemas import Concept, ExtractResult
+    from lecture_copilot.asr.base import Segment
+    from lecture_copilot.store.db import Store
+    from tests.stubs import fake_embedding
+    s = Store(tmp_path / "copilot.sqlite")
+    course = s.upsert_course("AI Developers — Python", language="he")
+    a = s.upsert_lecture(course, audio_path="/x/2026-06-07.vtt", source="transcript", title="7-6", date="2026-06-07",
+                         fact_check=True)
+    b = s.upsert_lecture(course, audio_path="/x/2026-06-09.vtt", source="transcript", title="9-6", date="2026-06-09",
+                         fact_check=True)
+    terms = [f"term{i}" for i in range(10)]
+    for lid, idx in ((a, 1), (b, 1)):
+        res = ExtractResult(chunk_summary="s", items=[], claims=[], concepts=[
+            Concept(term=t, explanation=f"explanation of {t} number {i}", canonical_key=t)
+            for i, t in enumerate(terms)])
+        s.write_chunk(lid, idx, [Segment(t0=0, t1=40, text="x")], asr="transcript", result=res)
+        for r in s.items(lid, kind="concept"):
+            s.set_embedding("items", r["id"], fake_embedding(f"{r['text']} {r['explanation']}"))
+    shared = int(round(first_seen_share * len(terms)))
+    for r in s.items(b, kind="concept")[:shared]:
+        s.set_first_seen(r["id"], a)
+    s.end_lecture(a)
+    s.end_lecture(b)
+    s.save_digest(a, bullets=["x"], digest_md="# a")
+    if with_digest:
+        md = "# b\n\n## המשך מ-7-6\n\n- **מה חדש:** y\n" if continuation else \
+            "# b\n\n## המשך מ-7-6\n\nהמודל לא השווה להרצאה הקודמת הפעם.\n"
+        s.save_digest(b, bullets=["x"], digest_md=md)
+        s.set_continues(b, a)
+    s.log("run", lecture_id=b, input_ref="R", output={"chunks": 1, "status": {"ok": 1}, "counts": {},
+                                                     "audio_s": 40, "timing": {"memory_s": {"p95": memory_p95}}})
+    s.close()
+    return tmp_path / "copilot.sqlite"
+
+
+def benchmark(tmp_path, terms):
+    import json
+    p = tmp_path / "benchmark.json"
+    p.write_text(json.dumps({"shared_concepts": [{"term": t, "first": "2026-06-07", "again": "2026-06-09"}
+                                                 for t in terms]}), encoding="utf-8")
+    return p
+
+
+def test_m3_shared_concepts_pass_at_80_percent(tmp_path):
+    db = m3_store(tmp_path, first_seen_share=0.8)
+    r = gate.check_shared_concepts(db, benchmark_path=benchmark(tmp_path, [f"term{i}" for i in range(10)]))
+    assert r.status == "PASS" and "8/10" in r.detail
+
+
+def test_m3_shared_concepts_fail_below_80_percent(tmp_path):
+    db = m3_store(tmp_path, first_seen_share=0.7)
+    bench = benchmark(tmp_path, [f"term{i}" for i in range(10)])
+    assert gate.check_shared_concepts(db, benchmark_path=bench).status == "FAIL"
+
+
+def test_m3_shared_concepts_skip_without_dors_labels(tmp_path):
+    db = m3_store(tmp_path)
+    r = gate.check_shared_concepts(db, benchmark_path=tmp_path / "missing.json")
+    assert r.status == "SKIP" and "benchmark.json" in r.detail
+
+
+def test_m3_search_top1_over_sampled_terms(tmp_path):
+    db = m3_store(tmp_path)
+    r = gate.check_search_top1(db)
+    assert r.status == "PASS" and "10/10" in r.detail
+
+
+def test_m3_search_top1_fails_when_the_index_is_empty(tmp_path):
+    import sqlite3
+    db = m3_store(tmp_path)
+    con = sqlite3.connect(db)
+    con.execute("delete from items_fts")
+    con.execute("update items set embedding = null")
+    con.commit()
+    con.close()
+    assert gate.check_search_top1(db).status == "FAIL"
+
+
+def test_m3_continuation_present(tmp_path):
+    assert gate.check_continuation(m3_store(tmp_path)).status == "PASS"
+
+
+@pytest.mark.parametrize("kw", [dict(continuation=False), dict(with_digest=False)])
+def test_m3_continuation_fails_when_empty_or_missing(tmp_path, kw):
+    assert gate.check_continuation(m3_store(tmp_path, **kw)).status == "FAIL"
+
+
+def test_m3_memory_budget(tmp_path):
+    assert gate.check_memory_budget(m3_store(tmp_path, memory_p95=2.9)).status == "PASS"
+    assert gate.check_memory_budget(m3_store(tmp_path / "b", memory_p95=3.5)).status == "FAIL"
+
+
+def test_m3_numpy_fallback_agrees_with_sqlite_vec(tmp_path):
+    r = gate.check_numpy_fallback(m3_store(tmp_path), tests=(("true",),))
+    assert r.status == "PASS" and "numpy" in r.detail
+
+
+def test_m3_contradiction_check_reads_the_run(tmp_path):
+    from tests.stubs import FakeOllama
+    a = json.dumps({"chunk_summary": "s", "concepts": [], "items": [],
+                    "claims": [{"text": "תקופת ההחזר המקובלת היא 18 חודשים", "normalized": "payback 18 months",
+                                "importance": 70}]}, ensure_ascii=False)
+    b = json.dumps({"chunk_summary": "s", "concepts": [], "items": [],
+                    "claims": [{"text": "תקופת ההחזר המקובלת היא 12 חודשים", "normalized": "payback 12 months",
+                                "importance": 70, "contradicts": "תקופת ההחזר המקובלת היא 18 חודשים"}]},
+                   ensure_ascii=False)
+    r = gate.check_contradiction(work=tmp_path, client=FakeOllama([a, b]).async_client())
+    assert r.status == "PASS" and "70 → 90" in r.detail
+
+
+def test_m3_contradiction_check_fails_when_the_model_misses_it(tmp_path):
+    from tests.stubs import FakeOllama
+    a = json.dumps({"chunk_summary": "s", "concepts": [], "items": [],
+                    "claims": [{"text": "18 חודשים", "normalized": "18", "importance": 70}]}, ensure_ascii=False)
+    b = json.dumps({"chunk_summary": "s", "concepts": [], "items": [],
+                    "claims": [{"text": "12 חודשים", "normalized": "12", "importance": 70}]}, ensure_ascii=False)
+    assert gate.check_contradiction(work=tmp_path, client=FakeOllama([a, b]).async_client()).status == "FAIL"
+
+
+def test_m3_checks():
+    assert [name for name, _ in gate.CHECKS[3]] == ["shared_concepts", "contradiction", "search_top1", "continuation",
+                                                    "memory_budget", "numpy_fallback", "prompt_cache", "tests",
+                                                    "secret_scan"]

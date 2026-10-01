@@ -87,18 +87,18 @@ h2 small{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:.8rem;c
 </section>
 
 <section id="continues">
-  {% if doc.continuation %}<h2>המשך מ-<span dir="{{ doc.prev_title | textdir }}">{{ doc.prev_title }}</span></h2>
-  <ul>
+  {% if doc.prev_title %}<h2>המשך מ-<span dir="{{ doc.prev_title | textdir }}">{{ doc.prev_title }}</span></h2>
+  {% if doc.continuation %}<ul>
     <li><b>מה חדש:</b> {{ (doc.continuation.new | join(" · ") or "אין") | r }}</li>
     <li><b>מה חזר:</b> {{ (doc.continuation.repeated | join(" · ") or "אין") | r }}</li>
     <li><b>מה סותר:</b> {{ (doc.continuation.contradicts | join(" · ") or "אין") | r }}</li>
-  </ul>{% else %}<h2>המשך מההרצאה הקודמת</h2>
+  </ul>{% else %}<p class="empty">המודל לא השווה להרצאה הקודמת הפעם.</p>{% endif %}{% else %}<h2>המשך מההרצאה הקודמת</h2>
   <p class="empty">זו ההרצאה הראשונה בקורס.</p>{% endif %}
 </section>
 
 <section id="concepts">
-  <h2>מושגים <small>({{ doc.concepts | length }})</small></h2>
-  {% if doc.concepts %}<ul>{% for c in doc.concepts %}<li><b><bdi>{{ c.term }}</bdi></b> — {{ c.explanation | r }}</li>{% endfor %}</ul>{% else %}<p class="empty">אין.</p>{% endif %}
+  <h2>מושגים <small>({{ doc.concepts | length }}{% if doc.returned %}, +{{ doc.returned | length }} מקודם{% endif %})</small></h2>
+  {% if doc.concepts %}<ul>{% for c in doc.concepts %}<li><b><bdi>{{ c.term }}</bdi></b> — {{ c.explanation | r }}{% if c.first_seen %} <span class="pill mw">נאמר ב-<span class="num">{{ c.first_seen }}</span></span>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="empty">אין.</p>{% endif %}
 </section>
 
 <section id="claims">

@@ -16,6 +16,7 @@ import httpx
 import numpy as np
 
 from lecture_copilot.agents.extractor import ExtractError, extract
+from lecture_copilot.agents.memory import recall, remember
 from lecture_copilot.asr.base import ASR, ASRError
 from lecture_copilot.audio.sources import SR, AudioChunk, write_wav
 from lecture_copilot.config import EMBED_MODEL, LIVE_MODEL, OLLAMA_KEEP_ALIVE, OLLAMA_LOAD_OPTIONS, RUNS_DIR, Profile
@@ -61,19 +62,27 @@ async def _process(chunk: AudioChunk, ctx: Ctx, ref: str, out: dict) -> str:
     result, status = None, "empty"
     if segments:
         t = time.perf_counter()
+        memory = await recall(segments, ctx, ref)
+        out["memory_s"] = _since(t)
+        t = time.perf_counter()
         try:
-            result, status = await extract(chunk, segments, ctx, ref), "ok"
+            result, status = await extract(chunk, segments, ctx, ref, memory=memory), "ok"
         except ExtractError as e:
             status, out["error"] = "extract_failed", str(e)
         out["extract_s"] = _since(t)
     ctx.store.write_chunk(ctx.lecture_id, chunk.idx, segments, asr=ctx.asr.name, result=result)
+    if result is not None:
+        t = time.perf_counter()
+        mem = await remember(result, chunk, ctx, ref, memory=memory)
+        out["memory_s"] = round(out["memory_s"] + _since(t), 2)
+        out["already_said"], out["contradictions"] = mem["already_said"], mem["contradictions"]
     return status
 
 
 async def process_chunk(chunk: AudioChunk, ctx: Ctx, queue_depth: int = 0) -> dict:
     ref = f"{ctx.run_id}#{chunk.idx:04d}"
     out = {"idx": chunk.idx, "t0": round(chunk.t0, 2), "t1": round(chunk.t1, 2), "queue_depth": queue_depth,
-           "segments": 0, "asr_s": None, "extract_s": None}
+           "segments": 0, "asr_s": None, "memory_s": None, "extract_s": None, "already_said": 0, "contradictions": 0}
     t = time.perf_counter()
     try:
         out["status"] = await _process(chunk, ctx, ref, out)
@@ -118,7 +127,9 @@ async def run(source: AsyncIterable[AudioChunk], ctx: Ctx, extra: Callable[[], d
     summary = {
         "chunks": len(outcomes), "status": dict(Counter(o["status"] for o in outcomes)),
         "counts": ctx.store.counts(ctx.lecture_id), "audio_s": round(sum(o["t1"] - o["t0"] for o in outcomes), 1),
-        "timing": {k: _timing(outcomes, k) for k in ("asr_s", "extract_s", "total_s")},
+        "timing": {k: _timing(outcomes, k) for k in ("asr_s", "memory_s", "extract_s", "total_s")},
+        "already_said": sum(o["already_said"] for o in outcomes),
+        "contradictions": sum(o["contradictions"] for o in outcomes),
         "max_queue_depth": max((o["queue_depth"] for o in outcomes), default=0),
     }
     if failure:

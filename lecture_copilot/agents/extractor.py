@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from lecture_copilot import prompts
+from lecture_copilot.agents.memory import MemoryContext
 from lecture_copilot.agents.schemas import ExtractResult
 from lecture_copilot.asr.base import Segment
 from lecture_copilot.config import (
@@ -47,13 +48,16 @@ def script_problem(r: ExtractResult) -> str | None:
 
 
 async def extract(chunk: AudioChunk, segments: list[Segment], ctx: Ctx, ref: str,
-                  prompt: str = EXTRACT_PROMPT) -> ExtractResult:
+                  prompt: str = EXTRACT_PROMPT, memory: MemoryContext | None = None) -> ExtractResult:
     prev = ctx.store.previous_chunk_summary(ctx.lecture_id, chunk.idx)
-    system, user = prompts.load(prompt).render(
+    mem = memory or MemoryContext()
+    p = prompts.load(prompt)
+    values = dict(
         language=ctx.profile.language, course_name=ctx.course_name, lecture_title=ctx.lecture_title,
-        idx=chunk.idx, t0=round(chunk.t0), t1=round(chunk.t1), known_terms="(none yet)",
-        previous_chunk_summary=f"Previous chunk: {prev}" if prev else "",
+        idx=chunk.idx, t0=round(chunk.t0), t1=round(chunk.t1), known_terms=mem.known_terms,
+        previous_claims=mem.previous_claims, previous_chunk_summary=f"Previous chunk: {prev}" if prev else "",
         text="\n".join(s.text for s in segments))
+    system, user = p.render(**{k: v for k, v in values.items() if k in p.variables})   # older prompts take fewer
     call = await chat_json(LIVE_MODEL, system, user, ExtractResult, client=ctx.ollama, options=EXTRACT_OPTIONS,
                            check=script_problem, keep_alive=OLLAMA_KEEP_ALIVE, timeout_s=EXTRACT_TIMEOUT_S,
                            backoff_s=ctx.backoff_s)

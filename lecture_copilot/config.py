@@ -23,8 +23,8 @@ EXTRACT_TIMEOUT_S = BUDGET_S["extract"] * 2                    # per attempt; a 
 EXTRACT_OPTIONS = {"temperature": 0, "seed": 42}               # D-M1-2: reproducible replays
 
 # prompt versions in use (prompts/<name>.md); a change is a new file + a PROJECT_LOG line
-EXTRACT_PROMPT = "extract_v3"                                  # D-M2-4: v0 + the highlight rule
-DIGEST_MAP_PROMPT, DIGEST_EXEC_PROMPT = "digest_sections_v1", "digest_exec_v1"   # D-M2-5
+EXTRACT_PROMPT = "extract_v4"                                  # v3 + the course memory (M3)
+DIGEST_MAP_PROMPT, DIGEST_EXEC_PROMPT = "digest_sections_v1", "digest_exec_v2"   # D-M2-5, D-M3-5
 
 # Digest (D-M2-2): map-reduce sized for the 4,096-token context
 TOKENS_PER_WORD = 3                                            # measured 2.86 for Hebrew on gemma3:12b
@@ -45,6 +45,13 @@ OLLAMA_KEEP_ALIVE = "30m"                                      # stays loaded th
 # use_mmap (D-M1-3): Ollama 0.34 otherwise starts its runner with --load-mode none and gemma3:12b holds
 # ~18 GB of dirty memory instead of ~1.8 GB plus reclaimable file-backed weights.
 OLLAMA_LOAD_OPTIONS = {"num_ctx": OLLAMA_NUM_CTX, "use_mmap": True}
+
+# memory (M3): bge-m3 vectors; sqlite-vec when it loads, numpy otherwise (set VEC_BACKEND to force one)
+EMBED_DIMS = 1024
+VEC_BACKEND = os.getenv("VEC_BACKEND")                        # None = auto, "sqlite-vec", "numpy"
+MEMORY_K = 5                                                  # hits recalled per chunk (spec: top-5)
+ALREADY_SAID_COSINE = 0.85                                    # a concept this close to an earlier one was already said
+CONTRADICTION_BONUS = 20                                      # spec: a contradiction of an earlier lecture, +20
 
 
 class Profile(BaseModel):

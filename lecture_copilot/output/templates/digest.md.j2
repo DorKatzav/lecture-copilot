@@ -18,19 +18,21 @@
 
 {{ bullets(doc.highlights) }}
 @@
-{% if doc.continuation %}## המשך מ-{{ doc.prev_title }}
+{% if doc.prev_title %}## המשך מ-{{ doc.prev_title }}
 
-- **מה חדש:** {{ doc.continuation.new | join(" · ") or "אין" }}
+{% if doc.continuation %}- **מה חדש:** {{ doc.continuation.new | join(" · ") or "אין" }}
 - **מה חזר:** {{ doc.continuation.repeated | join(" · ") or "אין" }}
 - **מה סותר:** {{ doc.continuation.contradicts | join(" · ") or "אין" }}
-{% else %}## המשך מההרצאה הקודמת
+{% else %}המודל לא השווה להרצאה הקודמת הפעם.
+{% endif %}{% else %}## המשך מההרצאה הקודמת
 
 זו ההרצאה הראשונה בקורס.
 {% endif %}
 @@
-## מושגים ({{ doc.concepts | length }})
+## {{ doc.concepts_heading }}
 
-{% if doc.concepts %}{% for c in doc.concepts %}- **{{ c.term }}** — {{ c.explanation }}
+{% if doc.concepts %}{% for c in doc.concepts %}- **{{ c.term }}** — {{ c.explanation }}{% if c.first_seen %} (נאמר ב-{{ c.first_seen }}){% endif %}
+
 {% endfor %}{% else %}אין.
 {% endif %}
 @@

@@ -1,0 +1,96 @@
+{
+  "l0607": {
+    "chunks": 259,
+    "status": {
+      "ok": 259
+    },
+    "already_said": 0,
+    "contradictions": 0,
+    "memory_p95_s": 0.08,
+    "timing": {
+      "asr_s": {
+        "n": 259,
+        "p50": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "memory_s": {
+        "n": 259,
+        "p50": 0.05,
+        "p95": 0.08,
+        "max": 0.11
+      },
+      "extract_s": {
+        "n": 259,
+        "p50": 6.84,
+        "p95": 11.16,
+        "max": 15.64
+      },
+      "total_s": {
+        "n": 259,
+        "p50": 6.9,
+        "p95": 11.25,
+        "max": 15.75
+      }
+    },
+    "concepts": 314,
+    "returned": 0,
+    "claims": 29,
+    "claims_linked": 0
+  },
+  "l0609": {
+    "chunks": 303,
+    "status": {
+      "ok": 302,
+      "extract_failed": 1
+    },
+    "already_said": 156,
+    "contradictions": 0,
+    "memory_p95_s": 0.18,
+    "timing": {
+      "asr_s": {
+        "n": 303,
+        "p50": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "memory_s": {
+        "n": 303,
+        "p50": 0.07,
+        "p95": 0.18,
+        "max": 0.26
+      },
+      "extract_s": {
+        "n": 303,
+        "p50": 8.29,
+        "p95": 21.79,
+        "max": 69.56
+      },
+      "total_s": {
+        "n": 303,
+        "p50": 8.36,
+        "p95": 21.96,
+        "max": 69.8
+      }
+    },
+    "concepts": 481,
+    "returned": 156,
+    "claims": 17,
+    "claims_linked": 0
+  },
+  "candidates": {
+    "pairs": 63,
+    "flagged": 63,
+    "by_how": {
+      "key": 54,
+      "term": 6,
+      "meaning": 3
+    }
+  },
+  "contradiction": {
+    "status": "PASS",
+    "before": null,
+    "after": null,
+    "detail": "B's claim contradicts A's: importance 80 → 100, linked"
+  }
+}
