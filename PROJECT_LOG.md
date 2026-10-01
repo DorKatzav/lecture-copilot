@@ -129,3 +129,4 @@ Decision ids: `D-M<milestone>-<n>`. Spec-level decisions 1–8 live in `DESIGN_H
 - Gate seen failing: `GATE M2: FAIL 7/8` (`vtt_replay`, while the transcript Digest was still running); in tests — moved or missing section, slow or degraded Digest, failed sink, folder outside the root, non-RTL page, missing screenshot.
 - Gate: `GATE M2: PASS 8/8`.
 - Not built, on purpose: content of the continuation section (M3; the section exists and says this is the first lecture), `flashcards.tsv` (cut ladder), `course.html` and `Sink.write_course` (M5).
+- GitHub: `feat/m2-digest` pushed, **PR #5**. Hebrew report `docs/reports/M2_HE.html` on `docs/m2-report` (47 metrics filled by `scripts/m2.py report`), verified in Chrome at full width and in a 400 px frame: 0 direction or alignment failures, no overflow, no unfilled metric, both images load. Obsidian updated. Waiting for Dor: read the report, answer the ★ question (strong signals only, or every "חשוב"), approve the merge.
