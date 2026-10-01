@@ -273,7 +273,24 @@ def test_a_lecture_without_a_previous_one_keeps_the_placeholder(store):
     assert "זו ההרצאה הראשונה בקורס" in md and "## מושגים (4)\n" in md
 
 
-def test_a_null_continuation_from_the_model_still_names_the_previous_lecture(store):
+def test_a_null_continuation_twice_keeps_the_bullets_and_says_so(store):
     w4, w5 = with_previous(store)
-    md = render_markdown(run(store, w5, FakeOllama([SECTION, EXEC])))
+    doc = run(store, w5, FakeOllama([SECTION, EXEC, EXEC]))
+    md = render_markdown(doc)
+    assert doc.exec_summary == [f"נקודה {i}" for i in range(1, 6)] and doc.degraded == ["continuation"]
     assert "## המשך מ-W04 · מודלים עסקיים א'" in md and "המודל לא השווה" in md
+
+
+def test_with_a_previous_lecture_a_null_continuation_is_retried(store):
+    w4, w5 = with_previous(store)
+    fake = FakeOllama([SECTION, EXEC, CONT])            # EXEC has continuation: null
+    doc = run(store, w5, fake)
+    assert doc.continuation is not None and doc.continuation.new == ["LTV"] and len(fake.requests) == 3
+    assert "continuation" in fake.requests[2]["messages"][-1]["content"]
+    assert fake.requests[1]["format"]["required"] == ["exec_summary", "continuation"]
+
+
+def test_without_a_previous_lecture_null_is_fine(store):
+    fake = FakeOllama([SECTION, EXEC])
+    doc = run(store, lecture(store), fake)
+    assert doc.continuation is None and len(fake.requests) == 2

@@ -50,3 +50,8 @@ class DigestExec(BaseModel):
     """Reduce step of the Digest."""
     exec_summary: list[Text] = Field(min_length=5, max_length=5)
     continuation: Continuation | None = None
+
+
+class DigestExecWithPrevious(DigestExec):
+    """When a previous lecture is given the comparison is required: a null answer is retried (D-M3-5)."""
+    continuation: Continuation

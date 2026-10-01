@@ -20,7 +20,7 @@ import httpx
 from jinja2 import Environment, PackageLoader, StrictUndefined
 
 from lecture_copilot import prompts
-from lecture_copilot.agents.schemas import Continuation, DigestExec, DigestSection
+from lecture_copilot.agents.schemas import Continuation, DigestExec, DigestExecWithPrevious, DigestSection
 from lecture_copilot.config import (
     DIGEST_EXEC_PROMPT,
     DIGEST_FULL_WORDS,
@@ -251,18 +251,25 @@ async def digest(lecture_id: str, *, store: Store, client: httpx.AsyncClient, ba
     blocks = plan_blocks(lines, by_chunk) if lines else []
     common = dict(language=doc.language, course_name=doc.course_name, lecture_title=doc.title)
 
-    async def call(step: str, prompt: str, schema, texts, **values):
+    async def call(step: str, prompt: str, schema, texts, fallback=None, **values):
+        """`fallback`: a looser schema tried on the last raw answer when the strict one failed twice."""
         system, user = prompts.load(prompt).render(**common, **values)
         c = await chat_json(MODEL, system, user, schema, client=client, options=DIGEST_OPTIONS,
                             check=_script_check(texts), keep_alive=OLLAMA_KEEP_ALIVE, timeout_s=DIGEST_TIMEOUT_S,
                             backoff_s=backoff_s)
+        value, degraded = c.value, step
+        if value is None and fallback and c.raw:
+            try:
+                value, degraded = fallback.model_validate_json(c.raw[-1]), "continuation"
+            except ValueError:
+                pass
         store.log("digest", lecture_id=lecture_id, input_ref=f"{run_id}#{step}", ms=round(sum(c.ms), 1),
                   tokens_in=c.tokens_in, tokens_out=c.tokens_out,
-                  output={"status": "ok" if c.value else "failed", "model": MODEL, "prompt": prompt,
-                          "attempts": c.attempts, "error": c.error})
+                  output={"status": "ok" if c.value else ("degraded" if value else "failed"), "model": MODEL,
+                          "prompt": prompt, "attempts": c.attempts, "error": c.error})
         if c.value is None:
-            doc.degraded.append(step)
-        return c.value
+            doc.degraded.append(degraded)
+        return value
 
     if not lines:
         doc.degraded.append("empty")
@@ -275,7 +282,9 @@ async def digest(lecture_id: str, *, store: Store, client: httpx.AsyncClient, ba
             words=max(40, round(total_words * len(b.lines) / len(lines))))
         doc.full_summary += section.paragraphs if section else [" ".join(t for _, t in b.lines)]
     if lines:
-        ex = await call("exec", exec_prompt, DigestExec, lambda v: v.exec_summary, date=doc.date,
+        schema = DigestExecWithPrevious if doc.prev_title else DigestExec
+        ex = await call("exec", exec_prompt, schema, lambda v: v.exec_summary,
+                        fallback=DigestExec if doc.prev_title else None, date=doc.date,
                         minutes=doc.minutes, full_summary="\n\n".join(doc.full_summary),
                         highlights=" · ".join(doc.highlights) or "(none)", prev_title=doc.prev_title or "none",
                         prev_bullets="\n".join(f"- {b}" for b in doc.prev_bullets) if doc.prev_bullets else "(none)")

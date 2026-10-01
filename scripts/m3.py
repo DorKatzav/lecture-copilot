@@ -136,6 +136,7 @@ def cmd_lecture_stats(a: argparse.Namespace) -> None:
 
 def cmd_contradiction(_: argparse.Namespace) -> None:
     """The gate's live two-lecture test, with its numbers kept for the report."""
+    sys.path.insert(0, str(ROOT))
     from scripts import gate
     r = gate.check_contradiction()
     nums = [int(x) for x in r.detail.replace("→", " ").split() if x.isdigit()]

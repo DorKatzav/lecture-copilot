@@ -24,7 +24,7 @@ EXTRACT_OPTIONS = {"temperature": 0, "seed": 42}               # D-M1-2: reprodu
 
 # prompt versions in use (prompts/<name>.md); a change is a new file + a PROJECT_LOG line
 EXTRACT_PROMPT = "extract_v4"                                  # v3 + the course memory (M3)
-DIGEST_MAP_PROMPT, DIGEST_EXEC_PROMPT = "digest_sections_v1", "digest_exec_v1"   # D-M2-5
+DIGEST_MAP_PROMPT, DIGEST_EXEC_PROMPT = "digest_sections_v1", "digest_exec_v2"   # D-M2-5, D-M3-5
 
 # Digest (D-M2-2): map-reduce sized for the 4,096-token context
 TOKENS_PER_WORD = 3                                            # measured 2.86 for Hebrew on gemma3:12b
