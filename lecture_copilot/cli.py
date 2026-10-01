@@ -261,6 +261,13 @@ def main(argv: list[str] | None = None) -> int:
                                    sink=sink))
         return 0
     if a.cmd == "replay":
+        suffix = a.file.suffix.lower()
+        if suffix in UNSUPPORTED_SUFFIXES:
+            print(f"{a.file.name}: supported transcripts are .vtt and MacWhisper .json", file=sys.stderr)
+            return 2
+        if not a.file.is_file():
+            print(f"{a.file}: not found", file=sys.stderr)
+            return 2
         try:
             load_env(ENV_FILE, fact_check=a.fact_check)
         except RuntimeError as e:
@@ -273,13 +280,6 @@ def main(argv: list[str] | None = None) -> int:
         if a.cmd == "digest":
             asyncio.run(rebuild_digest(a.lecture, db=a.db, client=client, sink=sink))
             return 0
-        suffix = a.file.suffix.lower()
-        if suffix in UNSUPPORTED_SUFFIXES:
-            print(f"{a.file.name}: supported transcripts are .vtt and MacWhisper .json", file=sys.stderr)
-            return 2
-        if not a.file.is_file():
-            print(f"{a.file}: not found", file=sys.stderr)
-            return 2
         transcript = suffix in TRANSCRIPT_SUFFIXES
         asyncio.run(replay(
             a.file, a.course, a.language, a.title, a.date, a.pace, a.db, a.fact_check, week=a.week, sink=sink,
