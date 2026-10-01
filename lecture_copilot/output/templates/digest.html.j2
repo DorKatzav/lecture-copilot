@@ -56,6 +56,7 @@ li{margin-bottom:6px}
 .exec ol{margin:0;padding-inline-start:22px}
 .claim{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:8px 0}
 .claim q{quotes:'"' '"';unicode-bidi:isolate}
+.claim .actual{margin-top:6px;font-size:.95rem;color:var(--ink2)}
 .empty{color:var(--mute)}
 h2 small{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:.8rem;color:var(--mute)}{% endraw %}
 
@@ -103,7 +104,7 @@ h2 small{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:.8rem;c
 
 <section id="claims">
   <h2>טענות מסומנות</h2>
-  {% if doc.claims %}{% for c in doc.claims %}<div class="claim">המרצה אמר: <q dir="{{ c.text | textdir }}">{{ c.text | r }}</q> <span class="pill maybe">{{ c.label }}</span></div>{% endfor %}{% else %}<p class="empty">אין.</p>{% endif %}
+  {% if doc.claims %}{% for c in doc.claims %}<div class="claim">המרצה אמר: <q dir="{{ c.text | textdir }}">{{ c.text | r }}</q> <span class="pill {{ c.pill }}">{{ c.label }}</span>{% if c.explanation %}<div class="actual"><b>בפועל:</b> {{ c.explanation | r }}{% for s in c.sources[:2] %} · <a href="{{ s }}" rel="noopener" target="_blank">מקור</a>{% endfor %}</div>{% endif %}</div>{% endfor %}{% else %}<p class="empty">אין.</p>{% endif %}
 </section>
 
 <section id="questions">

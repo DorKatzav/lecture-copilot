@@ -315,3 +315,19 @@ def test_a_bare_term_in_the_continuation_passes_the_hebrew_check(store):
     w4, w5 = with_previous(store)
     doc = run(store, w5, FakeOllama([SECTION, CONT]))       # CONT lists "LTV" and "CAC"
     assert doc.continuation.new == ["LTV"] and doc.degraded == []
+
+
+# ---------- M4: verdicts in the claims section ----------
+
+def test_verified_claims_show_the_verdict_what_is_actually_the_case_and_the_source(store):
+    lid = lecture(store)
+    claims = {c["text"]: c for c in store.claims(lid)}
+    store.set_verdict(claims["טענה 3"]["id"], status="verified", verdict="incorrect", confidence=0.9,
+                      explanation="בפועל הפונקציה מחזירה None.", sources=["https://docs.python.org/3/"])
+    store.set_verdict(claims["טענה 2"]["id"], status="unchecked")
+    doc = run(store, lid, FakeOllama([SECTION, EXEC]))
+    md = render_markdown(doc)
+    assert ('- המרצה אמר: "טענה 3" · [לא נכון]\n  בפועל: בפועל הפונקציה מחזירה None. · מקור: https://docs.python.org/3/'
+            in md)
+    assert '- המרצה אמר: "טענה 2" · [לא נבדק — אין רשת]' in md
+    assert doc.claims[0].verdict == "incorrect" and doc.claims[0].sources == ["https://docs.python.org/3/"]

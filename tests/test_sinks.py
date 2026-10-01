@@ -188,3 +188,10 @@ def test_index_links_forward_from_a_lecture_to_the_one_that_continues_it(tmp_pat
 def test_html_marks_returned_concepts():
     html = render_html(doc(concepts=[ConceptRow("CAC", "עלות", "cac", first_seen="W04")]))
     assert "נאמר ב-<span class=\"num\">W04</span>" in html
+
+
+def test_html_claim_card_shows_verdict_explanation_and_source():
+    html = render_html(doc(claims=[ClaimRow("X", 90, "verified", "לא נכון", verdict="incorrect",
+                                            explanation="בפועל Y", sources=["https://docs.python.org/3/"])]))
+    assert 'class="pill no">לא נכון</span>' in html and "בפועל Y" in html
+    assert '<a href="https://docs.python.org/3/"' in html

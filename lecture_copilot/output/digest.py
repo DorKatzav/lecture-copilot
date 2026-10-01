@@ -20,6 +20,7 @@ import httpx
 from jinja2 import Environment, PackageLoader, StrictUndefined
 
 from lecture_copilot import prompts
+from lecture_copilot.agents.ranker import rank
 from lecture_copilot.agents.schemas import Continuation, DigestExec, DigestExecWithPrevious, DigestSection
 from lecture_copilot.config import (
     DIGEST_EXEC_PROMPT,
@@ -39,7 +40,6 @@ from lecture_copilot.store.db import Store, new_id
 
 SECTIONS = ["סיכום מנהלים", "סיכום מלא", "★ למבחן / הודגש", "המשך מ", "מושגים", "טענות מסומנות", "שאלות פתוחות",
             "משימות", "ההערות שלי"]
-CLAIM_LABELS = {"pending": "עדיין לא נבדק", "unchecked": "לא נבדק — אין רשת", "skipped": "לא נבדק"}
 
 _env = Environment(loader=PackageLoader("lecture_copilot.output", "templates"), undefined=StrictUndefined,
                    trim_blocks=True, lstrip_blocks=True, keep_trailing_newline=True, autoescape=False)
@@ -58,7 +58,14 @@ class ClaimRow:
     text: str
     importance: int
     status: str
-    label: str
+    label: str                                   # the Hebrew label: verdict, or why there is none
+    verdict: str | None = None                   # correct | incorrect | imprecise | unverifiable (M4)
+    explanation: str | None = None
+    sources: list[str] = field(default_factory=list)
+
+    @property
+    def pill(self) -> str:
+        return {"correct": "yes", "incorrect": "no", "imprecise": "maybe"}.get(self.verdict or "", "mw")
 
 
 @dataclass(frozen=True)
@@ -250,8 +257,8 @@ def _collect(lecture_id: str, store: Store) -> tuple[DigestDoc, dict[int, list[t
         elif it["kind"] == "note":
             doc.notes.append(it["text"])
     doc.all_claims = store.claims(lecture_id)
-    doc.claims = [ClaimRow(c["text"], c["importance"], c["status"], CLAIM_LABELS.get(c["status"], c["status"]))
-                  for c in doc.all_claims if (c["importance"] or 0) >= VERIFY_MIN_IMPORTANCE]
+    doc.claims = [ClaimRow(c.text, c.importance, c.status, c.verdict_he, c.verdict, c.explanation, c.sources)
+                  for c in rank(lecture_id, store) if c.importance >= VERIFY_MIN_IMPORTANCE]
     return doc, by_chunk
 
 
