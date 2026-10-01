@@ -50,5 +50,7 @@ def test_run_eval_scores_the_benchmark_on_a_scratch_copy(tmp_path):
     assert out["precision_at_5"]["2026-06-07"] == {"k": 1, "precision": 1.0, "material_labelled": 1}
     assert out["cache_hit"] is True and out["cost_usd"] > 0
     assert len(gemini.calls) == 2                         # the cache-hit probe makes no third call
-    assert json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))["verdicts"]["n"] == 2
+    saved = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
+    assert saved["verdicts"]["n"] == 2 and "per_claim" not in saved          # lecture text stays out of the repo
+    assert (tmp_path / "work" / "per_claim.json").is_file()
     assert Store(tmp_path / "copilot.sqlite").con.execute("select count(*) from claims").fetchone()[0] == 2  # untouched

@@ -89,11 +89,14 @@ async def run_eval(db: Path, benchmark: Path, backend: VerifierBackend, *, resul
                "model": VERIFIER_MODEL, "verdicts": score_verdicts(bench["claims"], predictions),
                "unchecked": predictions.count("unchecked"), "precision_at_5": p5,
                "cache_hit": calls_after == calls_before, "cost_usd": round(float(cost), 4),
-               "seconds": round(time.perf_counter() - t0, 1),
-               "per_claim": [{"text": c["text"][:60], "label": c["verdict"], "predicted": p, "injected": c["injected"]}
-                             for c, p in zip(bench["claims"], predictions, strict=True)]}
+               "seconds": round(time.perf_counter() - t0, 1)}
+        per_claim = [{"text": c["text"][:60], "label": c["verdict"], "predicted": p, "injected": c["injected"]}
+                     for c, p in zip(bench["claims"], predictions, strict=True)]
     finally:
         store.close()
     results_path.parent.mkdir(parents=True, exist_ok=True)
     results_path.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="")
+    # the claim texts are course material: they stay next to the scratch database, not in the repo
+    (work / "per_claim.json").write_text(json.dumps(per_claim, ensure_ascii=False, indent=2) + "\n",
+                                         encoding="utf-8", newline="")
     return out
