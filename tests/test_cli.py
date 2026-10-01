@@ -88,7 +88,8 @@ def test_unsupported_transcript_formats_are_refused(tmp_path, name, capsys):
 def test_replay_ends_with_a_digest_in_the_course_folder(tmp_path):
     summary, lines = replay(tmp_path, week=3)
     folder = tmp_path / "courses" / "AI Developers — Python" / "W03_2026-06-19_tirgul"
-    assert sorted(p.name for p in folder.iterdir()) == ["claims.json", "digest.html", "digest.md", "transcript.txt"]
+    assert sorted(p.name for p in folder.iterdir()) == ["claims.json", "digest.html", "digest.md", "meta.json",
+                                                        "transcript.txt"]
     assert summary["digest"]["folder"] == str(folder) and summary["digest"]["degraded"] == []
     assert any(line.startswith("digest:") and "9 sections" in line for line in lines)
 
@@ -97,7 +98,7 @@ def test_the_sink_is_logged(tmp_path):
     replay(tmp_path)
     s = Store(tmp_path / "copilot.sqlite")
     out = json.loads(s.con.execute("select output_json from decisions where node = 'sink'").fetchone()[0])
-    assert out["status"] == "ok" and out["sink"] == "FolderSink" and out["files"] == 4
+    assert out["status"] == "ok" and out["sink"] == "FolderSink" and out["files"] == 5
     s.close()
 
 

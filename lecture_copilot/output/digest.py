@@ -10,6 +10,7 @@ Everything else is a template over SQLite. A failed call never costs the student
 back to its chunk summaries, a failed executive summary is said in its section, and `degraded` names what failed.
 """
 
+import json
 import math
 import re
 import time
@@ -49,6 +50,7 @@ class ConceptRow:
     term: str
     explanation: str
     canonical_key: str
+    first_seen: str | None = None    # "W04" when an earlier lecture explained it (M3)
 
 
 @dataclass(frozen=True)
@@ -79,6 +81,8 @@ class DigestDoc:
     full_summary: list[str] = field(default_factory=list)
     highlights: list[str] = field(default_factory=list)
     prev_title: str | None = None
+    prev_lecture_id: str | None = None
+    prev_bullets: list[str] = field(default_factory=list)
     continuation: Continuation | None = None
     concepts: list[ConceptRow] = field(default_factory=list)
     claims: list[ClaimRow] = field(default_factory=list)
@@ -88,6 +92,21 @@ class DigestDoc:
     notes: list[str] = field(default_factory=list)
     segments: list[dict] = field(default_factory=list)
     degraded: list[str] = field(default_factory=list)
+
+    @property
+    def returned(self) -> list[ConceptRow]:
+        return [c for c in self.concepts if c.first_seen]
+
+    @property
+    def concepts_heading(self) -> str:
+        """'מושגים (13, +2 שחזרו מ-W04)' — the count, and how many came back from which earlier lecture."""
+        n = len(self.concepts)
+        back = self.returned
+        if not back:
+            return f"מושגים ({n})"
+        weeks = sorted({c.first_seen for c in back})
+        verb = "שחזר" if len(back) == 1 else "שחזרו"
+        return f"מושגים ({n}, +{len(back)} {verb} מ-{', '.join(weeks)})"
 
     @property
     def heading(self) -> str:
@@ -168,6 +187,12 @@ def _script_check(texts):
     return check
 
 
+def lecture_label(row: dict | None) -> str | None:
+    if row is None:
+        return None
+    return f"W{row['week']:02d} · {row['title']}" if row["week"] is not None else row["title"]
+
+
 def _collect(lecture_id: str, store: Store) -> tuple[DigestDoc, dict[int, list[tuple[str, str]]]]:
     lec = store.lecture(lecture_id)
     course = store.course(lec["course_id"])
@@ -176,6 +201,15 @@ def _collect(lecture_id: str, store: Store) -> tuple[DigestDoc, dict[int, list[t
                     week=lec["week"], language=course["language"], segments=segments,
                     minutes=round((max(s["t1"] for s in segments) - min(s["t0"] for s in segments)) / 60)
                     if segments else 0)
+    prev_id = lec["continues_id"] or store.previous_lecture(lec["course_id"], lecture_id)
+    if prev_id:
+        prev = store.lecture(prev_id)
+        store.set_continues(lecture_id, prev_id)
+        doc.prev_lecture_id, doc.prev_title = prev_id, lecture_label(prev)
+        row = store.con.execute("select bullets_json from lecture_summaries where lecture_id = ?",
+                                (prev_id,)).fetchone()
+        doc.prev_bullets = json.loads(row[0]) if row and row[0] else []
+    weeks: dict[str, str] = {}
     by_chunk: dict[int, list[tuple[str, str]]] = {}
     seen = set()
     for it in store.items(lecture_id):
@@ -184,7 +218,15 @@ def _collect(lecture_id: str, store: Store) -> tuple[DigestDoc, dict[int, list[t
             key = it["canonical_key"] or it["text"]
             if key not in seen:
                 seen.add(key)
-                doc.concepts.append(ConceptRow(it["text"], it["explanation"] or "", key))
+                first = it["first_seen_lecture_id"]
+                label = None
+                if first and first != lecture_id:
+                    if first not in weeks:
+                        other = store.lecture(first)
+                        weeks[first] = (f"W{other['week']:02d}" if other and other["week"] is not None
+                                        else (other["title"] if other else "קודם"))
+                    label = weeks[first]
+                doc.concepts.append(ConceptRow(it["text"], it["explanation"] or "", key, label))
         elif it["kind"] == "highlight":
             doc.highlights.append(it["text"])
         elif it["kind"] == "question":
@@ -235,8 +277,10 @@ async def digest(lecture_id: str, *, store: Store, client: httpx.AsyncClient, ba
     if lines:
         ex = await call("exec", exec_prompt, DigestExec, lambda v: v.exec_summary, date=doc.date,
                         minutes=doc.minutes, full_summary="\n\n".join(doc.full_summary),
-                        highlights=" · ".join(doc.highlights) or "(none)", prev_title="none", prev_bullets="(none)")
+                        highlights=" · ".join(doc.highlights) or "(none)", prev_title=doc.prev_title or "none",
+                        prev_bullets="\n".join(f"- {b}" for b in doc.prev_bullets) if doc.prev_bullets else "(none)")
         doc.exec_summary = ex.exec_summary if ex else []
+        doc.continuation = ex.continuation if ex else None
     markdown = render_markdown(doc)
     if save:
         store.save_digest(lecture_id, bullets=doc.exec_summary, digest_md=markdown)

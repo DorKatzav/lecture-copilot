@@ -222,3 +222,58 @@ def test_markdown_is_well_formed(store, items):
         if line.startswith("## "):
             assert lines[i - 1] == "" and lines[i + 1] == "", f"no blank line around {line!r}"
     assert "\n\n\n" not in md and md.endswith("\n") and not md.endswith("\n\n")
+
+
+# ---------- M3: the previous lecture ----------
+
+CONT = json.dumps({"exec_summary": [f"נקודה {i}" for i in range(1, 6)],
+                   "continuation": {"new": ["LTV"], "repeated": ["CAC"], "contradicts": []}}, ensure_ascii=False)
+
+
+def with_previous(store):
+    """W4 was digested; W5 is the lecture being digested now, and CAC was first seen in W4."""
+    w5 = lecture(store)
+    course = store.lecture(w5)["course_id"]
+    w4 = store.upsert_lecture(course, audio_path="/x/w4.m4a", source="file", title="מודלים עסקיים א'",
+                              date="2026-10-28", fact_check=True, week=4)
+    store.end_lecture(w4)
+    store.save_digest(w4, bullets=["CAC הוסבר", "LTV נדחה לשבוע הבא"], digest_md="# w4")
+    cac = next(r for r in store.items(w5, kind="concept") if r["text"] == "CAC")
+    store.set_first_seen(cac["id"], w4)
+    return w4, w5
+
+
+def test_previous_lecture_is_the_latest_digested_one_before_this(store):
+    w4, w5 = with_previous(store)
+    course = store.lecture(w5)["course_id"]
+    assert store.previous_lecture(course, w5) == w4
+    assert store.previous_lecture(course, w4) is None
+
+
+def test_the_reduce_step_sees_the_previous_bullets_and_the_chapter_is_filled(store):
+    w4, w5 = with_previous(store)
+    fake = FakeOllama([SECTION, CONT])
+    doc = run(store, w5, fake)
+    user = fake.requests[1]["messages"][1]["content"]
+    assert "W04 · מודלים עסקיים א'" in user and "LTV נדחה לשבוע הבא" in user
+    assert doc.prev_title == "W04 · מודלים עסקיים א'" and doc.continuation.new == ["LTV"]
+    md = render_markdown(doc)
+    assert "## המשך מ-W04 · מודלים עסקיים א'" in md and "- **מה חדש:** LTV" in md
+    assert store.lecture(w5)["continues_id"] == w4
+
+
+def test_returned_concepts_are_counted_and_marked(store):
+    w4, w5 = with_previous(store)
+    md = render_markdown(run(store, w5, FakeOllama([SECTION, CONT])))
+    assert "## מושגים (4, +1 שחזר מ-W04)" in md and "- **CAC** — עלות רכישת לקוח (נאמר ב-W04)" in md
+
+
+def test_a_lecture_without_a_previous_one_keeps_the_placeholder(store):
+    md = render_markdown(run(store, lecture(store), FakeOllama([SECTION, EXEC])))
+    assert "זו ההרצאה הראשונה בקורס" in md and "## מושגים (4)\n" in md
+
+
+def test_a_null_continuation_from_the_model_still_names_the_previous_lecture(store):
+    w4, w5 = with_previous(store)
+    md = render_markdown(run(store, w5, FakeOllama([SECTION, EXEC])))
+    assert "## המשך מ-W04 · מודלים עסקיים א'" in md and "המודל לא השווה" in md

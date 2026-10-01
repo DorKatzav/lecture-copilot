@@ -169,6 +169,20 @@ class Store:
         row = self.con.execute("select * from lectures where id = ?", (lecture_id,)).fetchone()
         return dict(row) if row else None
 
+    def previous_lecture(self, course_id: str, lecture_id: str) -> str | None:
+        """The latest digested lecture of the course that started before this one."""
+        me = self.lecture(lecture_id)
+        row = self.con.execute(
+            "select l.id from lectures l join lecture_summaries s on s.lecture_id = l.id "
+            "where l.course_id = ? and l.id != ? and (l.date, l.started_at) < (?, ?) "
+            "order by l.date desc, l.started_at desc limit 1",
+            (course_id, lecture_id, me["date"], me["started_at"])).fetchone()
+        return row[0] if row else None
+
+    def set_continues(self, lecture_id: str, previous_id: str | None) -> None:
+        with self.con:
+            self.con.execute("update lectures set continues_id = ? where id = ?", (previous_id, lecture_id))
+
     def end_lecture(self, lecture_id: str) -> None:
         with self.con:
             self.con.execute("update lectures set status = 'ended', ended_at = ? where id = ?", (now_iso(), lecture_id))

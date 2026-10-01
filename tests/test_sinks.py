@@ -50,7 +50,8 @@ def test_names_are_safe_for_a_synced_folder(raw, safe):
 def test_lecture_folder_has_the_four_files(tmp_path):
     folder = FolderSink(tmp_path).write_lecture(doc())
     assert folder == tmp_path / "יזמות וחדשנות" / "W05_2026-11-04_מודלים-עסקיים-ב'"
-    assert sorted(p.name for p in folder.iterdir()) == ["claims.json", "digest.html", "digest.md", "transcript.txt"]
+    assert sorted(p.name for p in folder.iterdir()) == ["claims.json", "digest.html", "digest.md", "meta.json",
+                                                        "transcript.txt"]
 
 
 def test_digest_md_is_the_rendered_markdown(tmp_path):
@@ -168,3 +169,22 @@ def test_a_claim_that_opens_with_a_latin_word_keeps_its_order():
 def test_ranges_in_generated_text_are_isolated_in_the_page():
     html = render_html(doc(exec_summary=["רק 2%–5% משלמים"] * 5, full_summary=["בין 30-60 שניות"]))
     assert html.count('<span class="num">2%–5%</span>') == 5 and '<span class="num">30-60</span>' in html
+
+
+# ---------- M3: the forward link in the course index ----------
+
+def test_index_links_forward_from_a_lecture_to_the_one_that_continues_it(tmp_path):
+    sink = FolderSink(tmp_path)
+    sink.write_lecture(doc(lecture_id="L0", week=4, date="2026-10-28", title="מודלים עסקיים א'", prev_title=None,
+                           continuation=None))
+    sink.write_lecture(doc(prev_title="W04 · מודלים עסקיים א'", prev_lecture_id="L0",
+                           continuation=Continuation(new=["LTV"], repeated=[], contradicts=[])))
+    index = (tmp_path / "יזמות וחדשנות" / "index.md").read_text(encoding="utf-8")
+    assert index.splitlines()[2:] == [
+        "- [W05 · מודלים עסקיים ב' · 4.11.2026](<W05_2026-11-04_מודלים-עסקיים-ב'/digest.md>) ← ממשיך את W04",
+        "- [W04 · מודלים עסקיים א' · 28.10.2026](<W04_2026-10-28_מודלים-עסקיים-א'/digest.md>) → ממשיך ב-W05"]
+
+
+def test_html_marks_returned_concepts():
+    html = render_html(doc(concepts=[ConceptRow("CAC", "עלות", "cac", first_seen="W04")]))
+    assert "נאמר ב-<span class=\"num\">W04</span>" in html

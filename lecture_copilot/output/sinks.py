@@ -103,14 +103,34 @@ class FolderSink:
         _write(folder / "digest.html", render_html(doc))
         _write(folder / "transcript.txt", render_transcript(doc))
         _write(folder / "claims.json", render_claims(doc))
+        _write(folder / "meta.json", json.dumps({"lecture_id": doc.lecture_id, "continues": doc.prev_lecture_id,
+                                                  "label": doc.heading.rsplit(" · ", 1)[0].removeprefix(
+                                                      doc.course_name + " — ")}, ensure_ascii=False) + "\n")
         self._write_index(course, doc.course_name)
         return folder
 
     def _write_index(self, course: Path, name: str) -> None:
-        """Rebuilt from the folders that exist, newest first; the link text is each Digest's own heading."""
+        """Rebuilt from the folders that exist, newest first; the link text is each Digest's own heading. The link
+        between lectures points forward (DESIGN_HE: never rewrite an old Digest): W04 → 'continues in W05'."""
+        folders = sorted((p.parent for p in course.glob("*/digest.md")),
+                         key=lambda p: p.name.split("_", 1)[-1] if p.name.startswith("W") else p.name, reverse=True)
+        meta = {}
+        for f in folders:
+            try:
+                meta[f.name] = json.loads((f / "meta.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                meta[f.name] = {}
+        by_id = {m.get("lecture_id"): f for f, m in meta.items()}
+        short = {f: (m.get("label") or f).split(" · ")[0] for f, m in meta.items()}
+        continued_by = {by_id.get(m.get("continues")): f for f, m in meta.items() if m.get("continues")}
         lines = []
-        for digest in sorted(course.glob("*/digest.md"), key=lambda p: p.parent.name.split("_", 1)[-1]
-                             if p.parent.name.startswith("W") else p.parent.name, reverse=True):
-            heading = digest.read_text(encoding="utf-8").splitlines()[0].removeprefix("# ")
-            lines.append(f"- [{heading.removeprefix(name + ' — ')}](<{digest.parent.name}/digest.md>)")
+        for f in folders:
+            heading = (f / "digest.md").read_text(encoding="utf-8").splitlines()[0].removeprefix("# ")
+            line = f"- [{heading.removeprefix(name + ' — ')}](<{f.name}/digest.md>)"
+            prev = by_id.get(meta[f.name].get("continues"))
+            if prev:
+                line += f" ← ממשיך את {short[prev]}"
+            if f.name in continued_by:
+                line += f" → ממשיך ב-{short[continued_by[f.name]]}"
+            lines.append(line)
         _write(course / "index.md", "\n".join([f"# {name}", "", *lines]) + "\n")
