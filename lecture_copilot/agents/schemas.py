@@ -35,6 +35,14 @@ class ExtractResult(BaseModel):
 Text = Annotated[str, Field(min_length=1)]
 
 
+class Verdict(BaseModel):
+    """What the verifier returns for one claim (M4)."""
+    verdict: Literal["correct", "incorrect", "imprecise", "unverifiable"]
+    confidence: float = Field(ge=0, le=1)
+    explanation: str
+    sources: list[str] = []
+
+
 class DigestSection(BaseModel):
     """Map step of the Digest: a block of chunk summaries → paragraphs of the full summary."""
     paragraphs: list[Text] = Field(min_length=1, max_length=3)
