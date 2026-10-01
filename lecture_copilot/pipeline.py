@@ -17,6 +17,7 @@ import numpy as np
 
 from lecture_copilot.agents.extractor import ExtractError, extract
 from lecture_copilot.agents.memory import recall, remember
+from lecture_copilot.agents.verifier import VerifierWorker, material
 from lecture_copilot.asr.base import ASR, ASRError
 from lecture_copilot.audio.sources import SR, AudioChunk, write_wav
 from lecture_copilot.config import EMBED_MODEL, LIVE_MODEL, OLLAMA_KEEP_ALIVE, OLLAMA_LOAD_OPTIONS, RUNS_DIR, Profile
@@ -37,6 +38,7 @@ class Ctx:
     run_id: str
     runs_dir: Path = RUNS_DIR
     backoff_s: float = 1.0
+    verifier: VerifierWorker | None = None    # M4: fact-checking beside the loop; None when it is off
 
 
 def _since(t: float) -> float:
@@ -76,6 +78,13 @@ async def _process(chunk: AudioChunk, ctx: Ctx, ref: str, out: dict) -> str:
         mem = await remember(result, chunk, ctx, ref, memory=memory)
         out["memory_s"] = round(out["memory_s"] + _since(t), 2)
         out["already_said"], out["contradictions"] = mem["already_said"], mem["contradictions"]
+        if ctx.verifier is not None:
+            seg = ctx.store.con.execute("select id from segments where lecture_id = ? and chunk_id = ? order by t0 "
+                                        "limit 1", (ctx.lecture_id, chunk.idx)).fetchone()
+            new = [c for c in ctx.store.claims(ctx.lecture_id) if seg and c["segment_id"] == seg[0]]
+            for c in material(new):
+                ctx.verifier.enqueue(c["id"])
+            out["enqueued"] = len(material(new))
     return status
 
 
@@ -116,6 +125,7 @@ async def run(source: AsyncIterable[AudioChunk], ctx: Ctx, extra: Callable[[], d
 
     t = time.perf_counter()
     producer = asyncio.create_task(produce())
+    worker = asyncio.create_task(ctx.verifier.run()) if ctx.verifier else None
     outcomes = []
     while (chunk := await queue.get()) is not None:
         outcomes.append(await process_chunk(chunk, ctx, queue_depth=queue.qsize()))
@@ -124,6 +134,14 @@ async def run(source: AsyncIterable[AudioChunk], ctx: Ctx, extra: Callable[[], d
     await producer
     if not failure:
         ctx.store.prune_chunks(ctx.lecture_id, max((o["idx"] for o in outcomes), default=0))
+    verifier_out = None
+    if ctx.verifier:
+        verifier_out = await ctx.verifier.finish()          # "סיום": drain, retry unchecked, skip the rest
+        await worker
+    else:
+        ctx.store.set_claim_status(ctx.lecture_id, "pending", "skipped")
+    net = ctx.store.con.execute("select coalesce(sum(cost_usd), 0), count(*) from decisions where node = 'net' "
+                                "and lecture_id = ?", (ctx.lecture_id,)).fetchone()
     summary = {
         "chunks": len(outcomes), "status": dict(Counter(o["status"] for o in outcomes)),
         "counts": ctx.store.counts(ctx.lecture_id), "audio_s": round(sum(o["t1"] - o["t0"] for o in outcomes), 1),
@@ -131,6 +149,7 @@ async def run(source: AsyncIterable[AudioChunk], ctx: Ctx, extra: Callable[[], d
         "already_said": sum(o["already_said"] for o in outcomes),
         "contradictions": sum(o["contradictions"] for o in outcomes),
         "max_queue_depth": max((o["queue_depth"] for o in outcomes), default=0),
+        "verifier": verifier_out, "cost_usd": round(float(net[0]), 4), "net_calls": net[1],
     }
     if failure:
         summary["source_error"] = f"{type(failure[0]).__name__}: {failure[0]}"

@@ -285,3 +285,54 @@ def test_a_highlight_survives_only_with_a_strong_signal_in_the_chunk(store, tmp_
     assert [r["chunk_id"] for r in rows] == [1]
     ext = decisions(store, "extractor")
     assert ext[1]["output"]["highlights_dropped"] == 1 and ext[0]["output"]["highlights_dropped"] == 0
+
+
+# ---------- M4: the verifier worker beside the loop ----------
+
+def claims_reply(*importances):
+    return json.dumps({"chunk_summary": "s", "concepts": [], "items": [],
+                       "claims": [{"text": f"טענה {i}", "normalized": f"claim {i}", "importance": i}
+                                  for i in importances]}, ensure_ascii=False)
+
+
+def go_verified(store, tmp_path, replies, gemini, fact_check=True):
+    from lecture_copilot.agents.verifier import Verifier, VerifierWorker
+    from lecture_copilot.store.net import Net
+    fake = FakeOllama(replies)
+
+    async def main():
+        async with fake.async_client() as client:
+            ctx = make_ctx(store, FakeASR(), client, None, tmp_path)
+            ctx.profile = Profile(fact_check=fact_check, language="he")
+            if fact_check:
+                ctx.verifier = VerifierWorker(Verifier(store, Net(store, backoff_s=0), gemini), ctx.lecture_id)
+            return ctx, await run(ListSource(chunks(tmp_path, len(replies))), ctx)
+    return asyncio.run(main())
+
+
+def test_material_claims_are_verified_beside_the_loop(store, tmp_path):
+    from tests.stubs import FakeGemini
+    ok = {"verdict": "correct", "confidence": 0.9, "explanation": "נכון.", "sources": ["https://a"]}
+    gemini = FakeGemini([ok] * 4)
+    ctx, summary = go_verified(store, tmp_path, [claims_reply(90, 70, 60), claims_reply(85)], gemini)
+    rows = {r["text"]: r["status"] for r in store.claims(ctx.lecture_id)}
+    assert rows == {"טענה 90": "verified", "טענה 70": "verified", "טענה 85": "verified", "טענה 60": "skipped"}
+    assert summary["verifier"] == {"verified": 3, "unchecked": 0, "skipped": 1, "retried": 0}
+    assert summary["cost_usd"] > 0 and summary["net_calls"] == 3
+
+
+def test_without_fact_checking_claims_are_skipped_and_nothing_leaves(store, tmp_path):
+    ctx, summary = go_verified(store, tmp_path, [claims_reply(90)], None, fact_check=False)
+    assert store.claims(ctx.lecture_id)[0]["status"] == "skipped"
+    assert summary["verifier"] is None and summary["cost_usd"] == 0 and decisions(store, "net") == []
+
+
+def test_an_outage_mid_lecture_is_caught_up_at_stop(store, tmp_path):
+    import httpx
+
+    from tests.stubs import FakeGemini
+    ok = {"verdict": "correct", "confidence": 0.9, "explanation": "נכון.", "sources": []}
+    gemini = FakeGemini([httpx.ConnectError("wifi off"), ok, ok])
+    ctx, summary = go_verified(store, tmp_path, [claims_reply(90), claims_reply(80)], gemini)
+    assert summary["verifier"] == {"verified": 2, "unchecked": 0, "skipped": 0, "retried": 1}
+    assert [d["output"]["status"] for d in decisions(store, "verifier")][0] == "unchecked"
