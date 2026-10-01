@@ -21,7 +21,9 @@ import httpx
 from lecture_copilot.config import (
     BUDGET_S,
     CHUNK_BUDGET_S,
+    COURSES_ROOT,
     DB_PATH,
+    DIGEST_BUDGET_S,
     DIGEST_MODEL,
     EMBED_MODEL,
     LIVE_MODEL,
@@ -29,6 +31,7 @@ from lecture_copilot.config import (
     ROOT,
     Profile,
 )
+from lecture_copilot.scriptcheck import terminal_text
 
 STAGE0 = ROOT / "eval" / "stage0.json"
 FIXTURE = ROOT / "eval" / "fixture_10min.m4a"
@@ -327,7 +330,6 @@ def check_asr_error(work: Path | None = None, asr=None, client: httpx.AsyncClien
                     chunks: list | None = None) -> Result:
     """Break it on purpose: a corrupt wav through the real pipeline must be marked failed, the next chunk must run."""
     from lecture_copilot.asr.macwhisper import MacWhisperASR
-    from lecture_copilot.scriptcheck import terminal_text
 
     with tempfile.TemporaryDirectory() as tmp:
         work = work or Path(tmp)
@@ -354,6 +356,114 @@ def check_tests(cmds: tuple[tuple[str, ...], ...] = ((sys.executable, "-m", "pyt
     return _ok("tests", " · ".join(x for x in lines if x) or "ok")
 
 
+# ---------- M2: the Digest (real state in db/copilot.sqlite and COURSES_ROOT) ----------
+
+IMG_DIR = ROOT / "docs" / "reports" / "img"
+LECTURE_FILES = ("digest.md", "digest.html", "transcript.txt", "claims.json")
+
+
+def _digests(db: Path, where: str = "") -> list[sqlite3.Row]:
+    con = sqlite3.connect(db)
+    con.row_factory = sqlite3.Row
+    return con.execute("select l.id, l.source, l.title, s.digest_md from lecture_summaries s "
+                       f"join lectures l on l.id = s.lecture_id {where} order by l.ended_at").fetchall()
+
+
+def _last_sink_folder(db: Path) -> tuple[dict | None, Path | None]:
+    con = sqlite3.connect(db)
+    row = con.execute("select output_json from decisions where node = 'sink' order by ts desc limit 1").fetchone()
+    out = json.loads(row[0]) if row else None
+    return out, Path(out["folder"]) if out and out.get("folder") else None
+
+
+def check_digest_sections(db: Path = DB_PATH) -> Result:
+    from lecture_copilot.output.digest import SECTIONS, section_headings
+    rows = _digests(db)
+    if not rows:
+        return _fail("digest_sections", "no Digest in the database — replay a lecture")
+    bad = [r["id"][-6:] for r in rows if section_headings(r["digest_md"]) != SECTIONS]
+    if bad:
+        return _fail("digest_sections", f"{len(bad)}/{len(rows)} Digest(s) without the 9 sections in order: "
+                                        f"{', '.join(bad)}")
+    return _ok("digest_sections", f"{len(rows)} Digest(s), each with the 9 sections in the fixed order")
+
+
+def check_digest_time(db: Path = DB_PATH, min_minutes: int = 60, max_minutes: int = 120) -> Result:
+    """The spec promises the Digest within two minutes for a lecture of up to two hours. The latest Digest of every
+    lecture of 60–120 minutes is judged; longer recordings (a four-hour Zoom day) are reported, not judged."""
+    con = sqlite3.connect(db)
+    latest: dict[str, dict] = {}
+    for lid, o in con.execute("select lecture_id, output_json from decisions where node = 'digest' "
+                              "and input_ref like '%#digest' order by ts"):
+        latest[lid] = json.loads(o)
+    judged = [r for r in latest.values() if min_minutes <= r.get("minutes", 0) <= max_minutes]
+    longer = [r for r in latest.values() if r.get("minutes", 0) > max_minutes]
+    if not judged:
+        return _fail("digest_time",
+                     f"no Digest of a lecture of {min_minutes}–{max_minutes} min — replay a full lecture")
+
+    def line(r: dict) -> str:
+        bad = f", degraded: {', '.join(r['degraded'])}" if r["degraded"] else ""
+        return f"{r['minutes']} min → {r['total_s']} s ({r['blocks']} blocks{bad})"
+    detail = f"{'; '.join(line(r) for r in judged)}, budget {DIGEST_BUDGET_S} s"
+    if longer:
+        detail += f" · longer, not judged: {'; '.join(line(r) for r in longer)}"
+    if any(r["degraded"] or r["total_s"] >= DIGEST_BUDGET_S for r in judged):
+        return _fail("digest_time", detail)
+    return _ok("digest_time", detail)
+
+
+def check_vtt_replay(db: Path = DB_PATH) -> Result:
+    from lecture_copilot.output.digest import SECTIONS, section_headings
+    rows = _digests(db, "where l.source = 'transcript'")
+    if not rows:
+        return _fail("vtt_replay", "no transcript lecture with a Digest — replay a .vtt")
+    n = len(section_headings(rows[-1]["digest_md"]))
+    if section_headings(rows[-1]["digest_md"]) != SECTIONS:
+        return _fail("vtt_replay", f"the transcript replay has {n} sections, not the 9 in order")
+    return _ok("vtt_replay", "a transcript replay ends in the same 9 sections as an audio replay")
+
+
+def check_course_folder(db: Path = DB_PATH, courses_root: Path = COURSES_ROOT) -> Result:
+    out, folder = _last_sink_folder(db)
+    if out is None:
+        return _fail("course_folder", "no sink run logged — replay a lecture")
+    if out["status"] != "ok" or folder is None:
+        return _fail("course_folder", f"the last sink run failed: {terminal_text(out.get('error', ''), 100)}")
+    root = Path(courses_root).resolve()
+    if root not in folder.resolve().parents:
+        return _fail("course_folder", "the lecture folder is not under COURSES_ROOT")
+    missing = [f for f in LECTURE_FILES if not (folder / f).is_file()]
+    if not (folder.parent / "index.md").is_file():
+        missing.append("index.md")
+    if missing:
+        return _fail("course_folder", f"missing in the lecture folder: {', '.join(missing)}")
+    where = "inside Google Drive" if "GoogleDrive" in str(root) or "Google Drive" in str(root) else \
+        "a local folder — Google Drive for desktop is not set up yet (PLAN §7)"
+    return _ok("course_folder", f"{len(LECTURE_FILES)} files + index.md under COURSES_ROOT, {where}")
+
+
+def check_html_rtl(db: Path = DB_PATH, img_dir: Path = IMG_DIR) -> Result:
+    """Markup is checked here; rendering is checked by eye — the gate wants the two screenshots that prove it."""
+    import re
+
+    from lecture_copilot.output.digest import SECTIONS
+    out, folder = _last_sink_folder(db)
+    if folder is None or not (folder / "digest.html").is_file():
+        return _fail("html_rtl", "no digest.html from the last sink run")
+    html = (folder / "digest.html").read_text(encoding="utf-8")
+    heads = [re.sub(r"<[^>]+>", "", h).strip() for h in re.findall(r"<h2[^>]*>(.*?)</h2>", html, re.DOTALL)]
+    if '<html lang="he" dir="rtl">' not in html:
+        return _fail("html_rtl", 'digest.html does not open with <html lang="he" dir="rtl">')
+    if [next((s for s in SECTIONS if h.startswith(s)), h) for h in heads] != SECTIONS:
+        return _fail("html_rtl", f"digest.html has {len(heads)} sections, not the 9 in order")
+    shots = [img_dir / "m2_digest_desktop.jpg", img_dir / "m2_digest_phone.jpg"]
+    missing = [p.name for p in shots if not p.is_file() or p.stat().st_size < 1000]
+    if missing:
+        return _fail("html_rtl", f"no browser screenshot: {', '.join(missing)} in docs/reports/img/")
+    return _ok("html_rtl", 'lang="he" dir="rtl", 9 sections; browser screenshots at full and phone width')
+
+
 # ---------- runner ----------
 
 def _stage0() -> dict:
@@ -369,6 +479,16 @@ CHECKS: dict[int, list[tuple[str, Callable[[], Result]]]] = {
         ("mw_bench", lambda: check_mw_bench(_stage0())),
         ("extract_bench", lambda: check_extract_bench(_stage0())),
         ("mic_seat", lambda: check_mic(_stage0())),
+        ("secret_scan", check_secret_scan),
+    ],
+    2: [
+        ("digest_sections", check_digest_sections),
+        ("digest_time", check_digest_time),
+        ("vtt_replay", check_vtt_replay),
+        ("course_folder", check_course_folder),
+        ("html_rtl", check_html_rtl),
+        ("prompt_cache", check_prompt_cache),
+        ("tests", check_tests),
         ("secret_scan", check_secret_scan),
     ],
     1: [

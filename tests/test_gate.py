@@ -455,3 +455,165 @@ def test_m1_asr_error_detail_is_terminal_safe(tmp_path):
     err = ASRError("mw exit 1: Transcribing chunk_0001.wav...\nError: לא ניתן היה להשלים את הפעולה.")
     r = asr_error_check(tmp_path, FakeASR(script={1: err}), replies=1)
     assert "\n" not in r.detail and not any("֐" <= ch <= "׿" for ch in r.detail)
+
+
+# ---------- M2 ----------
+
+def m2_store(tmp_path, *, source="file", minutes=83, total_s=71.0, degraded=(), md=None, sink_ok=True, root=None,
+             files=("digest.md", "digest.html", "transcript.txt", "claims.json"), html=None):
+    from lecture_copilot.output.digest import SECTIONS
+    from lecture_copilot.store.db import Store
+    root = root or tmp_path / "courses"
+    s = Store(tmp_path / "copilot.sqlite")
+    course = s.upsert_course("AI Developers — Python", language="he")
+    lid = s.upsert_lecture(course, audio_path=f"/x/{source}", source=source, title="t", date="2026-06-19",
+                           fact_check=True)
+    s.end_lecture(lid)
+    good = "# h\n\n" + "\n\n".join(f"## {name}\n\nאין." for name in SECTIONS) + "\n"
+    s.save_digest(lid, bullets=[], digest_md=good if md is None else md)
+    s.log("digest", lecture_id=lid, input_ref="R#digest", ms=total_s * 1000, output={
+        "status": "degraded" if degraded else "ok", "degraded": list(degraded), "minutes": minutes,
+        "total_s": total_s, "blocks": 2})
+    folder = root / "AI Developers — Python" / "2026-06-19_t"
+    folder.mkdir(parents=True)
+    for name in files:
+        (folder / name).write_text(good if name.endswith(".md") else "x", encoding="utf-8")
+    if "digest.html" in files:
+        heads = "".join(f"<h2>{name}</h2>" for name in SECTIONS)
+        (folder / "digest.html").write_text(html or f'<html lang="he" dir="rtl"><body>{heads}</body></html>',
+                                            encoding="utf-8")
+    (root / "AI Developers — Python" / "index.md").write_text("# c\n", encoding="utf-8")
+    s.log("sink", lecture_id=lid, input_ref=lid, output={"sink": "FolderSink", "status": "ok", "files": len(files),
+                                                        "folder": str(folder)} if sink_ok else
+          {"sink": "FolderSink", "status": "failed", "error": "OSError: disk full"})
+    s.close()
+    return tmp_path / "copilot.sqlite", root
+
+
+def test_m2_sections_pass_when_every_digest_has_the_nine_in_order(tmp_path):
+    db, _ = m2_store(tmp_path)
+    r = gate.check_digest_sections(db)
+    assert r.status == "PASS" and "9 sections" in r.detail
+
+
+def test_m2_sections_fail_on_a_missing_or_moved_section(tmp_path):
+    from lecture_copilot.output.digest import SECTIONS
+    swapped = [SECTIONS[1], SECTIONS[0], *SECTIONS[2:]]
+    db, _ = m2_store(tmp_path, md="# h\n\n" + "\n\n".join(f"## {n}\n\nאין." for n in swapped) + "\n")
+    assert gate.check_digest_sections(db).status == "FAIL"
+    db2, _ = m2_store(tmp_path / "b", md="# h\n\n" + "\n\n".join(f"## {n}\n\nx" for n in SECTIONS[:8]) + "\n")
+    assert gate.check_digest_sections(db2).status == "FAIL"
+
+
+def test_m2_sections_fail_without_a_digest(tmp_path):
+    from lecture_copilot.store.db import Store
+    Store(tmp_path / "e.sqlite").close()
+    assert gate.check_digest_sections(tmp_path / "e.sqlite").status == "FAIL"
+
+
+def test_m2_digest_time_passes_for_an_hour_under_two_minutes(tmp_path):
+    db, _ = m2_store(tmp_path, minutes=83, total_s=71.0)
+    r = gate.check_digest_time(db)
+    assert r.status == "PASS" and "83 min" in r.detail and "71.0 s" in r.detail
+
+
+@pytest.mark.parametrize("kw", [dict(total_s=131.0), dict(minutes=10), dict(degraded=("map-2",))])
+def test_m2_digest_time_fails_when_slow_short_or_degraded(tmp_path, kw):
+    db, _ = m2_store(tmp_path, **kw)
+    assert gate.check_digest_time(db).status == "FAIL"
+
+
+def test_m2_digest_time_judges_lectures_of_one_to_two_hours_and_reports_longer_ones(tmp_path):
+    # the spec promises two minutes for a lecture of up to two hours; a four-hour Zoom day is reported, not judged
+    from lecture_copilot.store.db import Store
+    db, _ = m2_store(tmp_path, minutes=78, total_s=94.3)
+    s = Store(db)
+    s.log("digest", lecture_id="OTHER", input_ref="R2#digest", output={
+        "status": "ok", "degraded": [], "minutes": 251, "total_s": 140.0, "blocks": 6})
+    s.close()
+    r = gate.check_digest_time(db)
+    assert r.status == "PASS" and "78 min" in r.detail and "251 min" in r.detail and "140.0 s" in r.detail
+
+
+def test_m2_digest_time_fails_when_any_lecture_in_range_is_slow(tmp_path):
+    from lecture_copilot.store.db import Store
+    db, _ = m2_store(tmp_path, minutes=78, total_s=94.3)
+    s = Store(db)
+    s.log("digest", lecture_id="OTHER", input_ref="R2#digest", output={
+        "status": "ok", "degraded": [], "minutes": 110, "total_s": 125.0, "blocks": 4})
+    s.close()
+    assert gate.check_digest_time(db).status == "FAIL"
+
+
+def test_m2_digest_time_uses_the_latest_digest_of_each_lecture(tmp_path):
+    from lecture_copilot.store.db import Store
+    db, _ = m2_store(tmp_path, minutes=78, total_s=130.0)
+    s = Store(db)
+    lid = s.con.execute("select id from lectures").fetchone()[0]
+    s.log("digest", lecture_id=lid, input_ref="R2#digest", output={
+        "status": "ok", "degraded": [], "minutes": 78, "total_s": 94.3, "blocks": 3})
+    s.close()
+    assert gate.check_digest_time(db).status == "PASS"
+
+
+def test_m2_vtt_replay_passes_for_a_transcript_lecture_with_nine_sections(tmp_path):
+    db, _ = m2_store(tmp_path, source="transcript")
+    assert gate.check_vtt_replay(db).status == "PASS"
+
+
+def test_m2_vtt_replay_fails_when_only_audio_was_replayed(tmp_path):
+    db, _ = m2_store(tmp_path, source="file")
+    r = gate.check_vtt_replay(db)
+    assert r.status == "FAIL" and ".vtt" in r.detail
+
+
+def test_m2_course_folder_passes_and_says_where_it_is(tmp_path):
+    db, root = m2_store(tmp_path)
+    r = gate.check_course_folder(db, courses_root=root)
+    assert r.status == "PASS" and "4 files" in r.detail and "local folder" in r.detail
+
+
+def test_m2_course_folder_inside_google_drive_is_named_as_such(tmp_path):
+    db, root = m2_store(tmp_path, root=tmp_path / "CloudStorage" / "GoogleDrive-x" / "My Drive" / "LC")
+    assert "Google Drive" in gate.check_course_folder(db, courses_root=root).detail
+
+
+@pytest.mark.parametrize("kw", [dict(sink_ok=False), dict(files=("digest.md", "digest.html"))])
+def test_m2_course_folder_fails_on_a_failed_sink_or_missing_files(tmp_path, kw):
+    db, root = m2_store(tmp_path, **kw)
+    assert gate.check_course_folder(db, courses_root=root).status == "FAIL"
+
+
+def test_m2_course_folder_fails_when_the_folder_is_outside_the_root(tmp_path):
+    db, _ = m2_store(tmp_path)
+    assert gate.check_course_folder(db, courses_root=tmp_path / "elsewhere").status == "FAIL"
+
+
+def test_m2_html_passes_with_rtl_markup_and_both_screenshots(tmp_path):
+    db, _ = m2_store(tmp_path)
+    img = tmp_path / "img"
+    img.mkdir()
+    for name in ("m2_digest_desktop.jpg", "m2_digest_phone.jpg"):
+        (img / name).write_bytes(b"\xff\xd8" + b"0" * 5000)
+    assert gate.check_html_rtl(db, img_dir=img).status == "PASS"
+
+
+def test_m2_html_fails_without_a_screenshot(tmp_path):
+    db, _ = m2_store(tmp_path)
+    (tmp_path / "img").mkdir()
+    r = gate.check_html_rtl(db, img_dir=tmp_path / "img")
+    assert r.status == "FAIL" and "screenshot" in r.detail
+
+
+def test_m2_html_fails_when_the_page_is_not_rtl(tmp_path):
+    db, _ = m2_store(tmp_path, html='<html lang="en"><body><h2>x</h2></body></html>')
+    img = tmp_path / "img"
+    img.mkdir()
+    for name in ("m2_digest_desktop.jpg", "m2_digest_phone.jpg"):
+        (img / name).write_bytes(b"\xff\xd8" + b"0" * 5000)
+    assert gate.check_html_rtl(db, img_dir=img).status == "FAIL"
+
+
+def test_m2_checks():
+    assert [name for name, _ in gate.CHECKS[2]] == ["digest_sections", "digest_time", "vtt_replay", "course_folder",
+                                                    "html_rtl", "prompt_cache", "tests", "secret_scan"]

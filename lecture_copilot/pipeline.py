@@ -135,15 +135,16 @@ async def warm_up(ctx: Ctx) -> None:
     """Pay the cold starts before the first chunk (stage 0: a cold mw run is over the ASR budget): one mw run on
     a second of silence, and the LLM + embedding model loaded and kept resident. Failures are logged, not raised."""
     ref = f"{ctx.run_id}#warmup"
-    wav = ctx.runs_dir / ctx.lecture_id / "warmup.wav"
-    write_wav(wav, np.zeros(SR, dtype=np.float32))
-    t = time.perf_counter()
-    try:
-        await ctx.asr.transcribe(wav, ctx.profile.language)
-        out = {"status": "ok"}
-    except Exception as e:
-        out = {"status": "failed", "error": f"{type(e).__name__}: {e}"}
-    ctx.store.log("asr", lecture_id=ctx.lecture_id, input_ref=ref, ms=_since(t) * 1000, output=out)
+    if getattr(ctx.asr, "needs_warm_up", True):
+        wav = ctx.runs_dir / ctx.lecture_id / "warmup.wav"
+        write_wav(wav, np.zeros(SR, dtype=np.float32))
+        t = time.perf_counter()
+        try:
+            await ctx.asr.transcribe(wav, ctx.profile.language)
+            out = {"status": "ok"}
+        except Exception as e:
+            out = {"status": "failed", "error": f"{type(e).__name__}: {e}"}
+        ctx.store.log("asr", lecture_id=ctx.lecture_id, input_ref=ref, ms=_since(t) * 1000, output=out)
     loads = (("extractor", LIVE_MODEL, "/api/generate", {}), ("memory", EMBED_MODEL, "/api/embed", {"input": "warm"}))
     for node, model, path, extra_body in loads:
         t = time.perf_counter()

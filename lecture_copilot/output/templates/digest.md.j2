@@ -1,0 +1,54 @@
+{% macro bullets(rows) %}{% if rows %}{% for r in rows %}- {{ r }}
+{% endfor %}{% else %}אין.
+{% endif %}{% endmacro %}
+# {{ doc.heading }}
+@@
+## סיכום מנהלים
+
+{% if doc.exec_summary %}{{ bullets(doc.exec_summary) }}{% else %}לא נוצר סיכום מנהלים: המודל לא החזיר פלט תקין. הסיכום המלא והפריטים למטה נוצרו כרגיל.
+{% endif %}
+@@
+## סיכום מלא
+
+{% if doc.full_summary %}{{ doc.full_summary | join("\n\n") }}
+{% else %}אין.
+{% endif %}
+@@
+## ★ למבחן / הודגש
+
+{{ bullets(doc.highlights) }}
+@@
+{% if doc.continuation %}## המשך מ-{{ doc.prev_title }}
+
+- **מה חדש:** {{ doc.continuation.new | join(" · ") or "אין" }}
+- **מה חזר:** {{ doc.continuation.repeated | join(" · ") or "אין" }}
+- **מה סותר:** {{ doc.continuation.contradicts | join(" · ") or "אין" }}
+{% else %}## המשך מההרצאה הקודמת
+
+זו ההרצאה הראשונה בקורס.
+{% endif %}
+@@
+## מושגים ({{ doc.concepts | length }})
+
+{% if doc.concepts %}{% for c in doc.concepts %}- **{{ c.term }}** — {{ c.explanation }}
+{% endfor %}{% else %}אין.
+{% endif %}
+@@
+## טענות מסומנות
+
+{% if doc.claims %}{% for c in doc.claims %}- המרצה אמר: "{{ c.text }}" · [{{ c.label }}]
+{% endfor %}{% else %}אין.
+{% endif %}
+@@
+## שאלות פתוחות
+
+{{ bullets(doc.questions) }}
+@@
+## משימות
+
+{% if doc.tasks %}{% for t in doc.tasks %}- {{ t.text }}{% if t.due or t.owner %} ({{ [("עד " ~ t.due) if t.due else "", t.owner or ""] | select | join(" · ") }}){% endif %}{{ "\n" }}{% endfor %}{% else %}אין.
+{% endif %}
+@@
+## ההערות שלי
+
+{{ bullets(doc.notes) }}
