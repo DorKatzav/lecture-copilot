@@ -121,7 +121,7 @@ def test_rewriting_a_chunk_leaves_no_stale_index_rows(store):
 def test_embeddings_are_stored_as_float32_blobs(store):
     course, w4, w5 = two_lectures(store)
     blob = store.con.execute("select embedding from items where text = 'CAC'").fetchone()[0]
-    assert isinstance(blob, bytes) and len(blob) == 64 * 4
+    assert isinstance(blob, bytes) and len(blob) == EMBED_DIMS * 4
 
 
 def test_a_v2_database_gets_its_text_index_backfilled(tmp_path):

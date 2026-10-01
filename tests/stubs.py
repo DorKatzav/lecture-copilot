@@ -6,7 +6,7 @@ import httpx
 
 from lecture_copilot.config import OLLAMA_URL
 
-EMBED_DIMS = 64
+EMBED_DIMS = 1024   # like bge-m3, so the real vector tables accept them
 
 
 def fake_embedding(text: str, dims: int = EMBED_DIMS) -> list[float]:

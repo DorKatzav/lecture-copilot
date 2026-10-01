@@ -23,7 +23,7 @@ EXTRACT_TIMEOUT_S = BUDGET_S["extract"] * 2                    # per attempt; a 
 EXTRACT_OPTIONS = {"temperature": 0, "seed": 42}               # D-M1-2: reproducible replays
 
 # prompt versions in use (prompts/<name>.md); a change is a new file + a PROJECT_LOG line
-EXTRACT_PROMPT = "extract_v3"                                  # D-M2-4: v0 + the highlight rule
+EXTRACT_PROMPT = "extract_v4"                                  # v3 + the course memory (M3)
 DIGEST_MAP_PROMPT, DIGEST_EXEC_PROMPT = "digest_sections_v1", "digest_exec_v1"   # D-M2-5
 
 # Digest (D-M2-2): map-reduce sized for the 4,096-token context

@@ -36,7 +36,10 @@ def fmt_chunk(o: dict) -> str:
     def s(v: float | None) -> str:
         return "  -  " if v is None else f"{v:5.1f}"
     line = (f"chunk {o['idx']:04d}  {o['t0']:7.1f}–{o['t1']:7.1f} s  {o['status']:<14} asr {s(o['asr_s'])} s · "
-            f"extract {s(o['extract_s'])} s · total {s(o['total_s'])} s · {o['segments']} segments")
+            f"memory {s(o.get('memory_s'))} s · extract {s(o['extract_s'])} s · total {s(o['total_s'])} s · "
+            f"{o['segments']} segments")
+    if o.get("already_said") or o.get("contradictions"):
+        line += f" · already said {o['already_said']}, contradictions {o['contradictions']}"
     if o["total_s"] > CHUNK_BUDGET_S:
         line += f"  OVER BUDGET ({CHUNK_BUDGET_S} s)"
     if o["status"] in ("asr_failed", "failed"):
@@ -49,7 +52,8 @@ def fmt_summary(lecture_id: str, s: dict) -> list[str]:
     t, c = s["timing"], s["counts"]
     lines = [f"lecture {lecture_id}: {s['chunks']} chunks ({status}) · {s['audio_s'] / 60:.1f} min audio",
              f"rows: segments {c['segments']} · items {c['items']} · claims {c['claims']}",
-             "p95: " + " · ".join(f"{k.removesuffix('_s')} {t[k]['p95']} s" for k in ("asr_s", "extract_s", "total_s"))
+             "p95: " + " · ".join(f"{k.removesuffix('_s')} {t[k]['p95']} s"
+                                 for k in ("asr_s", "memory_s", "extract_s", "total_s") if k in t)
              + f" (max total {t['total_s']['max']} s, budget {CHUNK_BUDGET_S} s)"]
     m = s.get("memory")
     if m and m.get("samples"):
