@@ -47,7 +47,8 @@ def test_run_eval_scores_the_benchmark_on_a_scratch_copy(tmp_path):
     out = asyncio.run(run_eval(tmp_path / "copilot.sqlite", tmp_path / "benchmark.json", gemini,
                                results_path=tmp_path / "results.json", work=tmp_path / "work"))
     assert out["labels_by"] == "test" and out["verdicts"]["accuracy"] == 1.0 and out["verdicts"]["injected_caught"] == 1
-    assert out["precision_at_5"]["2026-06-07"] == 0.5 and out["cache_hit"] is True and out["cost_usd"] > 0
+    assert out["precision_at_5"]["2026-06-07"] == {"k": 1, "precision": 1.0, "material_labelled": 1}
+    assert out["cache_hit"] is True and out["cost_usd"] > 0
     assert len(gemini.calls) == 2                         # the cache-hit probe makes no third call
     assert json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))["verdicts"]["n"] == 2
     assert Store(tmp_path / "copilot.sqlite").con.execute("select count(*) from claims").fetchone()[0] == 2  # untouched

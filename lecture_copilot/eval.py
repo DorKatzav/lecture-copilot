@@ -79,7 +79,10 @@ async def run_eval(db: Path, benchmark: Path, backend: VerifierBackend, *, resul
             row = store.con.execute("select id from lectures where date = ? and id != ? order by started_at desc "
                                     "limit 1", (date, lid)).fetchone()
             if row:
-                p5[date] = precision_at_k([r.text for r in rank(row[0], store)], labels)
+                # D-M4-4: k = min(5, labelled material claims) — a lecture with two material claims cannot score 5
+                k = min(5, sum(labels.values()))
+                p5[date] = {"k": k, "precision": precision_at_k([r.text for r in rank(row[0], store)], labels, k)
+                            if k else 0.0, "material_labelled": sum(labels.values())}
         cost = store.con.execute("select coalesce(sum(cost_usd), 0) from decisions where node = 'net' "
                                  "and lecture_id = ?", (lid,)).fetchone()[0]
         out = {"when": datetime.now(UTC).isoformat(timespec="seconds"), "labels_by": bench.get("labels_by", "?"),

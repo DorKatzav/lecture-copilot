@@ -246,10 +246,10 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         out = asyncio.run(run_eval(a.db, a.benchmark, GeminiAPI(os.environ["GEMINI_API_KEY"])))
         v = out["verdicts"]
+        p_at_k = ", ".join(f"{d} {p['precision']:.0%} (k={p['k']})" for d, p in out["precision_at_5"].items())
         print(f"eval ({out['labels_by'][:40]}): {v['n']} claims · accuracy {v['accuracy']:.0%} · injected caught "
-              f"{v['injected_caught']}/{v['injected']} · unchecked {out['unchecked']} · P@5 "
-              f"{', '.join(f'{k} {p:.0%}' for k, p in out['precision_at_5'].items())} · cache hit {out['cache_hit']} "
-              f"· ${out['cost_usd']:.4f} · {out['seconds']} s")
+              f"{v['injected_caught']}/{v['injected']} · unchecked {out['unchecked']} · P@k {p_at_k} "
+              f"· cache hit {out['cache_hit']} · ${out['cost_usd']:.4f} · {out['seconds']} s")
         return 0
     if a.cmd == "verify":
         try:

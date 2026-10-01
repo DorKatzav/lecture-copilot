@@ -1,5 +1,5 @@
 {
-  "when": "2026-10-01T21:15:28+00:00",
+  "when": "2026-10-01T21:23:51+00:00",
   "labels_by": "Claude, draft of 2026-10-02 — Dor replaces with his own labels",
   "model": "gemini-3.7-flash",
   "verdicts": {
@@ -9,16 +9,17 @@
     "injected_caught": 8,
     "confusion": {
       "correct": {
-        "imprecise": 2,
+        "imprecise": 1,
         "correct": 7,
-        "unverifiable": 1
+        "unverifiable": 1,
+        "incorrect": 1
       },
       "incorrect": {
-        "incorrect": 8,
-        "imprecise": 1
+        "incorrect": 9
       },
       "imprecise": {
-        "imprecise": 3
+        "imprecise": 2,
+        "correct": 1
       },
       "unverifiable": {
         "unverifiable": 19,
@@ -28,12 +29,12 @@
   },
   "unchecked": 0,
   "precision_at_5": {
-    "2026-06-07": 0.4,
+    "2026-06-07": 1.0,
     "2026-06-09": 0.2
   },
   "cache_hit": true,
-  "cost_usd": 0.0299,
-  "seconds": 136.0,
+  "cost_usd": 0.0147,
+  "seconds": 82.1,
   "per_claim": [
     {
       "text": "פרינט לא מחזירה כלום.",
@@ -104,7 +105,7 @@
     {
       "text": "שמירת גרסה תמיד מראה את השינויים שהיו בגרסה הקודמת ביחס לקוד",
       "label": "imprecise",
-      "predicted": "imprecise",
+      "predicted": "correct",
       "injected": false
     },
     {
@@ -182,7 +183,7 @@
     {
       "text": "השינויים שביצעתי יהיו בגינם שלי או בגטם שממנו העתקתי את הפרו",
       "label": "correct",
-      "predicted": "imprecise",
+      "predicted": "incorrect",
       "injected": false
     },
     {
@@ -266,7 +267,7 @@
     {
       "text": "git נכתב לראשונה ב-2015",
       "label": "incorrect",
-      "predicted": "imprecise",
+      "predicted": "incorrect",
       "injected": true
     },
     {
