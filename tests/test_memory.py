@@ -58,6 +58,9 @@ def seed_previous_lecture(store, fake):
 def test_recall_returns_hits_from_earlier_lectures_only(store):
     fake = FakeOllama()
     course, w4, w5 = seed_previous_lecture(store, fake)
+    own = ExtractResult(chunk_summary="s", items=[], claims=[], concepts=[concept("CAC", "עלות רכישת לקוח", "cac")])
+    store.write_chunk(w5, 1, [Segment(t0=0, t1=40, text="x")], asr="mw", result=own)   # this lecture's own row
+    run(lambda c: remember(own, AudioChunk(w5, 1, store.path, 0, 40), ctx_for(store, w5, course, c), "R#0001"), fake)
     segs = [Segment(t0=0, t1=30, text="נחזור על עלות רכישת לקוח, CAC, ומה זה אומר על השיווק")]
     mem = run(lambda c: recall(segs, ctx_for(store, w5, course, c), "R#0001"), fake)
     assert isinstance(mem, MemoryContext) and mem.hits
