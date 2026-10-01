@@ -63,3 +63,8 @@ class DigestExec(BaseModel):
 class DigestExecWithPrevious(DigestExec):
     """When a previous lecture is given the comparison is required: a null answer is retried (D-M3-5)."""
     continuation: Continuation
+
+
+class Recap(BaseModel):
+    """"מה פספסתי": the last few minutes in up to three lines (M5)."""
+    bullets: list[Text] = Field(min_length=1, max_length=3)

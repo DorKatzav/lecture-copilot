@@ -18,10 +18,10 @@ from lecture_copilot.config import EMBED_DIMS, VEC_BACKEND
 from lecture_copilot.store.embed import pack, unpack
 from lecture_copilot.store.search import MemoryHit, fts_query, make_backend, rrf
 
-SCHEMA_VERSION = 5   # 2: digest, sink nodes · 3: FTS5 tables · 4: claims.contradicts_id · 5: claims.explanation (M4)
+SCHEMA_VERSION = 6   # 2: digest, sink nodes · 3: FTS5 · 4: contradicts_id · 5: explanation · 6: recap node (M5)
 CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # spec nodes + asr / chunk / run (D-M1-1: per-chunk status and timing live in the log, not in a new table)
-NODES = ("extractor", "memory", "verifier", "ranker", "net", "asr", "chunk", "run", "digest", "sink")
+NODES = ("extractor", "memory", "verifier", "ranker", "net", "asr", "chunk", "run", "digest", "sink", "recap")
 
 DECISIONS = f"""CREATE TABLE IF NOT EXISTS decisions (
     id TEXT PRIMARY KEY, lecture_id TEXT,
@@ -117,7 +117,7 @@ class Store:
         exists = self.con.execute("select 1 from sqlite_master where name = 'decisions'").fetchone()
         if not exists:
             return SCHEMA_VERSION
-        if version < 2:
+        if version < 6:   # the CHECK on decisions.node grew in v2 and v6
             self.con.executescript(
                 "BEGIN; DROP INDEX IF EXISTS decisions_lecture; ALTER TABLE decisions RENAME TO decisions_old; "
                 + DECISIONS + " INSERT INTO decisions SELECT * FROM decisions_old; DROP TABLE decisions_old; COMMIT;")
