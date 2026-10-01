@@ -49,6 +49,8 @@ _html.filters["textdir"] = textdir
 class Sink(Protocol):
     def write_lecture(self, doc: DigestDoc) -> Path: ...
 
+    def write_course(self, page) -> Path: ...
+
 
 def safe_name(name: str) -> str:
     """A file or folder name that survives Drive, macOS and a phone: no separators, no leading dots."""
@@ -108,6 +110,23 @@ class FolderSink:
                                                       doc.course_name + " — ")}, ensure_ascii=False) + "\n")
         self._write_index(course, doc.course_name)
         return folder
+
+    def write_course(self, page) -> Path:
+        """`<course>/course.html` — the Study Pack (M5)."""
+        from lecture_copilot.output.course_page import render_course_html
+        course = self.root / safe_name(page.course_name)
+        course.mkdir(parents=True, exist_ok=True)
+        folders = {}
+        for f in course.glob("*/meta.json"):
+            try:
+                folders[json.loads(f.read_text(encoding="utf-8")).get("lecture_id")] = f.parent.name
+            except (OSError, ValueError):
+                pass
+        for lec in page.lectures:
+            object.__setattr__(lec, "folder", folders.get(lec.id, ""))
+        path = course / "course.html"
+        _write(path, render_course_html(page))
+        return path
 
     def _write_index(self, course: Path, name: str) -> None:
         """Rebuilt from the folders that exist, newest first; the link text is each Digest's own heading. The link
