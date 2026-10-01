@@ -15,7 +15,13 @@ from pydantic import ValidationError
 
 from lecture_copilot import prompts
 from lecture_copilot.agents.schemas import Verdict
-from lecture_copilot.config import GEMINI_HOST, VERIFIER_MODEL, VERIFY_CONCURRENCY, VERIFY_MIN_IMPORTANCE
+from lecture_copilot.config import (
+    GEMINI_HOST,
+    VERIFIER_MODEL,
+    VERIFY_CONCURRENCY,
+    VERIFY_MIN_IMPORTANCE,
+    VERIFY_TIMEOUT_S,
+)
 from lecture_copilot.store.db import Store
 from lecture_copilot.store.net import Net, NetError, Offline, gemini_cost
 
@@ -25,6 +31,40 @@ PROMPT = "verifier_v1"
 class VerifierBackend(Protocol):
     async def generate(self, system: str, user: str) -> tuple[str, dict]:
         """Returns (json text, usage) — usage: tokens_in, tokens_out, bytes_out, bytes_in, grounding: [url]."""
+
+
+def parse_gemini_response(resp, bytes_out: int) -> tuple[str, dict]:
+    um = getattr(resp, "usage_metadata", None)
+    tokens_in = getattr(um, "prompt_token_count", 0) or 0
+    tokens_out = getattr(um, "candidates_token_count", 0) or 0
+    urls = []
+    for cand in getattr(resp, "candidates", None) or []:
+        gm = getattr(cand, "grounding_metadata", None)
+        for chunk in (getattr(gm, "grounding_chunks", None) or []):
+            web = getattr(chunk, "web", None)
+            if web is not None and getattr(web, "uri", None):
+                urls.append(web.uri)
+    text = resp.text or ""
+    return text, {"tokens_in": tokens_in, "tokens_out": tokens_out, "bytes_out": bytes_out,
+                  "bytes_in": len(text.encode()), "grounding": urls}
+
+
+class GeminiAPI:
+    """The real backend: google-genai, Google Search grounding, a JSON schema. Built lazily so tests never import
+    the SDK and CI never needs a key."""
+
+    def __init__(self, api_key: str, model: str = VERIFIER_MODEL, timeout_s: float = VERIFY_TIMEOUT_S):
+        from google import genai
+        self.client = genai.Client(api_key=api_key, http_options={"timeout": int(timeout_s * 1000)})
+        self.model = model
+
+    async def generate(self, system: str, user: str) -> tuple[str, dict]:
+        from google.genai import types
+        config = types.GenerateContentConfig(
+            system_instruction=system, tools=[types.Tool(google_search=types.GoogleSearch())],
+            response_mime_type="application/json", response_schema=Verdict, temperature=0)
+        resp = await self.client.aio.models.generate_content(model=self.model, contents=user, config=config)
+        return parse_gemini_response(resp, bytes_out=len((system + user).encode()))
 
 
 def cache_key(normalized: str) -> str:

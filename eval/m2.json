@@ -304,5 +304,37 @@
       "p95_s": 10.61,
       "summaries_naming_the_lecturer": 20
     }
+  },
+  "extract_compare_lecture_v5": {
+    "extract_v5": {
+      "chunks": 20,
+      "failed": 0,
+      "concepts": 31,
+      "claims": 2,
+      "claims_flagged": 1,
+      "highlights": 0,
+      "questions": 1,
+      "actions": 0,
+      "chunks_with_a_claim": 2,
+      "p50_s": 6.53,
+      "p95_s": 8.97,
+      "summaries_naming_the_lecturer": 20
+    }
+  },
+  "extract_compare_v5": {
+    "extract_v5": {
+      "chunks": 14,
+      "failed": 0,
+      "concepts": 22,
+      "claims": 6,
+      "claims_flagged": 5,
+      "highlights": 0,
+      "questions": 0,
+      "actions": 1,
+      "chunks_with_a_claim": 6,
+      "p50_s": 8.03,
+      "p95_s": 10.08,
+      "summaries_naming_the_lecturer": 14
+    }
   }
 }

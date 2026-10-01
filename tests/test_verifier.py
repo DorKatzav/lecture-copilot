@@ -148,3 +148,26 @@ def test_finish_leaves_unchecked_when_still_offline(store):
     fake = FakeGemini([httpx.ConnectError("down")] * 4)
     lid, out = run_worker(store, None, fake, [90])
     assert out["unchecked"] == 1 and store.claims(lid)[0]["status"] == "unchecked"
+
+
+# ---------- the real backend's response parsing ----------
+
+def test_gemini_response_is_parsed_into_text_usage_and_grounding_urls():
+    from types import SimpleNamespace as NS
+
+    from lecture_copilot.agents.verifier import parse_gemini_response
+    resp = NS(text='{"verdict": "correct"}',
+              usage_metadata=NS(prompt_token_count=170, candidates_token_count=150),
+              candidates=[NS(grounding_metadata=NS(grounding_chunks=[
+                  NS(web=NS(uri="https://docs.python.org/3/library/random.html")), NS(web=None)]))])
+    text, usage = parse_gemini_response(resp, bytes_out=900)
+    assert text == '{"verdict": "correct"}' and usage["tokens_in"] == 170 and usage["tokens_out"] == 150
+    assert usage["grounding"] == ["https://docs.python.org/3/library/random.html"] and usage["bytes_out"] == 900
+
+
+def test_gemini_response_without_metadata_still_parses():
+    from types import SimpleNamespace as NS
+
+    from lecture_copilot.agents.verifier import parse_gemini_response
+    text, usage = parse_gemini_response(NS(text="{}", usage_metadata=None, candidates=[]), bytes_out=1)
+    assert usage["tokens_in"] == 0 and usage["grounding"] == []
