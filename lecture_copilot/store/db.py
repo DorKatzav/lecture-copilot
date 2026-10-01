@@ -14,8 +14,11 @@ from pathlib import Path
 
 from lecture_copilot.agents.schemas import ExtractResult
 from lecture_copilot.asr.base import Segment
+from lecture_copilot.config import EMBED_DIMS, VEC_BACKEND
+from lecture_copilot.store.embed import pack, unpack
+from lecture_copilot.store.search import MemoryHit, fts_query, make_backend, rrf
 
-SCHEMA_VERSION = 2   # 2: decisions.node gains digest, sink (M2)
+SCHEMA_VERSION = 3   # 2: decisions.node gains digest, sink (M2) · 3: FTS5 tables (M3)
 CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # spec nodes + asr / chunk / run (D-M1-1: per-chunk status and timing live in the log, not in a new table)
 NODES = ("extractor", "memory", "verifier", "ranker", "net", "asr", "chunk", "run", "digest", "sink")
@@ -59,6 +62,10 @@ CREATE TABLE IF NOT EXISTS fact_cache (
     cache_key TEXT PRIMARY KEY, verdict TEXT, sources_json TEXT, checked_at TEXT);
 {DECISIONS}
 CREATE INDEX IF NOT EXISTS decisions_lecture ON decisions (lecture_id, node);
+CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(id UNINDEXED, lecture_id UNINDEXED, text, explanation,
+    canonical_key, tokenize = 'unicode61');
+CREATE VIRTUAL TABLE IF NOT EXISTS claims_fts USING fts5(id UNINDEXED, lecture_id UNINDEXED, text, normalized,
+    tokenize = 'unicode61');
 """
 
 
@@ -84,26 +91,48 @@ def now_iso() -> str:
 
 
 class Store:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, vec_backend: str | None = VEC_BACKEND, dims: int = EMBED_DIMS):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
         self.con = sqlite3.connect(path)
         self.con.row_factory = sqlite3.Row
         self.con.execute("pragma journal_mode = wal")
-        self._migrate()
+        version = self._migrate()
         self.con.executescript(SCHEMA)
+        self.vec = make_backend(self.con, dims, vec_backend)
+        if version < 3:
+            self._backfill_index()
         self.con.execute(f"pragma user_version = {SCHEMA_VERSION}")
 
-    def _migrate(self) -> None:
-        """SQLite cannot change a CHECK in place: when the allowed nodes grew, rebuild `decisions` and keep rows."""
+    @property
+    def vec_backend(self) -> str:
+        return self.vec.name
+
+    def _migrate(self) -> int:
+        """Returns the version found. SQLite cannot change a CHECK in place: when the allowed nodes grew (v2),
+        rebuild `decisions` and keep the rows."""
         version = self.con.execute("pragma user_version").fetchone()[0]
         exists = self.con.execute("select 1 from sqlite_master where name = 'decisions'").fetchone()
-        if not exists or version >= SCHEMA_VERSION:
-            return
-        self.con.executescript(
-            "BEGIN; DROP INDEX IF EXISTS decisions_lecture; ALTER TABLE decisions RENAME TO decisions_old; "
-            + DECISIONS + " INSERT INTO decisions SELECT * FROM decisions_old; DROP TABLE decisions_old; COMMIT;")
+        if not exists:
+            return SCHEMA_VERSION
+        if version < 2:
+            self.con.executescript(
+                "BEGIN; DROP INDEX IF EXISTS decisions_lecture; ALTER TABLE decisions RENAME TO decisions_old; "
+                + DECISIONS + " INSERT INTO decisions SELECT * FROM decisions_old; DROP TABLE decisions_old; COMMIT;")
+        return version
+
+    def _backfill_index(self) -> None:
+        with self.con:
+            self.con.execute("delete from items_fts")
+            self.con.execute("delete from claims_fts")
+            self.con.execute("insert into items_fts (id, lecture_id, text, explanation, canonical_key) "
+                             "select id, lecture_id, text, explanation, canonical_key from items")
+            self.con.execute("insert into claims_fts (id, lecture_id, text, normalized) "
+                             "select id, lecture_id, text, normalized from claims")
+            for table in ("items", "claims"):
+                for row_id, blob in self.con.execute(f"select id, embedding from {table} where embedding is not null"):
+                    self.vec.upsert(table, row_id, unpack(blob))
 
     def close(self) -> None:
         self.con.close()
@@ -145,6 +174,10 @@ class Store:
     def _delete_chunks(self, lecture_id: str, where: str, arg: int) -> None:
         segs = f"select id from segments where lecture_id = ? and chunk_id {where} ?"
         for table in ("items", "claims"):
+            ids = [r[0] for r in self.con.execute(f"select id from {table} where segment_id in ({segs})",
+                                                  (lecture_id, arg))]
+            self.con.executemany(f"delete from {table}_fts where id = ?", [(i,) for i in ids])
+            self.vec.delete(table, ids)
             self.con.execute(f"delete from {table} where segment_id in ({segs})", (lecture_id, arg))
         self.con.execute(f"delete from segments where lecture_id = ? and chunk_id {where} ?", (lecture_id, arg))
 
@@ -166,10 +199,14 @@ class Store:
             self.con.executemany(
                 "insert into items (id, lecture_id, segment_id, kind, text, explanation, canonical_key, owner, due, "
                 "first_seen_lecture_id, t0) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", items)
+            claims = [(new_id(), lecture_id, seg_id, c.text, c.normalized, c.importance) for c in result.claims]
             self.con.executemany(
                 "insert into claims (id, lecture_id, segment_id, text, normalized, importance, status) "
-                "values (?, ?, ?, ?, ?, ?, 'pending')",
-                [(new_id(), lecture_id, seg_id, c.text, c.normalized, c.importance) for c in result.claims])
+                "values (?, ?, ?, ?, ?, ?, 'pending')", claims)
+            self.con.executemany("insert into items_fts (id, lecture_id, text, explanation, canonical_key) "
+                                 "values (?, ?, ?, ?, ?)", [(i[0], i[1], i[4], i[5], i[6]) for i in items])
+            self.con.executemany("insert into claims_fts (id, lecture_id, text, normalized) values (?, ?, ?, ?)",
+                                 [(c[0], c[1], c[3], c[4]) for c in claims])
 
     def prune_chunks(self, lecture_id: str, last_idx: int) -> None:
         """After a complete run: drop chunks a previous run of the same lecture produced beyond the last one."""
@@ -185,6 +222,55 @@ class Store:
     def counts(self, lecture_id: str) -> dict[str, int]:
         return {t: self.con.execute(f"select count(*) from {t} where lecture_id = ?", (lecture_id,)).fetchone()[0]
                 for t in ("segments", "items", "claims")}
+
+    # ---------- memory ----------
+
+    def set_embedding(self, table: str, row_id: str, vec: list[float]) -> None:
+        with self.con:
+            self.con.execute(f"update {table} set embedding = ? where id = ?", (pack(vec), row_id))
+            self.vec.upsert(table, row_id, vec)
+
+    def course_lectures(self, course_id: str, exclude: str | None = None) -> list[str]:
+        return [r[0] for r in self.con.execute(
+            "select id from lectures where course_id = ? and (? is null or id != ?) order by date, started_at",
+            (course_id, exclude, exclude))]
+
+    def search(self, query: str, course_id: str, k: int = 5, *, query_vec: list[float] | None = None,
+               exclude_lecture_id: str | None = None) -> list[MemoryHit]:
+        """RRF over FTS5 bm25 (items + claims) and vector cosine (items + claims), inside one course."""
+        lectures = self.course_lectures(course_id, exclude_lecture_id)
+        if not lectures:
+            return []
+        marks = ",".join("?" * len(lectures))
+        rankings: list[list[str]] = []   # one ranking per modality, items and claims competing in each
+        q = fts_query(query)
+        if q:
+            scored = []
+            for table in ("items", "claims"):
+                rows = self.con.execute(
+                    f"select id, bm25({table}_fts) from {table}_fts where {table}_fts match ? "
+                    f"and lecture_id in ({marks}) order by 2 limit ?", (q, *lectures, k * 4)).fetchall()
+                scored += [(score, f"{table}:{row_id}") for row_id, score in rows]
+            rankings.append([key for _, key in sorted(scored, key=lambda x: x[0])])  # bm25: lower is better
+        if query_vec is not None:
+            scored = []
+            for table in ("items", "claims"):
+                scored += [(-sim, f"{table}:{i}") for i, sim in self.vec.knn(table, query_vec, lectures, k * 4)]
+            rankings.append([key for _, key in sorted(scored, key=lambda x: x[0])])
+        hits = []
+        for key, score in rrf(rankings)[:k]:
+            table, row_id = key.split(":", 1)
+            r = self.con.execute(
+                f"select t.*, l.week, l.title from {table} t join lectures l on l.id = t.lecture_id where t.id = ?",
+                (row_id,)).fetchone()
+            if r is None:
+                continue
+            hits.append(MemoryHit(
+                kind=r["kind"] if table == "items" else "claim", id=r["id"], lecture_id=r["lecture_id"],
+                text=r["text"], score=round(score, 5), explanation=r["explanation"] if table == "items" else None,
+                canonical_key=r["canonical_key"] if table == "items" else None, week=r["week"], title=r["title"],
+                importance=r["importance"] if table == "claims" else None))
+        return hits
 
     # ---------- what the Digest reads and writes ----------
 

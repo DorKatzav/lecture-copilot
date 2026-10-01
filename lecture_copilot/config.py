@@ -46,6 +46,10 @@ OLLAMA_KEEP_ALIVE = "30m"                                      # stays loaded th
 # ~18 GB of dirty memory instead of ~1.8 GB plus reclaimable file-backed weights.
 OLLAMA_LOAD_OPTIONS = {"num_ctx": OLLAMA_NUM_CTX, "use_mmap": True}
 
+# memory (M3): bge-m3 vectors; sqlite-vec when it loads, numpy otherwise (set VEC_BACKEND to force one)
+EMBED_DIMS = 1024
+VEC_BACKEND = os.getenv("VEC_BACKEND")                        # None = auto, "sqlite-vec", "numpy"
+
 
 class Profile(BaseModel):
     fact_check: bool = True
