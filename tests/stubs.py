@@ -6,6 +6,20 @@ import httpx
 
 from lecture_copilot.config import OLLAMA_URL
 
+EMBED_DIMS = 64
+
+
+def fake_embedding(text: str, dims: int = EMBED_DIMS) -> list[float]:
+    """A bag-of-words vector: texts that share words are similar, so tests can reason about nearest neighbours."""
+    import hashlib
+    import math
+    v = [0.0] * dims
+    for w in text.lower().split():
+        h = int(hashlib.md5(w.encode()).hexdigest(), 16)
+        v[h % dims] += 1.0 if (h >> 8) % 2 else -1.0
+    n = math.sqrt(sum(x * x for x in v)) or 1.0
+    return [x / n for x in v]
+
 
 class FakeOllama:
     """Scripted Ollama server. Each reply is a str (assistant content), an int (HTTP status), an exception, or a
@@ -17,14 +31,22 @@ class FakeOllama:
         self.fail_loads = fail_loads
         self.requests: list[dict] = []
         self.loads: list[tuple[str, dict]] = []
+        self.embed_calls: list[list[str]] = []
 
     def _handle(self, request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/tags":
             return httpx.Response(200, json={"models": [{"name": m} for m in self.models]})
         if request.url.path in ("/api/generate", "/api/embed"):  # model load / unload: never consumes a reply
-            self.loads.append((request.url.path, json.loads(request.content)))
+            body = json.loads(request.content)
+            self.loads.append((request.url.path, body))
             if self.fail_loads:
                 return httpx.Response(500, json={"error": "scripted load failure"})
+            if request.url.path == "/api/embed" and "input" in body:
+                inputs = body["input"] if isinstance(body["input"], list) else [body["input"]]
+                self.embed_calls.append(inputs)
+                return httpx.Response(200, json={"model": body["model"],
+                                                 "embeddings": [fake_embedding(t) for t in inputs],
+                                                 "prompt_eval_count": sum(len(t.split()) for t in inputs)})
             return httpx.Response(200, json={"done": True, "embeddings": [[0.0]]})
         self.requests.append(json.loads(request.content))
         reply = self.replies.pop(0)
