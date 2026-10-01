@@ -1,0 +1,291 @@
+{
+  "when": "2026-10-01T21:15:28+00:00",
+  "labels_by": "Claude, draft of 2026-10-02 — Dor replaces with his own labels",
+  "model": "gemini-3.7-flash",
+  "verdicts": {
+    "n": 42,
+    "accuracy": 0.881,
+    "injected": 10,
+    "injected_caught": 8,
+    "confusion": {
+      "correct": {
+        "imprecise": 2,
+        "correct": 7,
+        "unverifiable": 1
+      },
+      "incorrect": {
+        "incorrect": 8,
+        "imprecise": 1
+      },
+      "imprecise": {
+        "imprecise": 3
+      },
+      "unverifiable": {
+        "unverifiable": 19,
+        "correct": 1
+      }
+    }
+  },
+  "unchecked": 0,
+  "precision_at_5": {
+    "2026-06-07": 0.4,
+    "2026-06-09": 0.2
+  },
+  "cache_hit": true,
+  "cost_usd": 0.0299,
+  "seconds": 136.0,
+  "per_claim": [
+    {
+      "text": "פרינט לא מחזירה כלום.",
+      "label": "correct",
+      "predicted": "imprecise",
+      "injected": false
+    },
+    {
+      "text": "הפונקציה לא מחזירה שום דבר.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "הפונקציה מדפיסה את ערך X כ-50.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "הפונקציה מדפיסה את ערך X כ-2.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "באופן כללי, פונקציה לא משנה משתנים גלובליים.",
+      "label": "correct",
+      "predicted": "correct",
+      "injected": false
+    },
+    {
+      "text": "שינוי משתנה בתוך פונקציה לא משפיע על ערכו מחוץ לפונקציה.",
+      "label": "imprecise",
+      "predicted": "imprecise",
+      "injected": false
+    },
+    {
+      "text": "שינויים במשתנים בתוך פונקציה לא משפיעים על המשתנים מחוץ לפונ",
+      "label": "imprecise",
+      "predicted": "imprecise",
+      "injected": false
+    },
+    {
+      "text": "שינוי משתנים מתוך פונקציה הוא חריג לכלל.",
+      "label": "correct",
+      "predicted": "correct",
+      "injected": false
+    },
+    {
+      "text": "המטרה שלי זה לאתגר אתכם ברור שכנראה אולי לא תצליחו לפתור מאה",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "איקס יהיה חמישים בסוף.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "עבודה משותפת עם גיטה מאפשרת לשמור על גרסאות שונות של הקוד.",
+      "label": "correct",
+      "predicted": "correct",
+      "injected": false
+    },
+    {
+      "text": "שמירת גרסה תמיד מראה את השינויים שהיו בגרסה הקודמת ביחס לקוד",
+      "label": "imprecise",
+      "predicted": "imprecise",
+      "injected": false
+    },
+    {
+      "text": "ההשתתפות הפרונטלית תהיה רלוונטית בעיקר לקראת הסיום.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "אם אני שם הכול כגרסה אחת ואני חוזר אחורה אני מקבל את כל הדנצ",
+      "label": "correct",
+      "predicted": "correct",
+      "injected": false
+    },
+    {
+      "text": "ארבע-עשרה ביוני הוא באמת פרונטלי",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "הפונקציה מערבבת את הרשימה.",
+      "label": "correct",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "שינוי רשימה דרך הפונקציה הוא סטנדרט.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "אתם לא צריכים להוריד החבר׳ה של המק תאמינו לי, זה באמת קרה לי",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "אם אני משנה במייל למעשה כל משתמשי כל המשתמשים של ווייז יכולי",
+      "label": "incorrect",
+      "predicted": "incorrect",
+      "injected": false
+    },
+    {
+      "text": "בתשיעי לרחובוצ׳יל ליוני מפגש הבא הוא בארבע עשרה ליוני היא.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "הרבה פעמים אני לא רוצה לשמור את כל הקבצים כגרסה אחת.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "עד הגרסה בענן שיש בענן זה בגרסה הקודמת.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "אפשר לעשות יותר עם הטרמינל ממה שאפשר עם ה״וינדוס. ",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "בגדול, חודשי תשלום חודשי זה עשרים דולר ברגע שתעשו טרקוד.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "השינויים שביצעתי יהיו בגינם שלי או בגטם שממנו העתקתי את הפרו",
+      "label": "correct",
+      "predicted": "imprecise",
+      "injected": false
+    },
+    {
+      "text": "כל פעם הוא כאילו נותן תשובות או שלא נותן תשובות בכלל.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "לפעמים כל שינוי כזה זה איזושהי קומפוננטה שאני עובד עליה אחרת",
+      "label": "unverifiable",
+      "predicted": "correct",
+      "injected": false
+    },
+    {
+      "text": "אם היו קונפליקטים, הוא היה מעיר לי",
+      "label": "correct",
+      "predicted": "correct",
+      "injected": false
+    },
+    {
+      "text": "ההבדל בין השתתפות פרונטלית לזום לא יהיה דרמטי.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "הפונקציה לא תעבוד.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "המטרה שלי זה לשחזר איתכם את הפעולה הזאת.",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "חשוב לי שתעשו את הדברים איתי היום אם עד עכשיו לא הייתם עושים",
+      "label": "unverifiable",
+      "predicted": "unverifiable",
+      "injected": false
+    },
+    {
+      "text": "print מחזירה את הערך שהודפס",
+      "label": "incorrect",
+      "predicted": "incorrect",
+      "injected": true
+    },
+    {
+      "text": "שינוי משתנה בתוך פונקציה משנה אותו גם מחוץ לפונקציה, תמיד",
+      "label": "incorrect",
+      "predicted": "incorrect",
+      "injected": true
+    },
+    {
+      "text": "random.shuffle מחזירה רשימה חדשה ומשאירה את המקורית",
+      "label": "incorrect",
+      "predicted": "incorrect",
+      "injected": true
+    },
+    {
+      "text": "git לא שומר גרסאות קודמות של הקוד",
+      "label": "incorrect",
+      "predicted": "incorrect",
+      "injected": true
+    },
+    {
+      "text": "פונקציה בפייתון משנה משתנים גלובליים כברירת מחדל",
+      "label": "incorrect",
+      "predicted": "incorrect",
+      "injected": true
+    },
+    {
+      "text": "Python פותחה על ידי Google",
+      "label": "incorrect",
+      "predicted": "incorrect",
+      "injected": true
+    },
+    {
+      "text": "git נכתב לראשונה ב-2015",
+      "label": "incorrect",
+      "predicted": "imprecise",
+      "injected": true
+    },
+    {
+      "text": "ב-Python אינדקס הרשימה מתחיל מ-1",
+      "label": "incorrect",
+      "predicted": "incorrect",
+      "injected": true
+    },
+    {
+      "text": "GitHub נוסד ב-2008",
+      "label": "correct",
+      "predicted": "correct",
+      "injected": true
+    },
+    {
+      "text": "לינוס טורבאלדס יצר את git ב-2005",
+      "label": "correct",
+      "predicted": "correct",
+      "injected": true
+    }
+  ]
+}
