@@ -132,3 +132,12 @@ def test_a_v2_database_gets_its_text_index_backfilled(tmp_path):
     s = Store(tmp_path / "old.sqlite", vec_backend="numpy", dims=EMBED_DIMS)
     assert s.search("CAC", course)[0].text == "CAC"
     s.close()
+
+
+def test_sqlite_vec_tables_hold_no_orphans_after_a_rewrite(tmp_path):
+    s = Store(tmp_path / "v.sqlite", vec_backend="sqlite-vec", dims=EMBED_DIMS)
+    course, w4, w5 = two_lectures(s)
+    write(s, w4, 1, [concept("MRR", "הכנסה חודשית חוזרת", "mrr")])
+    assert s.con.execute("select count(*) from vec_items").fetchone()[0] == s.con.execute(
+        "select count(*) from items where embedding is not null").fetchone()[0]
+    s.close()
