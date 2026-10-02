@@ -983,7 +983,8 @@ def check_notion_lecture_page(db: Path = DB_PATH, env=None, client=None) -> Resu
     if md is None:
         return _fail("notion_lecture_page", f"lecture {lid} has no row in the Lectures database")
     heads = section_headings(md)
-    detail = f"lecture {lid}: {len(heads)} sections in Notion ({', '.join(heads[:3])}…)"
+    missing = [SECTIONS.index(h) + 1 for h in SECTIONS if h not in heads]
+    detail = f"lecture {lid}: {len(heads)} sections in Notion" + (f", missing #{missing}" if missing else "")
     return _ok("notion_lecture_page", detail) if heads == SECTIONS else _fail("notion_lecture_page", detail)
 
 
@@ -1046,9 +1047,11 @@ def check_notion_resync(db: Path = DB_PATH, env=None, client=None) -> Result:
                     "claims": len(await _rows(sink, ids.claims, f"{lid}:", store)),
                     "tasks": len(await _rows(sink, ids.tasks, f"{lid}:", store)),
                     "page": [p["id"] for p in await _rows(sink, ids.lectures, lid, store)]}
-        before = asyncio.run(counts())
-        _, log = asyncio.run(write_sink(sink, "write_lecture", doc, store, lid))
-        after = asyncio.run(counts())
+        async def go():      # one loop: a real httpx client is bound to the loop that first used it
+            before = await counts()
+            _, log = await write_sink(sink, "write_lecture", doc, store, lid)
+            return before, log, await counts()
+        before, log, after = asyncio.run(go())
     finally:
         store.close()
     if log["status"] != "ok":

@@ -1018,3 +1018,22 @@ def test_m6_checks():
     assert [name for name, _ in gate.CHECKS[6]] == ["notion_init", "notion_lecture_page", "notion_glossary",
                                                     "notion_resync", "notion_skipped", "prompt_cache", "tests",
                                                     "secret_scan"]
+
+
+def test_m6_resync_runs_one_event_loop(tmp_path, monkeypatch):
+    """Live: three asyncio.run calls on one real httpx client → "Event loop is closed" (2.10)."""
+    import asyncio
+    db, env, fake, ids = m6_world(tmp_path)
+    runs = []
+    real = asyncio.run
+    monkeypatch.setattr(gate.asyncio, "run", lambda coro: runs.append(1) or real(coro))
+    assert gate.check_notion_resync(db=db, env=env, client=fake.async_client()).status == "PASS"
+    assert len(runs) == 1
+
+
+def test_m6_details_carry_no_hebrew(tmp_path):
+    import re
+    db, env, fake, ids = m6_world(tmp_path)
+    for check in (gate.check_notion_lecture_page, gate.check_notion_glossary, gate.check_notion_resync):
+        detail = check(db=db, env=env, client=fake.async_client()).detail
+        assert not re.search(r"[֐-׿]", detail), detail
