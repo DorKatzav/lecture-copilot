@@ -10,49 +10,10 @@
     "sink_s": 21.71,
     "course_s": 1.97,
     "by_path": {
-      "POST /v1/data_sources/b3c1079a-5bdc-4661-88e6-365d3d565c7e/query": 3,
+      "POST /v1/data_sources/…/query": 25,
       "POST /v1/pages": 33,
-      "POST /v1/data_sources/db6d40dd-f546-41a0-bfad-2268d9f4882d/query": 3,
-      "POST /v1/data_sources/11311edb-921d-4ed5-b532-94cd0c72594a/query": 3,
-      "POST /v1/data_sources/e4484cd0-772e-4848-8cf9-39deafd9be2c/query": 3,
-      "POST /v1/data_sources/576ce227-4740-46e8-b6c8-bd9b5db82d94/query": 3,
-      "PATCH /v1/pages/3ed0f7ff-0742-814f-91f1-c3ce60c443a9": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8167-b65d-c7894d4f7e76": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8167-b65d-c7894d4f7e76/markdown": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8154-8bf3-f756f83c273f": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81ba-8a1e-d2d62e7e9e00": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8173-aeff-cd8696db782c": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81c0-8cb2-f3fc05993099": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81b0-b720-fa28b6a57e30": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81f9-9054-c4467c1fbf8f": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8154-859d-fff80b8d31ab": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8115-a658-c29b52bafaf3": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8113-b6ab-e809c30ed7af": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-817c-82f7-fe721c1943ba": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81e3-9f9e-da8eeac3ac76": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8196-9087-f710966296d1": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8157-ba5d-e0e61e61e9d9": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81e2-b1ca-ee376472ef8b": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8142-8a56-d6c9e0b182ba": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81d5-bee8-f1dffeb3cd3c": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8158-8d91-f40898af2675": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8117-8088-d561e7f53709": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8130-b584-dd122a928e0a": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8174-a52d-c81dfc72f81a": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8129-bb05-d1459e1e9e82": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-813e-9680-ea668dc31369": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81be-b1e5-eb80ab83b8f7": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81c4-8c69-de7daeca26d5": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81f8-99df-cceece1f702c": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-812c-9687-d0cebf14dc3c": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-814f-9369-fdc7a6d9453c": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-81dd-b532-e51219d07de5": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8113-a1d4-f3a11c829af9": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-8155-96ab-d09f7ec4688d": 2,
-      "PATCH /v1/pages/3ed0f7ff-0742-811d-b0c9-f4baecd5a7fb": 2,
-      "POST /v1/data_sources/…/query": 10,
-      "PATCH /v1/pages/…": 66,
-      "PATCH /v1/pages/…/markdown": 2
+      "PATCH /v1/pages/…": 132,
+      "PATCH /v1/pages/…/markdown": 4
     },
     "cost_usd": 0,
     "syncs": [
@@ -87,10 +48,58 @@
         "s": 21.71
       }
     ],
+    "first_sync": {
+      "calls": 38,
+      "s": 24.24
+    },
+    "resyncs": {
+      "n": 4,
+      "calls_max": 39,
+      "s_max": 24.9
+    },
     "rows": {
       "concepts": 47,
       "tasks": 2,
       "claims": 6
-    }
+    },
+    "digest_s": 39.26
+  },
+  "demo": {
+    "lecture_id": "01M3XYFJBHSBBPTHEA0NXXF3YQ",
+    "calls": 17,
+    "ok": 17,
+    "failed": 0,
+    "bytes_out_kb": 14.9,
+    "bytes_in_kb": 30.0,
+    "net_s": 11.76,
+    "sink_s": 11.79,
+    "course_s": 0.0,
+    "by_path": {
+      "POST /v1/data_sources/…/query": 5,
+      "POST /v1/pages": 12
+    },
+    "cost_usd": 0,
+    "syncs": [
+      {
+        "status": "ok",
+        "calls": 17,
+        "s": 11.79
+      }
+    ],
+    "first_sync": {
+      "calls": 17,
+      "s": 11.79
+    },
+    "resyncs": {
+      "n": 0,
+      "calls_max": 0,
+      "s_max": 0.0
+    },
+    "rows": {
+      "concepts": 10,
+      "tasks": 1,
+      "claims": 3
+    },
+    "digest_s": 20.82
   }
 }

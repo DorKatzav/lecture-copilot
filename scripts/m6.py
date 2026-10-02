@@ -6,6 +6,7 @@
 
 import argparse
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ from lecture_copilot.config import DB_PATH, ROOT
 from lecture_copilot.metrics_page import fill_metrics
 
 RESULTS = ROOT / "eval" / "m6.json"
+_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{32}")
 
 
 def sync_stats(con: sqlite3.Connection, lecture_id: str) -> dict:
@@ -24,7 +26,7 @@ def sync_stats(con: sqlite3.Connection, lecture_id: str) -> dict:
         o = json.loads(out)
         calls.append((ms, o))
         if o.get("status") == "ok":
-            key = f"{o.get('method', '?')} {o.get('path', '?')}"
+            key = f"{o.get('method', '?')} {_ID.sub('…', o.get('path', '?'))}"
             by_path[key] = by_path.get(key, 0) + 1
 
     def sink_s(ref_suffix: str) -> float:
@@ -36,13 +38,18 @@ def sync_stats(con: sqlite3.Connection, lecture_id: str) -> dict:
              for ms, o in con.execute("select ms, output_json from decisions where node = 'sink' and lecture_id = ? "
                                       "and output_json like '%\"NotionSink\"%' and input_ref like '%:write_lecture' "
                                       "order by ts", (lecture_id,))]
+    oks = [x for x in syncs if x["status"] == "ok"]
+    first = {"calls": oks[0]["calls"], "s": oks[0]["s"]} if oks else {"calls": 0, "s": 0.0}
+    resyncs = {"n": max(0, len(oks) - 1), "calls_max": max((x["calls"] for x in oks[1:]), default=0),
+               "s_max": max((x["s"] for x in oks[1:]), default=0.0)}
     return {"lecture_id": lecture_id, "calls": len(calls), "ok": sum(o.get("status") == "ok" for _, o in calls),
             "failed": sum(o.get("status") != "ok" for _, o in calls),
             "bytes_out_kb": round(sum(o.get("bytes_out", 0) for _, o in calls) / 1024, 1),
             "bytes_in_kb": round(sum(o.get("bytes_in", 0) for _, o in calls) / 1024, 1),
             "net_s": round(sum(ms for ms, _ in calls) / 1000, 2), "sink_s": sink_s(":write_lecture"),
             "course_s": sink_s(":write_course"), "by_path": by_path,
-            "cost_usd": round(sum(o.get("cost_usd") or 0 for _, o in calls), 4), "syncs": syncs}
+            "cost_usd": round(sum(o.get("cost_usd") or 0 for _, o in calls), 4), "syncs": syncs,
+            "first_sync": first, "resyncs": resyncs}
 
 
 def _save(key: str, value: object) -> None:
@@ -62,7 +69,10 @@ def cmd_sync_stats(a: argparse.Namespace) -> None:
     stats["rows"] = {"concepts": rows["concept"], "tasks": rows["action"] + rows["decision"],
                      "claims": con.execute("select count(*) from claims where lecture_id = ? and importance >= 70",
                                            (lid,)).fetchone()[0]}
-    _save("sync", stats)
+    row = con.execute("select ms, output_json from decisions where node = 'digest' and lecture_id = ? "
+                      "order by ts desc limit 1", (lid,)).fetchone()
+    stats["digest_s"] = round(json.loads(row[1]).get("total_s", row[0] / 1000), 2) if row else None
+    _save(a.key, stats)
     print(json.dumps(stats, ensure_ascii=False, indent=2))
 
 
@@ -79,6 +89,7 @@ def main(argv: list[str] | None = None) -> None:
     s = sub.add_parser("sync-stats")
     s.add_argument("--lecture")
     s.add_argument("--db", type=Path, default=DB_PATH)
+    s.add_argument("--key", default="sync", help="key in eval/m6.json (sync | demo)")
     s.set_defaults(fn=cmd_sync_stats)
     r = sub.add_parser("report")
     r.add_argument("--page", required=True)
