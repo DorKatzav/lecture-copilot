@@ -103,7 +103,7 @@ class Session:
         if kind == "mic":
             return LiveSource(lecture_id, runs_dir=self.runs_dir)
         if kind == "transcript":
-            return TranscriptSource(lecture_id, file, runs_dir=self.runs_dir)
+            return TranscriptSource(lecture_id, file, runs_dir=self.runs_dir, pace=pace)
         return FileSource(lecture_id, file, pace, runs_dir=self.runs_dir)
 
     def _gemini(self, fact_check: bool):
