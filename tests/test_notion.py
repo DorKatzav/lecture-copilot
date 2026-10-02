@@ -129,7 +129,7 @@ def test_notion_markdown_uses_a_callout_for_the_exec_summary_and_a_toggle_for_th
 
 
 def test_notion_markdown_tasks_are_checkboxes():
-    assert "- [ ] ניתוח מקרה" in render_notion_markdown(doc())
+    assert "- [ ] \u200fניתוח מקרה" in render_notion_markdown(doc())
 
 
 def test_write_lecture_creates_the_page_and_the_rows(world):
@@ -233,3 +233,35 @@ def test_the_token_never_appears_in_a_log_row(world):
     asyncio.run(NotionSink(api, net, ids).write_lecture(doc()))
     blob = " ".join(r[0] for r in store.con.execute("select output_json from decisions"))
     assert "secret-token" not in blob
+
+
+def test_logged_paths_mask_dashed_and_bare_ids(tmp_path):
+    fake = FakeNotion()
+    store = Store(tmp_path / "copilot.sqlite")
+    api = NotionAPI("t", client=fake.async_client())
+    ids = asyncio.run(notion_init(api, Net(store, 0.0), fake.root_page))
+    fake.pages["3ed0f7ff-0742-8167-b65d-c7894d4f7e76"] = {"parent": ids.lectures, "properties": {}, "markdown": "",
+                                                            "icon": None}
+    asyncio.run(Net(store, 0.0).call(NOTION_HOST, lambda: api.request(
+        "PATCH", "/v1/pages/3ed0f7ff-0742-8167-b65d-c7894d4f7e76/markdown",
+        {"type": "replace_content", "replace_content": {"new_str": "x"}}), lecture_id=None, ref="t"))
+    paths = [json.loads(r[0])["path"] for r in store.con.execute(
+        "select output_json from decisions where node = 'net' and output_json like '%\"path\"%'")]
+    assert "/v1/pages/…/markdown" in paths and all("-" not in p.split("/v1/")[1].split("/")[1] for p in paths
+                                                   if p.startswith("/v1/data_sources/") or p.startswith("/v1/pages/"))
+    store.close()
+
+
+def test_hebrew_lines_open_with_an_rtl_mark_so_notion_keeps_them_right_to_left():
+    """Notion sets a block's direction from its first strong character: "GitLab — פלטפורמה" came out LTR (2.10)."""
+    md = render_notion_markdown(doc(concepts=[ConceptRow("GitLab", "פלטפורמה", "gitlab")]))
+    assert "\n- \u200f**GitLab** — פלטפורמה" in md
+    assert "\n- [ ] \u200fניתוח מקרה" in md and "\t- \u200fנקודה 1\n" in md
+    assert section_headings(md) == SECTIONS                    # headings carry no mark
+    assert "\u200f" not in render_notion_markdown(doc(language="en", concepts=[ConceptRow("GitLab", "a platform",
+                                                                                            "gitlab")]))
+
+
+def test_callouts_use_background_colours():
+    md = render_notion_markdown(doc())
+    assert 'color="blue_background"' in md and 'color="yellow_background"' in md

@@ -32,13 +32,17 @@ def sync_stats(con: sqlite3.Connection, lecture_id: str) -> dict:
                           "and input_ref like ? and (lecture_id = ? or lecture_id is null) order by ts desc limit 1",
                           (f"%{ref_suffix}", lecture_id)).fetchone()
         return round(row[0] / 1000, 2) if row else 0.0
+    syncs = [{"status": json.loads(o)["status"], "calls": json.loads(o).get("calls", 0), "s": round(ms / 1000, 2)}
+             for ms, o in con.execute("select ms, output_json from decisions where node = 'sink' and lecture_id = ? "
+                                      "and output_json like '%\"NotionSink\"%' and input_ref like '%:write_lecture' "
+                                      "order by ts", (lecture_id,))]
     return {"lecture_id": lecture_id, "calls": len(calls), "ok": sum(o.get("status") == "ok" for _, o in calls),
             "failed": sum(o.get("status") != "ok" for _, o in calls),
             "bytes_out_kb": round(sum(o.get("bytes_out", 0) for _, o in calls) / 1024, 1),
             "bytes_in_kb": round(sum(o.get("bytes_in", 0) for _, o in calls) / 1024, 1),
             "net_s": round(sum(ms for ms, _ in calls) / 1000, 2), "sink_s": sink_s(":write_lecture"),
             "course_s": sink_s(":write_course"), "by_path": by_path,
-            "cost_usd": round(sum(o.get("cost_usd") or 0 for _, o in calls), 4)}
+            "cost_usd": round(sum(o.get("cost_usd") or 0 for _, o in calls), 4), "syncs": syncs}
 
 
 def _save(key: str, value: object) -> None:

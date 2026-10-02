@@ -24,5 +24,5 @@ def test_sync_stats_counts_calls_bytes_and_seconds_per_lecture(tmp_path):
     s.close()
     assert out == {"lecture_id": "L1", "calls": 4, "ok": 3, "failed": 1, "bytes_out_kb": 2.9, "bytes_in_kb": 1.5,
                    "net_s": 0.65, "sink_s": 4.1, "course_s": 1.2, "by_path": {"POST /v1/pages": 3},
-                   "cost_usd": 0.0}
+                   "cost_usd": 0.0, "syncs": [{"status": "ok", "calls": 4, "s": 4.1}]}
     assert json.dumps(out)

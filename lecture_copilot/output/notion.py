@@ -96,7 +96,7 @@ class NotionAPI:
     async def request(self, method: str, path: str, body: dict | None = None) -> tuple[dict, dict]:
         r = await self.client.request(method, path, json=body)
         usage = {"bytes_out": len(r.request.content or b""), "bytes_in": len(r.content), "cost_usd": 0.0,
-                 "method": method, "path": re.sub(r"[0-9a-f]{32}", "…", path)}
+                 "method": method, "path": _UUID.sub("…", _HEX32.sub("…", path))}
         if r.status_code >= 400:
             msg = r.json().get("message", r.text[:200]) if r.headers.get("content-type", "").startswith(
                 "application/json") else r.text[:200]
