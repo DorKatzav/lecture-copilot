@@ -892,6 +892,190 @@ def _stage0() -> dict:
     return json.loads(STAGE0.read_text(encoding="utf-8")) if STAGE0.exists() else {}
 
 
+# ---------- M6: Notion ----------
+
+def _notion(env=None, client=None):
+    """(sink, ids) from `.env`, or a Result saying why not: SKIP without a token (Dor's step), FAIL without
+    the databases (`cli notion-init` was not run)."""
+    from lecture_copilot.cli import _env_from
+    from lecture_copilot.output.notion import NotionAPI, NotionIds, NotionSink
+    env = _env_from(ROOT / ".env") if env is None else env
+    if not env.get("NOTION_TOKEN"):
+        return Result("notion", "SKIP", "NOTION_TOKEN is empty — Dor: integration token into .env, share the root "
+                                        "page, then `python -m lecture_copilot.cli notion-init` (PLAN §7)")
+    ids = NotionIds.from_env(env)
+    if ids is None:
+        return _fail("notion", "no database ids in .env — run `python -m lecture_copilot.cli notion-init`")
+    return NotionSink(NotionAPI(env["NOTION_TOKEN"], client=client), None, ids), ids
+
+
+def _synced_lecture(con: sqlite3.Connection) -> tuple[str, str] | None:
+    """The latest lecture whose Notion sink wrote (lecture_id, course_id)."""
+    row = con.execute("select d.lecture_id, l.course_id from decisions d join lectures l on l.id = d.lecture_id "
+                      "where d.node = 'sink' and d.output_json like '%\"NotionSink\"%' and d.output_json like "
+                      "'%\"ok\"%' and d.input_ref like '%:write_lecture' order by d.ts desc limit 1").fetchone()
+    return (row[0], row[1]) if row else None
+
+
+async def _rows(sink, ds: str, prefix: str, store) -> list[dict]:
+    """Every row whose key starts with `prefix`, raw (duplicates included — that is what the gate looks for)."""
+    sink.bind(store)
+    out, cursor = [], None
+    while True:
+        body = {"filter": {"property": "key", "rich_text": {"starts_with": prefix}}, "page_size": 100}
+        if cursor:
+            body["start_cursor"] = cursor
+        res, _ = await sink.api.request("POST", f"/v1/data_sources/{ds}/query", body)
+        out += res["results"]
+        if not res.get("has_more"):
+            return out
+        cursor = res["next_cursor"]
+
+
+def _key(page: dict) -> str:
+    return "".join(t.get("plain_text", "") for t in page["properties"].get("key", {}).get("rich_text", []))
+
+
+def check_notion_init(env=None, client=None) -> Result:
+    from lecture_copilot.output.notion import ENV_KEYS
+    got = _notion(env, client)
+    if isinstance(got, Result):
+        return Result("notion_init", got.status, got.detail)
+    sink, ids = got
+
+    async def probe():
+        missing = []
+        for name in ENV_KEYS:
+            try:
+                await sink.api.request("GET", f"/v1/data_sources/{getattr(ids, name)}")
+            except Exception as e:  # noqa: BLE001 — any answer but 200 means the database is not usable
+                missing.append(f"{name} ({type(e).__name__})")
+        return missing
+    missing = asyncio.run(probe())
+    if missing:
+        return _fail("notion_init", f"data sources that do not answer: {', '.join(missing)} — run notion-init again")
+    return _ok("notion_init", "the five data sources answer (courses, lectures, glossary, claims, tasks)")
+
+
+def check_notion_lecture_page(db: Path = DB_PATH, env=None, client=None) -> Result:
+    from lecture_copilot.output.digest import SECTIONS, section_headings
+    from lecture_copilot.store.db import Store
+    got = _notion(env, client)
+    if isinstance(got, Result):
+        return Result("notion_lecture_page", got.status, got.detail)
+    sink, ids = got
+    store = Store(db)
+    try:
+        found = _synced_lecture(store.con)
+        if found is None:
+            return _fail("notion_lecture_page", "no lecture was synced to Notion yet (NotionSink ok row)")
+        lid, _ = found
+
+        async def go():
+            pages = [p for p in await _rows(sink, ids.lectures, lid, store) if _key(p) == lid]
+            if not pages:
+                return None
+            res, _ = await sink.api.request("GET", f"/v1/pages/{pages[0]['id']}/markdown")
+            return res["markdown"]
+        md = asyncio.run(go())
+    finally:
+        store.close()
+    if md is None:
+        return _fail("notion_lecture_page", f"lecture {lid} has no row in the Lectures database")
+    heads = section_headings(md)
+    missing = [SECTIONS.index(h) + 1 for h in SECTIONS if h not in heads]
+    detail = f"lecture {lid}: {len(heads)} sections in Notion" + (f", missing #{missing}" if missing else "")
+    return _ok("notion_lecture_page", detail) if heads == SECTIONS else _fail("notion_lecture_page", detail)
+
+
+def check_notion_glossary(db: Path = DB_PATH, env=None, client=None) -> Result:
+    from lecture_copilot.store.db import Store
+    got = _notion(env, client)
+    if isinstance(got, Result):
+        return Result("notion_glossary", got.status, got.detail)
+    sink, ids = got
+    store = Store(db)
+    try:
+        found = _synced_lecture(store.con)
+        if found is None:
+            return _fail("notion_glossary", "no lecture was synced to Notion yet")
+        _, course_id = found
+        synced = [r[0] for r in store.con.execute(
+            "select distinct d.lecture_id from decisions d join lectures l on l.id = d.lecture_id "
+            "where l.course_id = ? and d.node = 'sink' and d.output_json like '%\"NotionSink\"%' "
+            "and d.output_json like '%\"ok\"%' "
+            "and d.input_ref like '%:write_lecture'", (course_id,))]
+        keys = {r[0] for r in store.con.execute(
+            f"select distinct canonical_key from items where kind = 'concept' and canonical_key is not null "
+            f"and lecture_id in ({','.join('?' * len(synced))})", synced)}
+        rows = asyncio.run(_rows(sink, ids.glossary, f"{course_id}:", store))
+    finally:
+        store.close()
+    notion_keys = [_key(p).split(":", 1)[1] for p in rows]
+    all_rows = len(rows)
+    detail = f"course {course_id}: {all_rows} rows in Notion, {len(keys)} distinct canonical keys in {len(synced)} " \
+             f"synced lectures"
+    if set(notion_keys) != keys or all_rows != len(keys):
+        return _fail("notion_glossary", detail + f" (missing {sorted(keys - set(notion_keys))[:5]}, "
+                                                 f"extra {sorted(set(notion_keys) - keys)[:5]})")
+    return _ok("notion_glossary", detail)
+
+
+def check_notion_resync(db: Path = DB_PATH, env=None, client=None) -> Result:
+    """Sync the latest synced lecture again from its saved Digest: every database must keep its row count and the
+    lecture page must keep its id."""
+    from lecture_copilot.cli import write_sink
+    from lecture_copilot.output.digest import saved_digest
+    from lecture_copilot.store.db import Store
+    got = _notion(env, client)
+    if isinstance(got, Result):
+        return Result("notion_resync", got.status, got.detail)
+    sink, ids = got
+    store = Store(db)
+    try:
+        found = _synced_lecture(store.con)
+        if found is None:
+            return _fail("notion_resync", "no lecture was synced to Notion yet")
+        lid, course_id = found
+        doc = saved_digest(lid, store)
+        if doc is None:
+            return _fail("notion_resync", f"lecture {lid} has no saved Digest")
+
+        async def counts():
+            return {"lectures": len(await _rows(sink, ids.lectures, lid, store)),
+                    "glossary": len(await _rows(sink, ids.glossary, f"{course_id}:", store)),
+                    "claims": len(await _rows(sink, ids.claims, f"{lid}:", store)),
+                    "tasks": len(await _rows(sink, ids.tasks, f"{lid}:", store)),
+                    "page": [p["id"] for p in await _rows(sink, ids.lectures, lid, store)]}
+        async def go():      # one loop: a real httpx client is bound to the loop that first used it
+            before = await counts()
+            _, log = await write_sink(sink, "write_lecture", doc, store, lid)
+            return before, log, await counts()
+        before, log, after = asyncio.run(go())
+    finally:
+        store.close()
+    if log["status"] != "ok":
+        return _fail("notion_resync", f"second sync {log['status']}: {log.get('error', log.get('reason'))}")
+    detail = ", ".join(f"{k} {before[k]}→{after[k]}" for k in ("lectures", "glossary", "claims", "tasks"))
+    if before != after:
+        return _fail("notion_resync", f"rows changed on re-sync: {detail}")
+    return _ok("notion_resync", f"re-sync of {lid} left every count unchanged ({detail}), {log['calls']} calls")
+
+
+def check_notion_skipped(db: Path = DB_PATH) -> Result:
+    con = sqlite3.connect(db)
+    row = con.execute("select lecture_id, output_json from decisions where node = 'sink' and output_json like "
+                      "'%\"NotionSink\"%' and output_json like '%\"skipped\"%' order by ts desc limit 1").fetchone()
+    if row is None:
+        return _fail("notion_skipped", "no run ever skipped the Notion sink (start one with NOTION_TOKEN empty)")
+    out = json.loads(row[1])
+    folder = con.execute("select output_json from decisions where node = 'sink' and lecture_id = ? and output_json "
+                         "like '%\"FolderSink\"%' and output_json like '%\"ok\"%'", (row[0],)).fetchone()
+    if not out.get("reason") or folder is None:
+        return _fail("notion_skipped", f"skipped row without a reason or without the folder write: {out}")
+    return _ok("notion_skipped", f"lecture {row[0]}: Notion skipped — \"{out['reason']}\"; the folder sink wrote")
+
+
 CHECKS: dict[int, list[tuple[str, Callable[[], Result]]]] = {
     0: [
         ("mw_version", check_mw_version),
@@ -901,6 +1085,16 @@ CHECKS: dict[int, list[tuple[str, Callable[[], Result]]]] = {
         ("mw_bench", lambda: check_mw_bench(_stage0())),
         ("extract_bench", lambda: check_extract_bench(_stage0())),
         ("mic_seat", lambda: check_mic(_stage0())),
+        ("secret_scan", check_secret_scan),
+    ],
+    6: [
+        ("notion_init", check_notion_init),
+        ("notion_lecture_page", check_notion_lecture_page),
+        ("notion_glossary", check_notion_glossary),
+        ("notion_resync", check_notion_resync),
+        ("notion_skipped", check_notion_skipped),
+        ("prompt_cache", check_prompt_cache),
+        ("tests", check_tests),
         ("secret_scan", check_secret_scan),
     ],
     5: [

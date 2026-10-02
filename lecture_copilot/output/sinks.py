@@ -47,9 +47,46 @@ _html.filters["textdir"] = textdir
 
 
 class Sink(Protocol):
-    def write_lecture(self, doc: DigestDoc) -> Path: ...
+    """A sink may be sync (FolderSink) or async (NotionSink); `make_digest` awaits what needs awaiting."""
 
-    def write_course(self, page) -> Path: ...
+    def write_lecture(self, doc: DigestDoc) -> Path | str: ...
+
+    def write_course(self, page) -> Path | str: ...
+
+
+class SinkSkipped(RuntimeError):
+    pass
+
+
+class SkippedSink:
+    """Stands in for a sink that is not configured; it raises its reason so the Digest step logs it (M6:
+    no NOTION_TOKEN → "skipped", the folder is written as usual)."""
+
+    def __init__(self, name: str, reason: str):
+        self.name, self.reason = name, reason
+
+    def write_lecture(self, doc: DigestDoc):
+        raise SinkSkipped(self.reason)
+
+    def write_course(self, page):
+        raise SinkSkipped(self.reason)
+
+
+def make_sinks(courses_root: Path = COURSES_ROOT, *, env=None, store=None, client=None) -> list:
+    """The folder sink, then Notion when `.env` has a token and the five database ids (`cli notion-init`)."""
+    import os
+
+    from lecture_copilot.output.notion import NotionAPI, NotionIds, NotionSink
+    from lecture_copilot.store.net import Net
+    env = os.environ if env is None else env
+    sinks: list = [FolderSink(courses_root)]
+    if not env.get("NOTION_TOKEN"):
+        sinks.append(SkippedSink("NotionSink", "NOTION_TOKEN missing (.env)"))
+    elif (ids := NotionIds.from_env(env)) is None:
+        sinks.append(SkippedSink("NotionSink", "databases not created yet — run `cli notion-init` once"))
+    else:
+        sinks.append(NotionSink(NotionAPI(env["NOTION_TOKEN"], client=client), Net(store) if store else None, ids))
+    return sinks
 
 
 def safe_name(name: str) -> str:

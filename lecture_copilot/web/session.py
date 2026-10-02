@@ -19,10 +19,10 @@ from lecture_copilot.agents.memory import MemoryHit
 from lecture_copilot.agents.ranker import rank
 from lecture_copilot.agents.recap import recap as recap_agent
 from lecture_copilot.agents.verifier import Verifier, VerifierWorker
-from lecture_copilot.cli import make_digest
+from lecture_copilot.cli import make_digest, write_sink
 from lecture_copilot.config import COURSES_ROOT, DB_PATH, OLLAMA_URL, ROOT, RUNS_DIR, Profile, load_env
 from lecture_copilot.output.course_page import course_page
-from lecture_copilot.output.sinks import FolderSink
+from lecture_copilot.output.sinks import make_sinks
 from lecture_copilot.pipeline import Ctx, run, warm_up
 from lecture_copilot.store.db import Store, new_id
 from lecture_copilot.store.embed import EmbedError, embed
@@ -67,7 +67,8 @@ class Session:
                  source_factory: Callable | None = None, gemini_factory: Callable | None = None,
                  course_name: str = "", backoff_s: float = 1.0, env_file: Path = ROOT / ".env"):
         self.store = Store(db)
-        self.sink = FolderSink(courses_root)
+        self.courses_root = Path(courses_root)
+        self.notion_client: Callable | None = None   # tests hand in a fake Notion transport
         self.runs_dir = Path(runs_dir)
         self.ollama_client_factory = ollama_client_factory or self._default_client
         self.asr_factory = asr_factory or self._default_asr
@@ -232,9 +233,7 @@ class Session:
                 self.store.end_lecture(cur.lecture_id)
                 cur.status = "digesting"
                 self._notify("changed")
-                cur.digest = await make_digest(cur.lecture_id, self.store, client, self.sink, cur.log.append)
-                self.sink.write_course(course_page(cur.course_id, self.store))
-                cur.status = "digested"
+                await self._finish(cur, client)
         except Exception as e:                        # the page shows it; nothing pops up
             cur.status, cur.error = "failed", f"{type(e).__name__}: {e}"
             self.store.log("run", lecture_id=cur.lecture_id, input_ref="session", output={"status": "failed",
@@ -269,15 +268,25 @@ class Session:
                 self.store.log("run", lecture_id=lecture_id, input_ref="resume",
                                output={"status": "resumed", "chunks": cur.chunks, "via": "web"})
                 async with self.ollama_client_factory() as client:
-                    cur.digest = await make_digest(lecture_id, self.store, client, self.sink, cur.log.append)
-                    self.sink.write_course(course_page(cur.course_id, self.store))
-                cur.status = "digested"
+                    await self._finish(cur, client)
             except Exception as e:
                 cur.status, cur.error = "failed", f"{type(e).__name__}: {e}"
             finally:
                 self._notify("changed")
         cur.task = asyncio.create_task(finish())
         self._notify("changed")
+
+    async def _finish(self, cur: Current, client) -> None:
+        """"סיום": the Digest, then every sink (folder, Notion when `.env` has it) for the lecture and the course.
+        The sinks are chosen now, not at start-up, so a token added between lectures counts."""
+        load_env(self.env_file, fact_check=False)
+        sinks = make_sinks(self.courses_root, store=self.store,
+                           client=self.notion_client() if self.notion_client else None)
+        cur.digest = await make_digest(cur.lecture_id, self.store, client, sinks, cur.log.append)
+        page = course_page(cur.course_id, self.store)
+        for sink in sinks:
+            await write_sink(sink, "write_course", page, self.store, cur.lecture_id)
+        cur.status = "digested"
 
     def mark(self) -> bool:
         """★: the last 30 s become a highlight of the student's own (kind=highlight, owner=user)."""

@@ -62,6 +62,7 @@ class ClaimRow:
     verdict: str | None = None                   # correct | incorrect | imprecise | unverifiable (M4)
     explanation: str | None = None
     sources: list[str] = field(default_factory=list)
+    id: str = ""                                 # the claims row, for the Notion upsert (M6)
 
     @property
     def pill(self) -> str:
@@ -73,6 +74,7 @@ class TaskRow:
     text: str
     owner: str | None
     due: str | None
+    id: str = ""                                 # the items row, for the Notion upsert (M6)
 
 
 @dataclass
@@ -99,6 +101,7 @@ class DigestDoc:
     notes: list[str] = field(default_factory=list)
     segments: list[dict] = field(default_factory=list)
     degraded: list[str] = field(default_factory=list)
+    course_id: str = ""
 
     @property
     def returned(self) -> list[ConceptRow]:
@@ -208,6 +211,21 @@ def _script_check(texts, hebrew=None):
     return check
 
 
+def saved_digest(lecture_id: str, store: Store) -> DigestDoc | None:
+    """The Digest as it was made, without the model: everything is rebuilt from the database and the saved
+    model-made parts are put back. None when the lecture was never digested (M6 re-sync)."""
+    row = store.con.execute("select bullets_json, llm_json from lecture_summaries where lecture_id = ?",
+                            (lecture_id,)).fetchone()
+    if row is None or row["llm_json"] is None:
+        return None
+    doc, _ = _collect(lecture_id, store)
+    llm = json.loads(row["llm_json"])
+    doc.exec_summary = json.loads(row["bullets_json"] or "[]")
+    doc.full_summary, doc.degraded = llm.get("full_summary", []), llm.get("degraded", [])
+    doc.continuation = Continuation(**llm["continuation"]) if llm.get("continuation") else None
+    return doc
+
+
 def lecture_label(row: dict | None) -> str | None:
     if row is None:
         return None
@@ -219,7 +237,7 @@ def _collect(lecture_id: str, store: Store) -> tuple[DigestDoc, dict[int, list[t
     course = store.course(lec["course_id"])
     segments = store.segments(lecture_id)
     doc = DigestDoc(lecture_id=lecture_id, course_name=course["name"], title=lec["title"], date=lec["date"],
-                    week=lec["week"], language=course["language"], segments=segments,
+                    week=lec["week"], language=course["language"], segments=segments, course_id=lec["course_id"],
                     minutes=round((max(s["t1"] for s in segments) - min(s["t0"] for s in segments)) / 60)
                     if segments else 0)
     prev_id = lec["continues_id"] or store.previous_lecture(lec["course_id"], lecture_id)
@@ -253,11 +271,11 @@ def _collect(lecture_id: str, store: Store) -> tuple[DigestDoc, dict[int, list[t
         elif it["kind"] == "question":
             doc.questions.append(it["text"])
         elif it["kind"] in ("action", "decision"):
-            doc.tasks.append(TaskRow(it["text"], it["owner"], it["due"]))
+            doc.tasks.append(TaskRow(it["text"], it["owner"], it["due"], it["id"]))
         elif it["kind"] == "note":
             doc.notes.append(it["text"])
     doc.all_claims = store.claims(lecture_id)
-    doc.claims = [ClaimRow(c.text, c.importance, c.status, c.verdict_he, c.verdict, c.explanation, c.sources)
+    doc.claims = [ClaimRow(c.text, c.importance, c.status, c.verdict_he, c.verdict, c.explanation, c.sources, c.id)
                   for c in rank(lecture_id, store) if c.importance >= VERIFY_MIN_IMPORTANCE]
     return doc, by_chunk
 
@@ -319,7 +337,9 @@ async def digest(lecture_id: str, *, store: Store, client: httpx.AsyncClient, ba
                                             contradicts=_clean(c.contradicts))
     markdown = render_markdown(doc)
     if save:
-        store.save_digest(lecture_id, bullets=doc.exec_summary, digest_md=markdown)
+        store.save_digest(lecture_id, bullets=doc.exec_summary, digest_md=markdown, llm={
+            "full_summary": doc.full_summary, "degraded": doc.degraded,
+            "continuation": doc.continuation.model_dump() if doc.continuation else None})
     store.log("digest", lecture_id=lecture_id, input_ref=f"{run_id}#digest", ms=(time.perf_counter() - t0) * 1000,
               output={"status": "ok" if not doc.degraded else "degraded", "degraded": doc.degraded,
                       "blocks": len(blocks), "chunks": len(lines), "minutes": doc.minutes,

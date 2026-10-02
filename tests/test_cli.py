@@ -210,3 +210,159 @@ def test_verify_command_checks_pending_material_claims_and_rebuilds_the_digest(t
     assert "נכון" in s.con.execute("select digest_md from lecture_summaries").fetchone()[0]
     s.close()
     assert any(line.startswith("verifier:") for line in lines)
+
+
+# ---------- several sinks (M6) ----------
+
+def test_a_skipped_notion_sink_is_logged_and_the_folder_is_still_written(tmp_path):
+    from lecture_copilot.output.sinks import SkippedSink
+    sinks = [FolderSink(tmp_path / "courses"), SkippedSink("NotionSink", "NOTION_TOKEN missing (.env)")]
+    summary, lines = replay(tmp_path, sink=sinks)
+    assert summary["digest"]["folder"] and summary["digest"]["notion"] is None
+    s = Store(tmp_path / "copilot.sqlite")
+    rows = {json.loads(r[0])["sink"]: json.loads(r[0])
+            for r in s.con.execute("select output_json from decisions where node = 'sink'")}
+    assert rows["FolderSink"]["status"] == "ok"
+    assert rows["NotionSink"] == {"sink": "NotionSink", "status": "skipped", "reason": "NOTION_TOKEN missing (.env)"}
+    assert any(line.startswith("notion: skipped") for line in lines)
+    s.close()
+
+
+def test_a_live_notion_sink_writes_the_lecture_page(tmp_path):
+    from lecture_copilot.output.notion import NotionAPI, NotionSink, notion_init
+    from lecture_copilot.store.net import Net
+    from tests.stubs import FakeNotion
+    fake = FakeNotion()
+    store = Store(tmp_path / "copilot.sqlite")
+    api = NotionAPI("t", client=fake.async_client())
+    ids = asyncio.run(notion_init(api, Net(store, 0.0), fake.root_page))
+    sinks = [FolderSink(tmp_path / "courses"), NotionSink(api, Net(store, 0.0), ids)]
+    summary, lines = replay(tmp_path, sink=sinks, db=tmp_path / "copilot.sqlite")
+    assert summary["digest"]["notion"].startswith("https://www.notion.so/")
+    assert len(fake.rows(ids.lectures)) == 1 and len(fake.rows(ids.courses)) == 1
+    out = json.loads(store.con.execute("select output_json from decisions where node = 'sink' and output_json "
+                                       "like '%NotionSink%'").fetchone()[0])
+    assert out["status"] == "ok" and out["calls"] >= 5
+    assert any(line.startswith("notion: https://") for line in lines)
+    store.close()
+
+
+def test_a_failing_notion_sink_never_loses_the_folder(tmp_path):
+    from lecture_copilot.output.notion import NotionAPI, NotionIds, NotionSink
+    from lecture_copilot.store.net import Net
+    from tests.stubs import FakeNotion
+    store = Store(tmp_path / "copilot.sqlite")
+    api = NotionAPI("t", client=FakeNotion(offline=True).async_client())
+    sinks = [FolderSink(tmp_path / "courses"), NotionSink(api, Net(store, 0.0), NotionIds("c", "l", "g", "k", "t"))]
+    summary, lines = replay(tmp_path, sink=sinks, db=tmp_path / "copilot.sqlite")
+    assert summary["digest"]["folder"] and summary["digest"]["notion"] is None
+    out = json.loads(store.con.execute("select output_json from decisions where node = 'sink' and output_json "
+                                       "like '%NotionSink%'").fetchone()[0])
+    assert out["status"] == "failed" and "offline" in out["error"].lower()
+    assert any(line.startswith("notion: failed") for line in lines)
+    store.close()
+
+
+def test_notion_init_creates_the_databases_and_saves_their_ids_in_env(tmp_path):
+    from lecture_copilot.output.notion import ENV_KEYS
+    from tests.stubs import FakeNotion
+    fake = FakeNotion()
+    env = tmp_path / ".env"
+    env.write_text("GEMINI_API_KEY=k\nNOTION_TOKEN=t\nNOTION_ROOT_PAGE=https://www.notion.so/Studies-"
+                   "2f3a1b4c5d6e7f8091a2b3c4d5e6f708\n", encoding="utf-8")
+    lines = []
+    rc = cli.notion_init_cmd(env, tmp_path / "copilot.sqlite", client=fake.async_client(), echo=lines.append,
+                             environ={})
+    assert rc == 0 and len(fake.databases) == 5
+    text = env.read_text(encoding="utf-8")
+    assert text.startswith("GEMINI_API_KEY=k\nNOTION_TOKEN=t\n") and all(k in text for k in ENV_KEYS.values())
+    assert any(line.startswith("notion-init: 5 databases") for line in lines)
+    assert all(d["parent"]["page_id"] == "2f3a1b4c-5d6e-7f80-91a2-b3c4d5e6f708" for d in fake.databases.values())
+
+
+def test_notion_init_without_a_token_or_root_page_says_what_to_do(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("GEMINI_API_KEY=k\nNOTION_TOKEN=\nNOTION_ROOT_PAGE=\n", encoding="utf-8")
+    lines = []
+    assert cli.notion_init_cmd(env, tmp_path / "copilot.sqlite", echo=lines.append, environ={}) == 2
+    assert "NOTION_TOKEN" in lines[0]
+    env.write_text("NOTION_TOKEN=t\nNOTION_ROOT_PAGE=nope\n", encoding="utf-8")
+    assert cli.notion_init_cmd(env, tmp_path / "copilot.sqlite", echo=lines.append, environ={}) == 2
+    assert "NOTION_ROOT_PAGE" in lines[-1]
+
+
+def test_notion_init_twice_keeps_the_same_ids(tmp_path):
+    from lecture_copilot.output.notion import NotionIds
+    from tests.stubs import FakeNotion
+    fake = FakeNotion(root_page="2f3a1b4c-5d6e-7f80-91a2-b3c4d5e6f708")
+    env = tmp_path / ".env"
+    env.write_text(f"NOTION_TOKEN=t\nNOTION_ROOT_PAGE={fake.root_page}\n", encoding="utf-8")
+    cli.notion_init_cmd(env, tmp_path / "copilot.sqlite", client=fake.async_client(), echo=lambda _: None,
+                        environ={})
+    first = NotionIds.from_env(dict(line.split("=", 1) for line in env.read_text().splitlines()))
+    cli.notion_init_cmd(env, tmp_path / "copilot.sqlite", client=fake.async_client(), echo=lambda _: None,
+                        environ={})
+    second = NotionIds.from_env(dict(line.split("=", 1) for line in env.read_text().splitlines()))
+    assert first == second and len(fake.databases) == 5
+
+
+def test_the_main_entry_knows_notion_init(tmp_path, monkeypatch, capsys):
+    env = tmp_path / ".env"
+    env.write_text("NOTION_TOKEN=\n", encoding="utf-8")
+    monkeypatch.setattr(cli, "ENV_FILE", env)
+    assert cli.main(["notion-init", "--db", str(tmp_path / "copilot.sqlite")]) == 2
+    assert "NOTION_TOKEN" in capsys.readouterr().err
+
+
+def test_notion_sync_pushes_every_digested_lecture_without_the_model(tmp_path):
+    from lecture_copilot.output.notion import NotionAPI, notion_init
+    from lecture_copilot.store.net import Net
+    from tests.stubs import FakeNotion
+    replay(tmp_path, week=1, title="first")
+    replay(tmp_path, week=2, title="second", file=tmp_path / "second.m4a", replies=[REPLY] * 2 + [SECTION, json.dumps(
+        {"exec_summary": [f"נקודה {i}" for i in range(5)],
+         "continuation": {"new": [], "repeated": [], "contradicts": []}}, ensure_ascii=False)])
+    fake = FakeNotion(root_page="2f3a1b4c-5d6e-7f80-91a2-b3c4d5e6f708")
+    store = Store(tmp_path / "copilot.sqlite")
+    ids = asyncio.run(notion_init(NotionAPI("t", client=fake.async_client()), Net(store, 0.0), fake.root_page))
+    store.close()
+    env = tmp_path / ".env"
+    env.write_text("NOTION_TOKEN=t\n" + "".join(f"{k}={v}\n" for k, v in ids.as_env().items()), encoding="utf-8")
+    lines = []
+    rc = cli.notion_sync_cmd(env, tmp_path / "copilot.sqlite", client=fake.async_client(), echo=lines.append,
+                             environ={})
+    assert rc == 0 and len(fake.rows(ids.lectures)) == 2 and len(fake.rows(ids.courses)) == 1
+    assert lines[-1].startswith("notion-sync: 2 lectures synced, 0 failed")
+    rc = cli.notion_sync_cmd(env, tmp_path / "copilot.sqlite", client=fake.async_client(), echo=lines.append,
+                             environ={})
+    assert rc == 0 and len(fake.rows(ids.lectures)) == 2          # idempotent
+    assert "W02" in fake.rows(ids.courses)[0]["markdown"]
+
+
+def test_notion_sync_without_a_token_explains(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("NOTION_TOKEN=\n", encoding="utf-8")
+    lines = []
+    assert cli.notion_sync_cmd(env, tmp_path / "copilot.sqlite", echo=lines.append, environ={}) == 2
+    assert "NOTION_TOKEN" in lines[0]
+
+
+def test_main_loads_env_before_choosing_the_sinks(tmp_path, monkeypatch):
+    """`cli digest` once skipped Notion with "NOTION_TOKEN missing" although .env had the token (2.10)."""
+    import os
+    env = tmp_path / ".env"
+    env.write_text("NOTION_TOKEN=t-from-file\n", encoding="utf-8")
+    monkeypatch.setattr(cli, "ENV_FILE", env)
+    monkeypatch.delenv("NOTION_TOKEN", raising=False)
+    seen = {}
+
+    def fake_make_sinks(root, **kw):
+        seen["token"] = os.environ.get("NOTION_TOKEN")
+        return [FolderSink(root)]
+
+    async def fake_rebuild(lecture, *, db, client, sink, echo=print):
+        return {}
+    monkeypatch.setattr(cli, "make_sinks", fake_make_sinks)
+    monkeypatch.setattr(cli, "rebuild_digest", fake_rebuild)
+    assert cli.main(["digest", "--db", str(tmp_path / "c.sqlite"), "--courses-root", str(tmp_path)]) == 0
+    assert seen["token"] == "t-from-file"

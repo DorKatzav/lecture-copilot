@@ -271,5 +271,27 @@ def test_a_database_from_m1_is_migrated_and_keeps_its_rows(tmp_path):
     s.log("digest", lecture_id="L", input_ref="R2", output={"ok": True})
     rows = s.con.execute("select id, node, output_json, ms from decisions order by ts").fetchall()
     assert [tuple(r) for r in rows][0] == ("01A", "run", '{"chunks": 14}', 1.5) and rows[1]["node"] == "digest"
-    assert s.con.execute("pragma user_version").fetchone()[0] == SCHEMA_VERSION == 6
+    assert s.con.execute("pragma user_version").fetchone()[0] == SCHEMA_VERSION == 7
+    s.close()
+
+
+def test_a_v6_database_gets_the_llm_json_column(tmp_path):
+    path = tmp_path / "v6.sqlite"
+    con = sqlite3.connect(path)
+    con.executescript("""
+        CREATE TABLE lecture_summaries (lecture_id TEXT PRIMARY KEY, bullets_json TEXT, digest_md TEXT,
+                                        embedding BLOB);
+        INSERT INTO lecture_summaries VALUES ('L', '["a"]', '# x', null);
+        CREATE TABLE decisions (id TEXT PRIMARY KEY, lecture_id TEXT,
+            node TEXT NOT NULL CHECK (node IN ('extractor', 'memory', 'verifier', 'ranker', 'net', 'asr', 'chunk',
+                                               'run', 'digest', 'sink', 'recap')),
+            input_ref TEXT, output_json TEXT, ms REAL, tokens_in INTEGER, tokens_out INTEGER, cost_usd REAL,
+            ts TEXT NOT NULL);
+        PRAGMA user_version = 6;""")
+    con.close()
+    s = Store(path)
+    row = s.con.execute("select bullets_json, llm_json from lecture_summaries").fetchone()
+    assert tuple(row) == ('["a"]', None)
+    s.save_digest("L", ["b"], "# y", llm={"full_summary": ["p"], "continuation": None, "degraded": []})
+    assert json.loads(s.con.execute("select llm_json from lecture_summaries").fetchone()[0])["full_summary"] == ["p"]
     s.close()

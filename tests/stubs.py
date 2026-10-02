@@ -163,3 +163,100 @@ class FakeGemini:
                           "bytes_in": len(text.encode()), "grounding": reply.get("grounding", [])}
         finally:
             self.in_flight -= 1
+
+
+class FakeNotion:
+    """An in-memory Notion behind httpx: databases with one data source each, pages with properties and a
+    markdown body, and the data-source query filters the sink uses (rich_text equals / starts_with).
+    `fail_next` makes the next N requests return 500; `offline` raises a transport error on every request."""
+
+    def __init__(self, root_page="root-page-id", offline=False):
+        self.root_page = root_page
+        self.offline = offline
+        self.fail_next = 0
+        self.databases: dict[str, dict] = {}       # data_source_id → {"title", "properties", "parent"}
+        self.pages: dict[str, dict] = {}           # page_id → {"parent", "properties", "markdown", "icon"}
+        self.requests: list[tuple[str, str, dict | None]] = []
+        self._n = 0
+
+    def _id(self) -> str:
+        self._n += 1
+        return f"{self._n:032x}"
+
+    def _handle(self, request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content) if request.content else None
+        self.requests.append((request.method, request.url.path, body))
+        if self.offline:
+            raise httpx.ConnectError("offline", request=request)
+        if self.fail_next:
+            self.fail_next -= 1
+            return httpx.Response(500, json={"object": "error", "message": "scripted failure"})
+        path, parts = request.url.path, request.url.path.strip("/").split("/")
+        if path == "/v1/databases" and request.method == "POST":
+            ds = self._id()
+            self.databases[ds] = {"title": body["title"][0]["text"]["content"], "parent": body["parent"],
+                                  "properties": body["initial_data_source"]["properties"]}
+            return httpx.Response(200, json={"object": "database", "id": self._id(),
+                                             "data_sources": [{"id": ds, "name": self.databases[ds]["title"]}]})
+        if parts[:2] == ["v1", "data_sources"] and len(parts) == 3 and request.method == "GET":
+            if parts[2] not in self.databases:
+                return httpx.Response(404, json={"object": "error", "message": "Could not find data source"})
+            return httpx.Response(200, json={"object": "data_source", "id": parts[2]})
+        if parts[:2] == ["v1", "data_sources"] and len(parts) == 4 and parts[3] == "query":
+            rows = [self._page_json(pid) for pid, p in self.pages.items() if p["parent"] == parts[2]]
+            f = (body or {}).get("filter")
+            if f:
+                cond, prop = f["rich_text"], f["property"]
+                def hit(row):
+                    text = "".join(t["plain_text"] for t in row["properties"].get(prop, {}).get("rich_text", []))
+                    return text == cond["equals"] if "equals" in cond else text.startswith(cond["starts_with"])
+                rows = [r for r in rows if hit(r)]
+            return httpx.Response(200, json={"object": "list", "results": rows, "has_more": False,
+                                             "next_cursor": None})
+        if path == "/v1/pages" and request.method == "POST":
+            parent = body["parent"].get("data_source_id") or body["parent"].get("page_id")
+            if parent not in self.databases and parent != self.root_page:
+                return httpx.Response(404, json={"object": "error", "message": "Could not find parent"})
+            pid = self._id()
+            self.pages[pid] = {"parent": parent, "properties": self._store_props(body.get("properties", {})),
+                               "markdown": body.get("markdown", ""), "icon": body.get("icon")}
+            return httpx.Response(200, json=self._page_json(pid))
+        if parts[:2] == ["v1", "pages"] and len(parts) == 3:
+            if parts[2] not in self.pages:
+                return httpx.Response(404, json={"object": "error", "message": "Could not find page"})
+            if request.method == "PATCH":
+                self.pages[parts[2]]["properties"].update(self._store_props(body.get("properties", {})))
+                if "icon" in body:
+                    self.pages[parts[2]]["icon"] = body["icon"]
+            return httpx.Response(200, json=self._page_json(parts[2]))
+        if parts[:2] == ["v1", "pages"] and len(parts) == 4 and parts[3] == "markdown":
+            if parts[2] not in self.pages:
+                return httpx.Response(404, json={"object": "error", "message": "Could not find page"})
+            if request.method == "PATCH":
+                self.pages[parts[2]]["markdown"] = body["replace_content"]["new_str"]
+            return httpx.Response(200, json={"object": "page_markdown", "id": parts[2],
+                                             "markdown": self.pages[parts[2]]["markdown"], "truncated": False})
+        return httpx.Response(404, json={"object": "error", "message": f"no route {request.method} {path}"})
+
+    @staticmethod
+    def _store_props(props: dict) -> dict:
+        """Rich text and titles are kept as Notion returns them: lists of {plain_text}."""
+        out = {}
+        for name, v in props.items():
+            v = dict(v)
+            for kind in ("title", "rich_text"):
+                if kind in v:
+                    v[kind] = [{"plain_text": t["text"]["content"], "text": t["text"]} for t in v[kind]]
+            out[name] = v
+        return out
+
+    def _page_json(self, pid: str) -> dict:
+        p = self.pages[pid]
+        return {"object": "page", "id": pid, "url": f"https://www.notion.so/{pid}", "properties": p["properties"],
+                "parent": {"data_source_id": p["parent"]}, "icon": p["icon"]}
+
+    def rows(self, data_source_id: str) -> list[dict]:
+        return [p for p in self.pages.values() if p["parent"] == data_source_id]
+
+    def async_client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=httpx.MockTransport(self._handle), base_url="https://api.notion.com")

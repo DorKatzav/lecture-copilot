@@ -1,0 +1,74 @@
+{#- Notion sets a block's direction from its first strong character; for a Hebrew course every line opens with an
+    RTL mark (U+200F) so a line that starts with "GitLab" still reads right-to-left. -#}
+{% set m = "‏" if doc.language == "he" else "" %}
+{% macro bullets(rows) %}{% if rows %}{% for r in rows %}- {{ m }}{{ r }}
+{% endfor %}{% else %}{{ m }}אין.
+{% endif %}{% endmacro %}
+{{ m }}**{{ doc.heading }}** · {{ doc.minutes }} דק' · {{ doc.concepts | length }} מושגים · {{ doc.claims | length }} טענות מסומנות
+@@
+## סיכום מנהלים
+
+<callout icon="💡" color="blue_background">
+{% if doc.exec_summary %}{% for b in doc.exec_summary %}	- {{ m }}{{ b }}
+{% endfor %}{% else %}	{{ m }}לא נוצר סיכום מנהלים: המודל לא החזיר פלט תקין. הסיכום המלא והפריטים למטה נוצרו כרגיל.
+{% endif %}</callout>
+@@
+## סיכום מלא
+
+<details>
+<summary>{{ m }}סיכום מלא ({{ doc.full_summary | join(" ") | wordcount }} מילים)</summary>
+{% if doc.full_summary %}{% for p in doc.full_summary %}	{{ m }}{{ p }}
+
+{% endfor %}{% else %}	{{ m }}אין.
+{% endif %}</details>
+@@
+## ★ למבחן / הודגש
+
+{% if doc.highlights %}<callout icon="★" color="yellow_background">
+{% for h in doc.highlights %}	- {{ m }}{{ h }}
+{% endfor %}</callout>
+{% else %}{{ m }}אין.
+{% endif %}
+@@
+{% if doc.prev_title %}## המשך מ-{{ doc.prev_title }}
+
+{% if doc.continuation %}- {{ m }}**מה חדש:** {{ doc.continuation.new | join(" · ") or "אין" }}
+- {{ m }}**מה חזר:** {{ doc.continuation.repeated | join(" · ") or "אין" }}
+- {{ m }}**מה סותר:** {{ doc.continuation.contradicts | join(" · ") or "אין" }}
+{% else %}{{ m }}המודל לא השווה להרצאה הקודמת הפעם.
+{% endif %}{% else %}## המשך מההרצאה הקודמת
+
+{{ m }}זו ההרצאה הראשונה בקורס.
+{% endif %}
+@@
+## {{ doc.concepts_heading }}
+
+{% if doc.concepts %}{% for c in doc.concepts %}- {{ m }}**{{ c.term }}** — {{ c.explanation }}{% if c.first_seen %} (נאמר ב-{{ c.first_seen }}){% endif %}
+
+{% endfor %}{% else %}{{ m }}אין.
+{% endif %}
+@@
+## טענות מסומנות
+
+{% if doc.claims %}{% for c in doc.claims %}{% if c.verdict in ("incorrect", "imprecise") %}<callout icon="🔍" color="red_background">
+	{{ m }}המרצה אמר: "{{ c.text }}" · {{ c.label }}
+	{{ m }}בפועל: {{ c.explanation }}{% if c.sources %} · [מקור]({{ c.sources[0] }}){% endif %}
+
+</callout>
+{% else %}- {{ m }}המרצה אמר: "{{ c.text }}" · {{ c.label }}{% if c.explanation %} — {{ c.explanation }}{% endif %}{% if c.sources %} · [מקור]({{ c.sources[0] }}){% endif %}
+
+{% endif %}{% endfor %}{% else %}{{ m }}אין.
+{% endif %}
+@@
+## שאלות פתוחות
+
+{{ bullets(doc.questions) }}
+@@
+## משימות
+
+{% if doc.tasks %}{% for t in doc.tasks %}- [ ] {{ m }}{{ t.text }}{% if t.due or t.owner %} ({{ [("עד " ~ t.due) if t.due else "", t.owner or ""] | select | join(" · ") }}){% endif %}{{ "\n" }}{% endfor %}{% else %}{{ m }}אין.
+{% endif %}
+@@
+## ההערות שלי
+
+{{ bullets(doc.notes) }}

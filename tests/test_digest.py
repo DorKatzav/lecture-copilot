@@ -331,3 +331,34 @@ def test_verified_claims_show_the_verdict_what_is_actually_the_case_and_the_sour
             in md)
     assert '- המרצה אמר: "טענה 2" · [לא נבדק — אין רשת]' in md
     assert doc.claims[0].verdict == "incorrect" and doc.claims[0].sources == ["https://docs.python.org/3/"]
+
+
+# ---------- the saved Digest (M6: re-sync without the model) ----------
+
+def test_a_saved_digest_is_rebuilt_without_the_model(store):
+    from lecture_copilot.output.digest import saved_digest
+    lid = lecture(store)
+    fake = FakeOllama([SECTION, EXEC])
+    doc = run(store, lid, fake)
+    again = saved_digest(lid, store)
+    assert render_markdown(again) == render_markdown(doc)
+    assert again.full_summary == doc.full_summary and again.exec_summary == doc.exec_summary
+    assert again.course_id == doc.course_id and [c.id for c in again.claims] == [c.id for c in doc.claims]
+    assert len(fake.requests) == 2          # nothing new was asked of the model
+
+
+def test_a_lecture_without_a_saved_digest_has_none(store):
+    from lecture_copilot.output.digest import saved_digest
+    assert saved_digest(lecture(store), store) is None
+
+
+def test_the_saved_continuation_survives(store):
+    from lecture_copilot.output.digest import saved_digest
+    first = lecture(store, week=4)
+    run(store, first, FakeOllama([SECTION, EXEC]))
+    second = lecture(store, week=5)
+    exec2 = json.dumps({"exec_summary": [f"נקודה {i}" for i in range(1, 6)],
+                        "continuation": {"new": ["LTV"], "repeated": ["CAC"], "contradicts": []}}, ensure_ascii=False)
+    doc = run(store, second, FakeOllama([SECTION, exec2]))
+    again = saved_digest(second, store)
+    assert again.continuation == doc.continuation and again.prev_title == doc.prev_title

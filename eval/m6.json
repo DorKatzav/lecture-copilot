@@ -1,0 +1,105 @@
+{
+  "sync": {
+    "lecture_id": "01M3XVDFYEHN76684NKA5D8GS5",
+    "calls": 194,
+    "ok": 194,
+    "failed": 0,
+    "bytes_out_kb": 152.4,
+    "bytes_in_kb": 735.7,
+    "net_s": 115.46,
+    "sink_s": 21.71,
+    "course_s": 1.97,
+    "by_path": {
+      "POST /v1/data_sources/…/query": 25,
+      "POST /v1/pages": 33,
+      "PATCH /v1/pages/…": 132,
+      "PATCH /v1/pages/…/markdown": 4
+    },
+    "cost_usd": 0,
+    "syncs": [
+      {
+        "status": "skipped",
+        "calls": 0,
+        "s": 0.0
+      },
+      {
+        "status": "ok",
+        "calls": 38,
+        "s": 24.24
+      },
+      {
+        "status": "ok",
+        "calls": 39,
+        "s": 24.68
+      },
+      {
+        "status": "ok",
+        "calls": 39,
+        "s": 20.47
+      },
+      {
+        "status": "ok",
+        "calls": 39,
+        "s": 24.9
+      },
+      {
+        "status": "ok",
+        "calls": 39,
+        "s": 21.71
+      }
+    ],
+    "first_sync": {
+      "calls": 38,
+      "s": 24.24
+    },
+    "resyncs": {
+      "n": 4,
+      "calls_max": 39,
+      "s_max": 24.9
+    },
+    "rows": {
+      "concepts": 47,
+      "tasks": 2,
+      "claims": 6
+    },
+    "digest_s": 39.26
+  },
+  "demo": {
+    "lecture_id": "01M3XYFJBHSBBPTHEA0NXXF3YQ",
+    "calls": 17,
+    "ok": 17,
+    "failed": 0,
+    "bytes_out_kb": 14.9,
+    "bytes_in_kb": 30.0,
+    "net_s": 11.76,
+    "sink_s": 11.79,
+    "course_s": 0.0,
+    "by_path": {
+      "POST /v1/data_sources/…/query": 5,
+      "POST /v1/pages": 12
+    },
+    "cost_usd": 0,
+    "syncs": [
+      {
+        "status": "ok",
+        "calls": 17,
+        "s": 11.79
+      }
+    ],
+    "first_sync": {
+      "calls": 17,
+      "s": 11.79
+    },
+    "resyncs": {
+      "n": 0,
+      "calls_max": 0,
+      "s_max": 0.0
+    },
+    "rows": {
+      "concepts": 10,
+      "tasks": 1,
+      "claims": 3
+    },
+    "digest_s": 20.82
+  }
+}
