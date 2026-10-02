@@ -312,3 +312,36 @@ def test_the_main_entry_knows_notion_init(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(cli, "ENV_FILE", env)
     assert cli.main(["notion-init", "--db", str(tmp_path / "copilot.sqlite")]) == 2
     assert "NOTION_TOKEN" in capsys.readouterr().err
+
+
+def test_notion_sync_pushes_every_digested_lecture_without_the_model(tmp_path):
+    from lecture_copilot.output.notion import NotionAPI, notion_init
+    from lecture_copilot.store.net import Net
+    from tests.stubs import FakeNotion
+    replay(tmp_path, week=1, title="first")
+    replay(tmp_path, week=2, title="second", file=tmp_path / "second.m4a", replies=[REPLY] * 2 + [SECTION, json.dumps(
+        {"exec_summary": [f"נקודה {i}" for i in range(5)],
+         "continuation": {"new": [], "repeated": [], "contradicts": []}}, ensure_ascii=False)])
+    fake = FakeNotion(root_page="2f3a1b4c-5d6e-7f80-91a2-b3c4d5e6f708")
+    store = Store(tmp_path / "copilot.sqlite")
+    ids = asyncio.run(notion_init(NotionAPI("t", client=fake.async_client()), Net(store, 0.0), fake.root_page))
+    store.close()
+    env = tmp_path / ".env"
+    env.write_text("NOTION_TOKEN=t\n" + "".join(f"{k}={v}\n" for k, v in ids.as_env().items()), encoding="utf-8")
+    lines = []
+    rc = cli.notion_sync_cmd(env, tmp_path / "copilot.sqlite", client=fake.async_client(), echo=lines.append,
+                             environ={})
+    assert rc == 0 and len(fake.rows(ids.lectures)) == 2 and len(fake.rows(ids.courses)) == 1
+    assert lines[-1].startswith("notion-sync: 2 lectures synced, 0 failed")
+    rc = cli.notion_sync_cmd(env, tmp_path / "copilot.sqlite", client=fake.async_client(), echo=lines.append,
+                             environ={})
+    assert rc == 0 and len(fake.rows(ids.lectures)) == 2          # idempotent
+    assert "W02" in fake.rows(ids.courses)[0]["markdown"]
+
+
+def test_notion_sync_without_a_token_explains(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("NOTION_TOKEN=\n", encoding="utf-8")
+    lines = []
+    assert cli.notion_sync_cmd(env, tmp_path / "copilot.sqlite", echo=lines.append, environ={}) == 2
+    assert "NOTION_TOKEN" in lines[0]

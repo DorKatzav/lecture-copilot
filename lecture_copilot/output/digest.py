@@ -211,6 +211,21 @@ def _script_check(texts, hebrew=None):
     return check
 
 
+def saved_digest(lecture_id: str, store: Store) -> DigestDoc | None:
+    """The Digest as it was made, without the model: everything is rebuilt from the database and the saved
+    model-made parts are put back. None when the lecture was never digested (M6 re-sync)."""
+    row = store.con.execute("select bullets_json, llm_json from lecture_summaries where lecture_id = ?",
+                            (lecture_id,)).fetchone()
+    if row is None or row["llm_json"] is None:
+        return None
+    doc, _ = _collect(lecture_id, store)
+    llm = json.loads(row["llm_json"])
+    doc.exec_summary = json.loads(row["bullets_json"] or "[]")
+    doc.full_summary, doc.degraded = llm.get("full_summary", []), llm.get("degraded", [])
+    doc.continuation = Continuation(**llm["continuation"]) if llm.get("continuation") else None
+    return doc
+
+
 def lecture_label(row: dict | None) -> str | None:
     if row is None:
         return None
@@ -322,7 +337,9 @@ async def digest(lecture_id: str, *, store: Store, client: httpx.AsyncClient, ba
                                             contradicts=_clean(c.contradicts))
     markdown = render_markdown(doc)
     if save:
-        store.save_digest(lecture_id, bullets=doc.exec_summary, digest_md=markdown)
+        store.save_digest(lecture_id, bullets=doc.exec_summary, digest_md=markdown, llm={
+            "full_summary": doc.full_summary, "degraded": doc.degraded,
+            "continuation": doc.continuation.model_dump() if doc.continuation else None})
     store.log("digest", lecture_id=lecture_id, input_ref=f"{run_id}#digest", ms=(time.perf_counter() - t0) * 1000,
               output={"status": "ok" if not doc.degraded else "degraded", "degraded": doc.degraded,
                       "blocks": len(blocks), "chunks": len(lines), "minutes": doc.minutes,

@@ -18,7 +18,8 @@ from lecture_copilot.config import EMBED_DIMS, VEC_BACKEND
 from lecture_copilot.store.embed import pack, unpack
 from lecture_copilot.store.search import MemoryHit, fts_query, make_backend, rrf
 
-SCHEMA_VERSION = 6   # 2: digest, sink nodes · 3: FTS5 · 4: contradicts_id · 5: explanation · 6: recap node (M5)
+SCHEMA_VERSION = 7   # 2: digest, sink nodes · 3: FTS5 · 4: contradicts_id · 5: explanation · 6: recap node (M5)
+                     # 7: lecture_summaries.llm_json — the model-made parts of a Digest, for re-sync (M6)
 CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # spec nodes + asr / chunk / run (D-M1-1: per-chunk status and timing live in the log, not in a new table)
 NODES = ("extractor", "memory", "verifier", "ranker", "net", "asr", "chunk", "run", "digest", "sink", "recap")
@@ -58,7 +59,7 @@ CREATE TABLE IF NOT EXISTS claims (
 CREATE INDEX IF NOT EXISTS claims_lecture ON claims (lecture_id);
 CREATE INDEX IF NOT EXISTS claims_segment ON claims (segment_id);
 CREATE TABLE IF NOT EXISTS lecture_summaries (
-    lecture_id TEXT PRIMARY KEY, bullets_json TEXT, digest_md TEXT, embedding BLOB);
+    lecture_id TEXT PRIMARY KEY, bullets_json TEXT, digest_md TEXT, embedding BLOB, llm_json TEXT);
 CREATE TABLE IF NOT EXISTS fact_cache (
     cache_key TEXT PRIMARY KEY, verdict TEXT, sources_json TEXT, checked_at TEXT);
 {DECISIONS}
@@ -126,6 +127,9 @@ class Store:
             for col in ("contradicts_id", "explanation"):
                 if col not in cols:
                     self.con.execute(f"alter table claims add column {col} text")
+        if version < 7 and self.con.execute("select 1 from sqlite_master where name = 'lecture_summaries'").fetchone():
+            if "llm_json" not in [r[1] for r in self.con.execute("pragma table_info(lecture_summaries)")]:
+                self.con.execute("alter table lecture_summaries add column llm_json text")
         return version
 
     def _backfill_index(self) -> None:
@@ -387,12 +391,16 @@ class Store:
         rows = self.con.execute("select * from segments where lecture_id = ? order by t0, id", (lecture_id,))
         return [dict(r) for r in rows]
 
-    def save_digest(self, lecture_id: str, bullets: list[str], digest_md: str) -> None:
+    def save_digest(self, lecture_id: str, bullets: list[str], digest_md: str, llm: dict | None = None) -> None:
+        """`llm` = the parts only the model makes (full summary, continuation, degraded), so a Digest can be
+        rebuilt and re-synced without calling it again (M6)."""
         with self.con:
             self.con.execute(
-                "insert into lecture_summaries (lecture_id, bullets_json, digest_md) values (?, ?, ?) "
+                "insert into lecture_summaries (lecture_id, bullets_json, digest_md, llm_json) values (?, ?, ?, ?) "
                 "on conflict (lecture_id) do update set bullets_json = excluded.bullets_json, "
-                "digest_md = excluded.digest_md", (lecture_id, json.dumps(bullets, ensure_ascii=False), digest_md))
+                "digest_md = excluded.digest_md, llm_json = excluded.llm_json",
+                (lecture_id, json.dumps(bullets, ensure_ascii=False), digest_md,
+                 json.dumps(llm, ensure_ascii=False) if llm is not None else None))
             self.con.execute("update lectures set status = 'digested' where id = ?", (lecture_id,))
 
     # ---------- decisions ----------

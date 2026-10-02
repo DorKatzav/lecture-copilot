@@ -246,12 +246,7 @@ def notion_init_cmd(env_file: Path, db: Path, *, client: httpx.AsyncClient | Non
     """`cli notion-init`: the five databases under the root page, once; their ids go to `.env`. Running it again
     keeps every database that still exists and recreates only a deleted one."""
     from lecture_copilot.output.notion import NotionAPI, NotionIds, notion_init, page_id_from, save_env_keys
-    env = dict(os.environ if environ is None else environ)
-    if env_file.is_file():
-        for line in env_file.read_text(encoding="utf-8").splitlines():
-            if "=" in line and not line.lstrip().startswith("#"):
-                k, v = line.split("=", 1)
-                env.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    env = _env_from(env_file, environ)
     if not env.get("NOTION_TOKEN"):
         echo("notion-init: NOTION_TOKEN is empty — create an internal integration at notion.so/profile/integrations, "
              "paste its token into .env, and share the root page with it (PLAN §7)")
@@ -275,6 +270,57 @@ def notion_init_cmd(env_file: Path, db: Path, *, client: httpx.AsyncClient | Non
     return 0
 
 
+def _env_from(env_file: Path, environ=None) -> dict:
+    env = dict(os.environ if environ is None else environ)
+    if env_file.is_file():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                k, v = line.split("=", 1)
+                env.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    return env
+
+
+def notion_sync_cmd(env_file: Path, db: Path, *, lecture: str | None = None, client: httpx.AsyncClient | None = None,
+                    echo: Callable[[str], None] = print, environ=None) -> int:
+    """`cli notion-sync`: every digested lecture (or one) to Notion from the saved Digest — no model call. Safe to
+    run again: rows are updated in place."""
+    from lecture_copilot.output.course_page import course_page
+    from lecture_copilot.output.digest import saved_digest
+    from lecture_copilot.output.sinks import SkippedSink
+    env = _env_from(env_file, environ)
+    notion = make_sinks(env=env, client=client)[1]
+    if isinstance(notion, SkippedSink):
+        echo(f"notion-sync: {notion.reason}")
+        return 2
+    store = Store(db)
+    try:
+        notion.bind(store)
+        rows = store.con.execute("select id, course_id from lectures where status = 'digested' "
+                                 "and (? is null or id = ?) order by date, id", (lecture, lecture)).fetchall()
+        synced, failed, courses = 0, 0, {}
+
+        async def go():
+            nonlocal synced, failed
+            for lid, course_id in rows:
+                doc = saved_digest(lid, store)
+                if doc is None:
+                    echo(f"{lid}: no saved Digest — run `cli digest --lecture {lid}` first")
+                    failed += 1
+                    continue
+                result, log = await write_sink(notion, "write_lecture", doc, store, lid)
+                echo(f"{lid}: {log['status']}" + (f" {result}" if result else f" — {log.get('error', '')}"))
+                synced += log["status"] == "ok"
+                failed += log["status"] != "ok"
+                courses[course_id] = None
+            for course_id in courses:
+                await write_sink(notion, "write_course", course_page(course_id, store), store, None)
+        asyncio.run(go())
+    finally:
+        store.close()
+    echo(f"notion-sync: {synced} lectures synced, {failed} failed, {len(courses)} course pages")
+    return 0 if not failed else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m lecture_copilot.cli")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -295,12 +341,14 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--lecture")
     sub.add_parser("miccheck", help="10 s from the microphone: peak level, time to -40 dB (run from Terminal)")
     n = sub.add_parser("notion-init", help="create the five Notion databases under NOTION_ROOT_PAGE once (M6)")
+    ns = sub.add_parser("notion-sync", help="push every digested lecture (or one) to Notion from the saved Digest")
+    ns.add_argument("--lecture")
     c = sub.add_parser("copilot", help="the launcher: Ollama, MacWhisper check, the page in the browser")
     c.add_argument("--no-browser", action="store_true")
     c.add_argument("--port", type=int, default=8770)
     c.add_argument("--db", type=Path, default=DB_PATH)
     c.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
-    for p in (r, d, e, v, n):   # copilot has its own --db / --courses-root above
+    for p in (r, d, e, v, n, ns):   # copilot has its own --db / --courses-root above
         p.add_argument("--db", type=Path, default=DB_PATH)
         p.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
     a = ap.parse_args(argv)
@@ -315,6 +363,8 @@ def main(argv: list[str] | None = None) -> int:
         return launch(open_browser=not a.no_browser, port=a.port, db=a.db, courses_root=a.courses_root)
     if a.cmd == "notion-init":
         return notion_init_cmd(ENV_FILE, a.db, echo=lambda line: print(line, file=sys.stderr))
+    if a.cmd == "notion-sync":
+        return notion_sync_cmd(ENV_FILE, a.db, lecture=a.lecture, echo=lambda line: print(line, file=sys.stderr))
     client = httpx.AsyncClient(base_url=OLLAMA_URL)
     sink = make_sinks(a.courses_root)      # Notion joins when `.env` has a token and the database ids
     gemini = None
