@@ -178,7 +178,7 @@ function render(){
     show('during');
     $('d-title').textContent = c.title; $('d-chunks').textContent = c.chunks;
     const d = s.dashboard || {};
-    list('l-concepts', d.concepts || [], x => `<li><b><bdi>${esc(x.term)}</bdi></b> — ${esc(x.explanation || '')}${x.returned ? ' <span class="tag">נאמר כבר</span>' : ''}</li>`);
+    list('l-concepts', d.concepts || [], x => `<li><b><bdi>${esc(x.term)}</bdi></b> — ${esc(x.explanation || '')}${x.returned ? ' <span class="pill mw">נאמר כבר</span>' : ''}</li>`);
     list('l-highlights', d.highlights || [], x => `<li>${x.user ? '★ ' : ''}${esc(x.text)}</li>`);
     list('l-claims', d.claims || [], x => `<li>${esc(x.text)} <span class="pill ${{correct:'yes',incorrect:'no',imprecise:'maybe'}[x.verdict] || 'mw'}">${esc(x.verdict_he)}</span>${x.explanation ? `<div class="quiet">בפועל: ${esc(x.explanation)}</div>` : ''}</li>`);
     list('l-questions', d.questions || [], x => `<li>${esc(x)}</li>`);
