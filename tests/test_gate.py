@@ -918,3 +918,103 @@ def test_mic_report_from_levels():
     r = mic_report([-70.0, -65.0, -38.0, -30.0, -42.0], block_s=0.25)
     assert r == {"peak_db": -30.0, "seconds_to_minus40": 0.75, "seconds": 1.25, "readable": True}
     assert mic_report([-70.0, -66.0], block_s=0.25)["seconds_to_minus40"] is None
+
+
+# ---------- M6 ----------
+
+def m6_world(tmp_path, *, synced=True, skipped=True):
+    """A digested lecture in a store, synced to a fake Notion (and, before that, skipped without a token)."""
+    import asyncio
+
+    from lecture_copilot.cli import write_sink
+    from lecture_copilot.output.digest import saved_digest
+    from lecture_copilot.output.notion import NotionAPI, NotionSink, notion_init
+    from lecture_copilot.output.sinks import SkippedSink
+    from lecture_copilot.store.db import Store
+    from lecture_copilot.store.net import Net
+    from tests.stubs import FakeNotion, FakeOllama
+    from tests.test_digest import EXEC, SECTION, lecture, run
+    fake = FakeNotion(root_page="2f3a1b4c-5d6e-7f80-91a2-b3c4d5e6f708")
+    s = Store(tmp_path / "copilot.sqlite")
+    lid = lecture(s)
+    run(s, lid, FakeOllama([SECTION, EXEC]))
+    api = NotionAPI("t", client=fake.async_client())
+    ids = asyncio.run(notion_init(api, Net(s, 0.0), fake.root_page))
+    env = {"NOTION_TOKEN": "t", **ids.as_env()}
+    if skipped:
+        s.log("sink", lecture_id=lid, input_ref=lid, output={"sink": "FolderSink", "status": "ok", "files": 5})
+        asyncio.run(write_sink(SkippedSink("NotionSink", "NOTION_TOKEN missing (.env)"), "write_lecture", None, s, lid))
+    if synced:
+        asyncio.run(write_sink(NotionSink(api, Net(s, 0.0), ids), "write_lecture", saved_digest(lid, s), s, lid))
+    s.close()
+    return tmp_path / "copilot.sqlite", env, fake, ids
+
+
+def test_m6_notion_init_skips_without_a_token_and_fails_without_the_databases(tmp_path):
+    r = gate.check_notion_init(env={})
+    assert r.status == "SKIP" and "notion-init" in r.detail
+    r = gate.check_notion_init(env={"NOTION_TOKEN": "t"})
+    assert r.status == "FAIL" and "notion-init" in r.detail
+
+
+def test_m6_notion_init_passes_when_the_five_data_sources_answer(tmp_path):
+    db, env, fake, ids = m6_world(tmp_path)
+    assert gate.check_notion_init(env=env, client=fake.async_client()).status == "PASS"
+    del fake.databases[ids.tasks]
+    r = gate.check_notion_init(env=env, client=fake.async_client())
+    assert r.status == "FAIL" and "tasks" in r.detail
+
+
+def test_m6_lecture_page_has_the_nine_sections(tmp_path):
+    db, env, fake, ids = m6_world(tmp_path)
+    r = gate.check_notion_lecture_page(db=db, env=env, client=fake.async_client())
+    assert r.status == "PASS" and "9 sections" in r.detail
+    page = fake.rows(ids.lectures)[0]
+    page["markdown"] = page["markdown"].replace("## משימות", "משימות")
+    assert gate.check_notion_lecture_page(db=db, env=env, client=fake.async_client()).status == "FAIL"
+
+
+def test_m6_lecture_page_fails_when_nothing_was_synced(tmp_path):
+    db, env, fake, ids = m6_world(tmp_path, synced=False)
+    r = gate.check_notion_lecture_page(db=db, env=env, client=fake.async_client())
+    assert r.status == "FAIL" and "synced" in r.detail
+
+
+def test_m6_glossary_rows_match_the_distinct_canonical_keys(tmp_path):
+    db, env, fake, ids = m6_world(tmp_path)
+    r = gate.check_notion_glossary(db=db, env=env, client=fake.async_client())
+    assert r.status == "PASS" and "4 rows" in r.detail           # cac, k1, k2, k3
+    extra = next(pid for pid, p in fake.pages.items() if p["parent"] == ids.glossary)
+    fake.pages[extra + "dup"] = dict(fake.pages[extra])
+    assert gate.check_notion_glossary(db=db, env=env, client=fake.async_client()).status == "FAIL"
+
+
+def test_m6_resync_changes_no_row_count(tmp_path):
+    db, env, fake, ids = m6_world(tmp_path)
+    r = gate.check_notion_resync(db=db, env=env, client=fake.async_client())
+    assert r.status == "PASS" and "unchanged" in r.detail
+    assert len(fake.requests) > 5                                   # it really synced again
+
+
+def test_m6_resync_catches_a_duplicating_sink(tmp_path, monkeypatch):
+    from lecture_copilot.output import notion
+    db, env, fake, ids = m6_world(tmp_path)
+
+    async def no_index(self, ds, prefix, ref):
+        return {}
+    monkeypatch.setattr(notion.NotionSink, "_index", no_index)
+    assert gate.check_notion_resync(db=db, env=env, client=fake.async_client()).status == "FAIL"
+
+
+def test_m6_skipped_sink_is_logged_with_a_reason_and_the_folder_still_wrote(tmp_path):
+    db, env, fake, ids = m6_world(tmp_path)
+    r = gate.check_notion_skipped(db=db)
+    assert r.status == "PASS" and "NOTION_TOKEN" in r.detail
+    db2, *_ = m6_world(tmp_path / "b", skipped=False)
+    assert gate.check_notion_skipped(db=db2).status == "FAIL"
+
+
+def test_m6_checks():
+    assert [name for name, _ in gate.CHECKS[6]] == ["notion_init", "notion_lecture_page", "notion_glossary",
+                                                    "notion_resync", "notion_skipped", "prompt_cache", "tests",
+                                                    "secret_scan"]
