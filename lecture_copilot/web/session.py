@@ -222,7 +222,9 @@ class Session:
                     cur.chunks += 1
                     cur.last_chunk, cur.queue_depth = o, o.get("queue_depth", 0)
                     self._notify("changed")
-                cur.summary = await run(src, ctx, on_chunk=on_chunk)
+                cur.summary = await run(src, ctx, on_chunk=on_chunk,
+                                        extra=lambda: {"via": "web", "source_kind": source, "pace": pace,
+                                                       "file": file.name if file else None})
                 self.store.end_lecture(cur.lecture_id)
                 cur.status = "digesting"
                 self._notify("changed")
@@ -260,6 +262,8 @@ class Session:
             try:
                 self.store.set_claim_status(lecture_id, "pending", "skipped")
                 self.store.end_lecture(lecture_id)
+                self.store.log("run", lecture_id=lecture_id, input_ref="resume",
+                               output={"status": "resumed", "chunks": cur.chunks, "via": "web"})
                 async with self.ollama_client_factory() as client:
                     cur.digest = await make_digest(lecture_id, self.store, client, self.sink, cur.log.append)
                     self.sink.write_course(course_page(cur.course_id, self.store))

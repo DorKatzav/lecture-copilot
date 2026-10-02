@@ -77,7 +77,10 @@ def test_record_then_stop_gives_a_digest_and_rows_arrive_meanwhile(tmp_path):
         r = client.post("/api/stop")
         assert r.status_code == 200
         s = wait_for(client, "digested")
+        run_row = json.loads(session.store.con.execute("select output_json from decisions where node = 'run' "
+                                                       "order by ts desc limit 1").fetchone()[0])
     assert s["current"]["digest"]["sections"] == 9 and s["current"]["digest"]["folder"]
+    assert run_row["via"] == "web" and run_row["source_kind"] == "mic"
     assert s["current"]["verifier"]["verified"] == 2 and s["current"]["cost_usd"] > 0   # the second from the cache
     assert (tmp_path / "courses" / "AI Developers — Python" / "course.html").is_file()
 
@@ -145,6 +148,9 @@ def test_an_interrupted_lecture_shows_a_banner_and_can_be_resumed(tmp_path):
         assert client2.post("/api/resume", json={"lecture_id": lid}).status_code == 200
         s = wait_for(client2, "digested")
         assert s["current"]["digest"]["sections"] == 9 and s["interrupted"] == []
+        row = session2.store.con.execute("select output_json from decisions where node = 'run' and input_ref = 'resume'"
+                                         ).fetchone()
+        assert json.loads(row[0]) == {"status": "resumed", "chunks": 2, "via": "web"}
 
 
 def test_the_page_is_hebrew_rtl_and_never_pops_anything(tmp_path):
