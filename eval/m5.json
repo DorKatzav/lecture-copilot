@@ -1,0 +1,61 @@
+{
+  "live": {
+    "audio_min": 20.0,
+    "chunks": 28,
+    "status": {
+      "ok": 28
+    },
+    "timing": {
+      "asr_s": {
+        "n": 28,
+        "p50": 4.19,
+        "p95": 5.31,
+        "max": 5.8
+      },
+      "memory_s": {
+        "n": 28,
+        "p50": 0.08,
+        "p95": 0.1,
+        "max": 0.11
+      },
+      "extract_s": {
+        "n": 28,
+        "p50": 8.96,
+        "p95": 11.0,
+        "max": 12.13
+      },
+      "total_s": {
+        "n": 28,
+        "p50": 13.66,
+        "p95": 15.98,
+        "max": 16.84
+      }
+    },
+    "digest_s": 38.14,
+    "digest_blocks": 1,
+    "verifier": {
+      "verified": 6,
+      "unchecked": 0,
+      "skipped": 2,
+      "retried": 0
+    },
+    "net_calls": 8,
+    "cost_usd": 0.0059,
+    "items": {
+      "action": 2,
+      "concept": 47,
+      "highlight": 1
+    },
+    "memory": {}
+  },
+  "crash": {
+    "status": "resumed",
+    "chunks": 2,
+    "via": "web",
+    "digest_s": 15.16
+  },
+  "recap": {
+    "calls": 2,
+    "ok": 2
+  }
+}

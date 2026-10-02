@@ -18,10 +18,10 @@ from lecture_copilot.config import EMBED_DIMS, VEC_BACKEND
 from lecture_copilot.store.embed import pack, unpack
 from lecture_copilot.store.search import MemoryHit, fts_query, make_backend, rrf
 
-SCHEMA_VERSION = 5   # 2: digest, sink nodes · 3: FTS5 tables · 4: claims.contradicts_id · 5: claims.explanation (M4)
+SCHEMA_VERSION = 6   # 2: digest, sink nodes · 3: FTS5 · 4: contradicts_id · 5: explanation · 6: recap node (M5)
 CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # spec nodes + asr / chunk / run (D-M1-1: per-chunk status and timing live in the log, not in a new table)
-NODES = ("extractor", "memory", "verifier", "ranker", "net", "asr", "chunk", "run", "digest", "sink")
+NODES = ("extractor", "memory", "verifier", "ranker", "net", "asr", "chunk", "run", "digest", "sink", "recap")
 
 DECISIONS = f"""CREATE TABLE IF NOT EXISTS decisions (
     id TEXT PRIMARY KEY, lecture_id TEXT,
@@ -96,7 +96,7 @@ class Store:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
-        self.con = sqlite3.connect(path)
+        self.con = sqlite3.connect(path, check_same_thread=False)   # the web server's loop thread is not the opener's
         self.con.row_factory = sqlite3.Row
         self.con.execute("pragma journal_mode = wal")
         version = self._migrate()
@@ -117,7 +117,7 @@ class Store:
         exists = self.con.execute("select 1 from sqlite_master where name = 'decisions'").fetchone()
         if not exists:
             return SCHEMA_VERSION
-        if version < 2:
+        if version < 6:   # the CHECK on decisions.node grew in v2 and v6
             self.con.executescript(
                 "BEGIN; DROP INDEX IF EXISTS decisions_lecture; ALTER TABLE decisions RENAME TO decisions_old; "
                 + DECISIONS + " INSERT INTO decisions SELECT * FROM decisions_old; DROP TABLE decisions_old; COMMIT;")
@@ -227,6 +227,19 @@ class Store:
                                  "values (?, ?, ?, ?, ?)", [(i[0], i[1], i[4], i[5], i[6]) for i in items])
             self.con.executemany("insert into claims_fts (id, lecture_id, text, normalized) values (?, ?, ?, ?)",
                                  [(c[0], c[1], c[3], c[4]) for c in claims])
+
+    def add_item(self, lecture_id: str, segment_id: str | None, kind: str, text: str, *, owner: str | None = None,
+                 due: str | None = None, t0: float | None = None) -> str:
+        """A row the student adds in class (★ mark, note): first seen here, never replaced by a chunk rewrite."""
+        item_id = new_id()
+        with self.con:
+            self.con.execute(
+                "insert into items (id, lecture_id, segment_id, kind, text, owner, due, first_seen_lecture_id, t0) "
+                "values (?, ?, ?, ?, ?, ?, ?, ?, ?)", (item_id, lecture_id, segment_id, kind, text, owner, due,
+                                                     lecture_id, t0))
+            self.con.execute("insert into items_fts (id, lecture_id, text, explanation, canonical_key) "
+                             "values (?, ?, ?, '', '')", (item_id, lecture_id, text))
+        return item_id
 
     def prune_chunks(self, lecture_id: str, last_idx: int) -> None:
         """After a complete run: drop chunks a previous run of the same lecture produced beyond the last one."""

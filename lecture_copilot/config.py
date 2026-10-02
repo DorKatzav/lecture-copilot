@@ -34,6 +34,7 @@ EXTRACT_PROMPT = "extract_v4"                                  # v3 + the course
 STRONG_SIGNALS = ("זה במבחן", "יהיה במבחן", "במבחן", "תזכרו", "תזכור", "אל תשכחו", "אל תשכח", "חשוב מאוד", "הכי חשוב",
                   "חשוב ביותר", "חשוב שתזכרו", "לזכור")
 DIGEST_MAP_PROMPT, DIGEST_EXEC_PROMPT = "digest_sections_v1", "digest_exec_v2"   # D-M2-5, D-M3-5
+RECAP_PROMPT = "recap_v1"
 
 # Digest (D-M2-2): map-reduce sized for the 4,096-token context
 TOKENS_PER_WORD = 3                                            # measured 2.86 for Hebrew on gemma3:12b

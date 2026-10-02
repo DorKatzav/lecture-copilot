@@ -133,3 +133,17 @@ def test_the_source_file_is_never_modified(tmp_path):
     before = f.read_bytes()
     collect(TranscriptSource("L", f, runs_dir=tmp_path / "runs"))
     assert f.read_bytes() == before
+
+
+def test_realtime_pace_releases_each_pseudo_chunk_when_its_time_has_come(tmp_path):
+    f = tmp_path / "lecture.vtt"
+    f.write_text("WEBVTT\n\n00:00:00.000 --> 00:00:50.000\nא\n\n00:00:50.000 --> 00:01:40.000\nב\n", encoding="utf-8")
+    clock, sleeps = [100.0], []
+
+    async def fake_sleep(s):
+        sleeps.append(s)
+        clock[0] += s
+    chunks = collect(TranscriptSource("L", f, runs_dir=tmp_path, pace="realtime", sleep=fake_sleep,
+                                      clock=lambda: clock[0]))
+    assert [c.t1 for c in chunks] == [50.0, 100.0] and sleeps == [50.0, 50.0]
+    assert collect(TranscriptSource("L", f, runs_dir=tmp_path / "b")) and not sleeps[2:]   # fast: no sleeping

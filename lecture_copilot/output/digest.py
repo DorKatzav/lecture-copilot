@@ -249,7 +249,7 @@ def _collect(lecture_id: str, store: Store) -> tuple[DigestDoc, dict[int, list[t
                     label = weeks[first]
                 doc.concepts.append(ConceptRow(it["text"], it["explanation"] or "", key, label))
         elif it["kind"] == "highlight":
-            doc.highlights.append(it["text"])
+            doc.highlights.append(("★ " if it["owner"] == "user" else "") + it["text"])   # ★ = marked in class
         elif it["kind"] == "question":
             doc.questions.append(it["text"])
         elif it["kind"] in ("action", "decision"):

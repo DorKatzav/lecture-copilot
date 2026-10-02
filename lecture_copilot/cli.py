@@ -227,10 +227,25 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--benchmark", type=Path, default=ROOT / "eval" / "benchmark.json")
     v = sub.add_parser("verify", help="fact-check a lecture's material claims (default: the last one), then its Digest")
     v.add_argument("--lecture")
-    for p in (r, d, e, v):
+    sub.add_parser("miccheck", help="10 s from the microphone: peak level, time to -40 dB (run from Terminal)")
+    c = sub.add_parser("copilot", help="the launcher: Ollama, MacWhisper check, the page in the browser")
+    c.add_argument("--no-browser", action="store_true")
+    c.add_argument("--port", type=int, default=8770)
+    c.add_argument("--db", type=Path, default=DB_PATH)
+    c.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
+    for p in (r, d, e, v):   # copilot has its own --db / --courses-root above
         p.add_argument("--db", type=Path, default=DB_PATH)
         p.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
     a = ap.parse_args(argv)
+    if a.cmd == "miccheck":
+        from lecture_copilot.web.launcher import miccheck
+        r = miccheck()
+        print(f"mic: peak {r['peak_db']} dB, -40 dB after {r['seconds_to_minus40']} s → "
+              f"{'readable' if r['readable'] else 'too quiet — move closer or check the input device'}")
+        return 0 if r["readable"] else 1
+    if a.cmd == "copilot":
+        from lecture_copilot.web.launcher import main as launch
+        return launch(open_browser=not a.no_browser, port=a.port, db=a.db, courses_root=a.courses_root)
     client = httpx.AsyncClient(base_url=OLLAMA_URL)
     sink = FolderSink(a.courses_root)
     gemini = None

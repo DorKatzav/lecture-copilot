@@ -792,6 +792,100 @@ def check_outage(work: Path | None = None, client: httpx.AsyncClient | None = No
     return _ok("outage", detail)
 
 
+# ---------- M5: the live product ----------
+
+MIC_CHECK = ROOT / "runs" / "m5" / "mic_check.json"
+LIVE_MIN_S = 20 * 60
+
+
+def _latest_web_run(db: Path) -> tuple[dict, dict | None] | None:
+    con = sqlite3.connect(db)
+    for lid, o in con.execute("select lecture_id, output_json from decisions where node = 'run' "
+                              "and input_ref != 'resume' order by ts desc"):
+        r = json.loads(o)
+        if r.get("via") == "web" and (r.get("source_kind") == "mic" or r.get("pace") == "realtime"):
+            d = con.execute("select output_json from decisions where node = 'digest' and lecture_id = ? "
+                            "and input_ref like '%#digest' order by ts desc limit 1", (lid,)).fetchone()
+            return r, json.loads(d[0]) if d else None
+    return None
+
+
+def check_live_simulation(db: Path = DB_PATH) -> Result:
+    """A lecture of ≥ 20 minutes that came in live through the page (the mic, or a real-time file replay as the
+    stand-in while the mic waits for Dor's permission): rows arrived, nothing failed, Digest within budget."""
+    found = _latest_web_run(db)
+    if found is None:
+        return _fail("live_simulation", "no live lecture through the page (mic or real-time replay) — run copilot")
+    r, d = found
+    minutes = r["audio_s"] / 60
+    failed = sum(v for k, v in r["status"].items() if k not in ("ok", "empty"))
+    detail = (f"{minutes:.0f} min via the page ({r.get('source_kind')}, pace {r.get('pace')}), chunks {r['status']}, "
+              f"Digest {d['total_s'] if d else '—'} s")
+    if r["audio_s"] < LIVE_MIN_S or failed or d is None or d["total_s"] >= DIGEST_BUDGET_S or d["degraded"]:
+        return _fail("live_simulation", detail)
+    return _ok("live_simulation", detail)
+
+
+def check_crash_resume(db: Path = DB_PATH) -> Result:
+    con = sqlite3.connect(db)
+    row = con.execute(
+        "select r.lecture_id, r.output_json from decisions r join lecture_summaries s on s.lecture_id = r.lecture_id "
+        "join lectures l on l.id = r.lecture_id where r.node = 'run' and r.input_ref = 'resume' "
+        "and l.status = 'digested' order by r.ts desc limit 1").fetchone()
+    if row is None:
+        return _fail("crash_resume", "no lecture was resumed after an interruption and digested")
+    o = json.loads(row[1])
+    return _ok("crash_resume", f"an interrupted lecture was resumed from {o.get('chunks')} saved chunks and digested")
+
+
+def check_mic_level(path: Path = MIC_CHECK) -> Result:
+    """Dor runs `python -m lecture_copilot.cli miccheck` from his Terminal (that is where macOS asks for the
+    microphone); it writes the peak level and when the meter first passed −40 dB."""
+    if not path.is_file():
+        return Result("mic_level", "SKIP", "needs runs/m5/mic_check.json — Dor: python -m lecture_copilot.cli "
+                                           "miccheck (allows the microphone prompt)")
+    r = json.loads(path.read_text(encoding="utf-8"))
+    detail = f"peak {r['peak_db']} dB, −40 dB reached after {r['seconds_to_minus40']} s of {r['seconds']} s"
+    if r["seconds_to_minus40"] is None or r["seconds_to_minus40"] > 10:
+        return _fail("mic_level", detail)
+    return _ok("mic_level", detail)
+
+
+def check_course_html(courses_root: Path = COURSES_ROOT) -> Result:
+    import re
+    pages = sorted(Path(courses_root).glob("*/course.html"))
+    if not pages:
+        return _fail("course_html", f"no course.html under {courses_root}")
+    page = pages[-1]
+    html = page.read_text(encoding="utf-8")
+    lectures_block = html.split('id="lectures"', 1)[1].split("</section>", 1)[0] if 'id="lectures"' in html else ""
+    n_lectures = len(re.findall(r"<a\b", lectures_block))
+    glossary = html.split('data-list="glossary"', 1)[1].split("</section>", 1)[0] if 'data-list="glossary"' in html \
+        else ""
+    n_glossary = len(re.findall(r'class="row', glossary))
+    detail = f"{page.parent.name}: {n_lectures} lectures, {n_glossary} glossary rows"
+    if '<html lang="he" dir="rtl">' not in html or n_lectures < 2 or n_glossary < 2:
+        return _fail("course_html", detail)
+    return _ok("course_html", detail)
+
+
+def check_page_rtl(img_dir: Path = IMG_DIR) -> Result:
+    html = (ROOT / "lecture_copilot" / "web" / "index.html").read_text(encoding="utf-8")
+    problems = []
+    if '<html lang="he" dir="rtl">' not in html:
+        problems.append("index.html is not lang=he dir=rtl")
+    for word in ("alert(", "Notification", "confirm(", "<audio", ".play()"):
+        if word in html:
+            problems.append(f"index.html contains {word} — nothing may pop up")
+    missing = [n for n in ("m5_before.jpg", "m5_during.jpg", "m5_after.jpg")
+               if not (img_dir / n).is_file() or (img_dir / n).stat().st_size < 1000]
+    if missing:
+        problems.append(f"no browser screenshot: {', '.join(missing)}")
+    if problems:
+        return _fail("page_rtl", "; ".join(problems))
+    return _ok("page_rtl", "lang=he dir=rtl, nothing pops up; screenshots before / during / after")
+
+
 # ---------- runner ----------
 
 def _stage0() -> dict:
@@ -807,6 +901,16 @@ CHECKS: dict[int, list[tuple[str, Callable[[], Result]]]] = {
         ("mw_bench", lambda: check_mw_bench(_stage0())),
         ("extract_bench", lambda: check_extract_bench(_stage0())),
         ("mic_seat", lambda: check_mic(_stage0())),
+        ("secret_scan", check_secret_scan),
+    ],
+    5: [
+        ("live_simulation", check_live_simulation),
+        ("crash_resume", check_crash_resume),
+        ("mic_level", check_mic_level),
+        ("course_html", check_course_html),
+        ("page_rtl", check_page_rtl),
+        ("prompt_cache", check_prompt_cache),
+        ("tests", check_tests),
         ("secret_scan", check_secret_scan),
     ],
     4: [

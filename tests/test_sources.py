@@ -99,3 +99,56 @@ def test_unreadable_file_raises(tmp_path):
     bad.write_bytes(b"not audio")
     with pytest.raises(RuntimeError, match="ffmpeg"):
         collect(FileSource("L", bad, runs_dir=tmp_path / "runs"))
+
+
+# ---------- M5: the microphone ----------
+
+class FakeStream:
+    """Stands in for sounddevice.InputStream: `feed` delivers blocks the way the audio thread would."""
+
+    def __init__(self, samplerate, channels, blocksize, callback, device=None):
+        self.callback, self.blocksize, self.started, self.closed = callback, blocksize, False, False
+        FakeStream.last = self
+
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.started = False
+
+    def close(self):
+        self.closed = True
+
+    def feed(self, block):
+        self.callback(block.reshape(-1, 1), len(block), None, None)
+
+
+def test_live_source_cuts_the_mic_into_wavs_and_reports_the_level(tmp_path):
+    import threading
+
+    from lecture_copilot.audio.sources import LiveSource
+    audio = speech_with_pauses()
+    src = LiveSource("LIVE", runs_dir=tmp_path / "runs", stream_cls=FakeStream)
+
+    async def go():
+        async def feeder():
+            stream = FakeStream.last
+            for i in range(0, len(audio), 4096):
+                await asyncio.sleep(0)
+                threading.Thread(target=stream.feed, args=(audio[i:i + 4096],)).run()
+            src.stop()
+        chunks = []
+        feed = asyncio.create_task(feeder())
+        async for c in src:
+            chunks.append(c)
+        await feed
+        return chunks
+    chunks = asyncio.run(go())
+    assert [c.idx for c in chunks] == [1, 2, 3] and chunks[0].path.exists()
+    assert chunks[1].t0 == pytest.approx(40.5, abs=0.2) and chunks[-1].t1 == pytest.approx(112.0, abs=0.3)
+    assert FakeStream.last.closed and src.level > -40          # a tone at 0.3 amplitude is well above -40 dB
+
+
+def test_live_source_level_is_silent_before_any_audio(tmp_path):
+    from lecture_copilot.audio.sources import LiveSource
+    assert LiveSource("L", runs_dir=tmp_path, stream_cls=FakeStream).level < -100

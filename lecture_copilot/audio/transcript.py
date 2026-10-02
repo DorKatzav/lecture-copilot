@@ -4,10 +4,13 @@ mw's own JSON shape; `asr.transcript.TranscriptASR` reads them back, so the pipe
 was transcribed (D-M2-1). The source file is only read.
 """
 
+import asyncio
 import json
 import re
-from collections.abc import AsyncIterator
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
+from typing import Literal
 
 from lecture_copilot.asr.base import Segment
 from lecture_copilot.audio.sources import AudioChunk
@@ -71,18 +74,27 @@ def group_segments(segments: list[Segment], target_s: float = TARGET_S,
 
 
 class TranscriptSource:
-    def __init__(self, lecture_id: str, file: Path, *, runs_dir: Path = RUNS_DIR):
-        self.lecture_id, self.file = lecture_id, Path(file)
+    def __init__(self, lecture_id: str, file: Path, *, runs_dir: Path = RUNS_DIR,
+                 pace: Literal["realtime", "fast"] = "fast",
+                 sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+                 clock: Callable[[], float] = time.monotonic):
+        self.lecture_id, self.file, self.pace = lecture_id, Path(file), pace
         self.dir = Path(runs_dir) / lecture_id
+        self.sleep, self.clock = sleep, clock
 
     async def __aiter__(self) -> AsyncIterator[AudioChunk]:
         text = self.file.read_text(encoding="utf-8")
         segments = parse_mw_json(text) if self.file.suffix.lower() == ".json" else parse_vtt(text)
         self.dir.mkdir(parents=True, exist_ok=True)
+        started = self.clock()
+        origin = segments[0].t0 if segments else 0.0
         for idx, group in enumerate(group_segments(segments), 1):
             t0 = group[0].t0
             path = self.dir / f"chunk_{idx:04d}.json"
             rows = [{"start": round((s.t0 - t0) * 1000), "end": round((s.t1 - t0) * 1000), "text": s.text,
                      "speaker": s.speaker} for s in group]
             path.write_text(json.dumps({"segments": rows}, ensure_ascii=False), encoding="utf-8")
-            yield AudioChunk(self.lecture_id, idx, path, t0, group[-1].t1)
+            chunk = AudioChunk(self.lecture_id, idx, path, t0, group[-1].t1)
+            if self.pace == "realtime" and (wait := started + (chunk.t1 - origin) - self.clock()) > 0:
+                await self.sleep(wait)      # as if the lecture were being spoken now
+            yield chunk
