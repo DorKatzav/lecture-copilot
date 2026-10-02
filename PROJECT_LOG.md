@@ -184,3 +184,4 @@ Decision ids: `D-M<milestone>-<n>`. Spec-level decisions 1–8 live in `DESIGN_H
 - Gate: `GATE M5: SKIP 7/8` (`mic_level` waits for Dor). Seen failing: `FAIL 5/8` before the crash test was redone on the current code and the screenshots saved.
 - Not built: Zoom/BlackHole (dropped from the ladder 26.9), `recap` beyond 5 minutes as a parameter (the API takes `minutes`), the ★ button's 30-s window on audio (it takes the last chunk).
 - Open: `course.html` of the dev course has 510 glossary rows (every spelling variant) — M3's canonical keys merge within a lecture, not across; a cross-lecture merge by meaning is the next lever for the Study Pack.
+- GitHub: `feat/m5-live` → **PR #12** (CI red once: `sounddevice` imported on CI without PortAudio → lazy import; green after); Hebrew report `docs/reports/M5_HE.html` on `docs/m5-report`, Playwright: 0 direction failures, no overflow, every metric filled, images load. Merged on D-M4-0 after green checks.
