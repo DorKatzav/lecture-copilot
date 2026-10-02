@@ -227,10 +227,16 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--benchmark", type=Path, default=ROOT / "eval" / "benchmark.json")
     v = sub.add_parser("verify", help="fact-check a lecture's material claims (default: the last one), then its Digest")
     v.add_argument("--lecture")
+    c = sub.add_parser("copilot", help="the launcher: Ollama, MacWhisper check, the page in the browser")
+    c.add_argument("--no-browser", action="store_true")
+    c.add_argument("--port", type=int, default=8770)
     for p in (r, d, e, v):
         p.add_argument("--db", type=Path, default=DB_PATH)
         p.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
     a = ap.parse_args(argv)
+    if a.cmd == "copilot":
+        from lecture_copilot.web.launcher import main as launch
+        return launch(open_browser=not a.no_browser, port=a.port)
     client = httpx.AsyncClient(base_url=OLLAMA_URL)
     sink = FolderSink(a.courses_root)
     gemini = None
