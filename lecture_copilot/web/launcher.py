@@ -17,7 +17,7 @@ PORT = 8770
 
 def readiness(*, ollama_client: httpx.Client | None = None, env_file: Path = ROOT / ".env",
               mw_bin: str = MW_BIN) -> dict:
-    out: dict = {"ollama": None, "mw": None, "gemini": False, "ready": False, "fix": []}
+    out: dict = {"ollama": None, "mw": None, "gemini": False, "notion": "off", "ready": False, "fix": []}
     client = ollama_client or httpx.Client(base_url=OLLAMA_URL, timeout=3)
     try:
         out["ollama"] = client.get("/api/version").json().get("version")
@@ -37,6 +37,13 @@ def readiness(*, ollama_client: httpx.Client | None = None, env_file: Path = ROO
     out["gemini"] = bool(os.environ.get("GEMINI_API_KEY"))
     if not out["gemini"]:
         out["fix"].append("no GEMINI_API_KEY in .env — fact-checking will be off")
+    from lecture_copilot.output.notion import NotionIds
+    if not os.environ.get("NOTION_TOKEN"):
+        out["fix"].append("Notion is off — NOTION_TOKEN missing (.env); the folder is written as usual")
+    elif NotionIds.from_env(os.environ) is None:
+        out["fix"].append("Notion is off — run `python -m lecture_copilot.cli notion-init` once")
+    else:
+        out["notion"] = "on"
     out["ready"] = out["ollama"] is not None and out["mw"] is not None
     return out
 
@@ -68,7 +75,7 @@ def main(open_browser: bool = True, port: int = PORT, db: Path | None = None, co
     app = create_app(session)
     url = f"http://127.0.0.1:{port}/"
     print(f"ready · ollama {checks['ollama']} · {checks['mw']} · fact-checking {'on' if checks['gemini'] else 'off'}"
-          f" · {url}")
+          f" · notion {checks['notion']} · {url}", flush=True)
     if open_browser:
         webbrowser.open(url)
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

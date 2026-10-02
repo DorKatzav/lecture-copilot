@@ -224,3 +224,15 @@ def test_stop_syncs_to_notion_when_configured_and_logs_a_skip_otherwise(tmp_path
     assert len(notion.rows(ids.lectures)) == 1 and len(notion.rows(ids.courses)) == 1
     course = notion.rows(ids.courses)[0]
     assert "## הרצאות" in course["markdown"] and "W02" in course["markdown"]
+
+
+def test_the_page_shows_the_launcher_checks_quietly(tmp_path):
+    """M7 checklist: one line under the status says where the output goes (Notion on/off, fact-checking)."""
+    client, session, fake = make(tmp_path, [])
+    session.checks = {"ollama": "0.34.2", "mw": "MacWhisper 15.2.1 (1521)", "gemini": True, "notion": "on",
+                      "ready": True, "fix": []}
+    with client:
+        html = client.get("/").text
+        s = client.get("/api/state").json()
+    assert 'id="checks"' in html and "s.checks.notion" in html
+    assert s["checks"]["notion"] == "on"
