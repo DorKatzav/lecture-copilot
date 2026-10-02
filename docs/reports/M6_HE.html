@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M6 · Notion</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;800&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F6F6F2; --panel:#FFFFFF; --panel2:#EEEFEA; --ink:#1C2030; --ink2:#4D5468; --mute:#7C8398; --line:#D9DBD3;
+  --accent:#C8412F; --accent-soft:#FBE9E5; --local:#1E6F80; --local-soft:#E1F0F2; --cloud:#7A4FA8; --cloud-soft:#EFE7F8;
+  --ok:#2E7D4F; --ok-soft:#E3F2E8; --warn:#B7791F; --warn-soft:#FBF1DC; --code:#F0F1EC;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 6px 20px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+    --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+    --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+  --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+  --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Assistant',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;margin:0;direction:rtl}
+.wrap{max-width:880px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;margin-block:0 12px;padding-top:6px}
+h3{font-size:1.05rem;font-weight:700;margin-block:20px 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--ink2);max-width:62ch}
+a{color:var(--local)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+header.hero{padding-block:36px 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--mute);font-size:.9rem;margin-top:14px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;margin-bottom:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--panel2);color:var(--ink2);text-decoration:none;font-size:.88rem;font-weight:600;margin-inline-end:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section{margin-bottom:48px;scroll-margin-top:64px}
+.callout{border-inline-start:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:6px;margin:16px 0}
+.callout.local{border-color:var(--local);background:var(--local-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:480px}
+th,td{padding:10px 12px;text-align:right;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-family:'Heebo',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:700;font-family:'Heebo',sans-serif;white-space:nowrap}
+.yes{background:var(--ok-soft);color:var(--ok)} .no{background:var(--accent-soft);color:var(--accent)} .maybe{background:var(--warn-soft);color:var(--warn)}
+.loc{background:var(--local-soft);color:var(--local)} .cld{background:var(--cloud-soft);color:var(--cloud)} .mw{background:var(--panel2);color:var(--ink2)}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em;direction:ltr;unicode-bidi:embed}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;direction:ltr;text-align:left;font-size:.85rem;line-height:1.55;margin:12px 0 18px}
+pre.rtl{direction:rtl;text-align:right;font-family:'Assistant',sans-serif;font-size:.95rem;white-space:pre-wrap}
+pre code{background:none;padding:0}
+ul,ol{padding-inline-start:22px;margin:0 0 12px}
+li{margin-bottom:6px}
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:14px 0 20px}
+.step{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;box-shadow:var(--shadow)}
+.step b{display:block;font-family:'Heebo',sans-serif;font-size:.95rem}
+.step small{display:block;color:var(--mute);font-size:.82rem;line-height:1.4;margin-top:4px}
+.step.local{border-top:3px solid var(--local)} .step.cloud{border-top:3px solid var(--cloud)} .step.hot{border-top:3px solid var(--accent)} .step.mw{border-top:3px solid var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--mute);margin-top:-8px;margin-bottom:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:5px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow);margin:14px 0 20px}
+.mock .bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font-size:.85rem;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.mock .title{font-family:'Heebo',sans-serif;font-size:1.05rem;font-weight:700;color:var(--ink)}
+.mock .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media (max-width:600px){.mock .grid{grid-template-columns:1fr}}
+.mock .box{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--paper)}
+.mock .box h4{margin:0 0 10px;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--mute);font-weight:600;letter-spacing:.04em}
+.field{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.95rem}
+.field span.in{flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--panel)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.seg span{border:1px solid var(--line);border-radius:6px;padding:5px 12px;color:var(--mute);font-size:.9rem;background:var(--panel)}
+.seg span.on{border-color:var(--local);color:var(--local);background:var(--local-soft);font-weight:700}
+.recbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--accent);color:#fff;border-radius:10px;padding:16px;font-family:'Heebo',sans-serif;font-size:1.2rem;font-weight:800;margin:6px 0 8px}
+.recbtn i{width:14px;height:14px;border-radius:50%;background:#fff;display:inline-block}
+.mock .hint{color:var(--mute);font-size:.82rem}
+.mock .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.mock .row:last-child{border:0}
+.wk{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.wk .w{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.wk .w.off{background:var(--panel2);box-shadow:none;color:var(--mute)}
+.wk h4{margin:0 0 4px;font-family:'Heebo',sans-serif;font-size:1rem}
+.wk .d{color:var(--mute);font-size:.82rem;font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
+.wk ul{padding-inline-start:18px;font-size:.92rem;margin:0}
+.wk .goal{margin-top:8px;font-size:.88rem;color:var(--local);font-weight:700}
+.sources{font-size:.9rem;color:var(--ink2)}
+.sources li{margin-bottom:4px}
+.diff{font-size:.9rem;color:var(--ink2)}
+.diff b{color:var(--ink)}
+.dec{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.95rem}
+.dec b{color:var(--warn)}
+</style>
+</head>
+<body>
+<style>
+.num{font-family:'IBM Plex Mono',monospace;font-weight:500;direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.ask{border:2px solid var(--local);background:var(--local-soft);border-radius:10px;padding:14px 18px;margin:18px 0}
+.ask b{color:var(--local)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:16px 0 8px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);border-top:3px solid var(--ok)}
+.kpi b{display:block;font-family:'Heebo',sans-serif;font-size:1.35rem}
+.kpi small{color:var(--mute);font-size:.82rem}
+.id{direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.shots{display:grid;grid-template-columns:2.4fr 1fr;gap:14px;align-items:start;margin:14px 0}
+.shots img{width:100%;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.shots figure{margin:0}
+<style>
+.notion-tree{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:14px 0;font-size:.95rem;box-shadow:var(--shadow)}
+.notion-tree ul{list-style:none;padding-inline-start:18px;margin:4px 0}
+.notion-tree > ul{padding-inline-start:0}
+.notion-tree li{margin-bottom:4px}
+.notion-tree small{color:var(--mute)}
+.shots3{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:14px 0}
+.shots3 img{width:100%;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.shots3 figure{margin:0}
+.shots3 figcaption{color:var(--mute);font-size:.85rem;margin-top:6px}
+.inc{background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;padding:12px 16px;margin:14px 0}
+.inc b{color:var(--accent)}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">docs/reports · M6 · 2.10.2026</div>
+  <h1 style="margin-top:8px">M6 — Notion</h1>
+  <p class="lead" style="margin-top:12px">אותו Digest שנכתב לתיקיית הקורס נכתב עכשיו גם ל-Notion — בטלפון, ולשיתוף. חמישה מסדים תחת העמוד "🎓 לימודים" שיצרת, עמוד לכל הרצאה שגופו הוא ה-Digest, ושורה לכל מושג, טענה מסומנת ומשימה. לכל שורה מפתח נסתר, ולכן סנכרון חוזר מעדכן במקום ולא מכפיל. בלי טוקן, ה-Sink מדלג עם סיבה ביומן והתיקייה נכתבת כרגיל: Notion לעולם לא חוסם Digest.</p>
+  <div class="meta"><span>ענף <code>feat/m6-notion</code></span><span>המספרים מ-<code>eval/m6.json</code> ומטבלת <code>decisions</code></span><span>נבנה לפני המועד (תוכנן ל-<span class="num">16.10</span>)</span></div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><b class="num">8/8</b><small>שער M6, על ה-Notion האמיתי שלך</small></div>
+  <div class="kpi"><b class="num">584</b><small>בדיקות (היו 523), ruff נקי</small></div>
+  <div class="kpi"><b><span class="num" data-metric="sync.first_sync.s">24.24</span> שנ'</b><small>סנכרון ראשון של הרצאה (20 דק')</small></div>
+  <div class="kpi"><b><span class="num" data-metric="sync.cost_usd">0</span> $</b><small>עלות · Notion לא מחייב</small></div>
+</div>
+
+<nav class="toc"><a href="#what">מה נבנה</a><a href="#look">איך זה נראה</a><a href="#numbers">המספרים</a><a href="#caught">מה נתפס</a><a href="#incident">תקלה</a><a href="#decisions">החלטות</a><a href="#you">אצלך</a><a href="#next">מה הלאה</a></nav>
+
+<section id="what">
+  <h2>מה נבנה</h2>
+  <div class="notion-tree">
+    <ul>
+      <li>🎓 <b>לימודים</b> <small>— העמוד שיצרת ושיתפת עם האינטגרציה</small>
+        <ul>
+          <li>🎓 <b>קורסים</b> <small>— שם, שפה, תיקייה</small></li>
+          <li>📚 <b>הרצאות</b> <small>— כותרת, קורס↗, שבוע, תאריך, סטטוס, סיכום מנהלים, מספר טענות מהותיות, דקות; גוף העמוד = ה-Digest</small></li>
+          <li>📖 <b>מילון</b> <small>— מושג, הסבר, קורס↗, נראה לראשונה↗, canonical_key, ★</small></li>
+          <li>🔍 <b>טענות</b> <small>— המרצה אמר, בפועל, פסיקה, מקור, חשיבות, קורס↗, הרצאה↗</small></li>
+          <li>📌 <b>משימות</b> <small>— משימה, תאריך יעד, בוצע ☐, בעלים, קורס↗, הרצאה↗</small></li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+  <div class="flow">
+    <div class="step local"><b>סיום</b><small>ה-Digest נוצר ונשמר במסד (מעכשיו גם החלקים שרק המודל יוצר — סכימה v7)</small></div>
+    <div class="step local"><b>FolderSink</b><small>התיקייה נכתבת כרגיל, קודם</small></div>
+    <div class="step cloud"><b>NotionSink</b><small>שורת קורס, עמוד הרצאה ב-Markdown, שורות מילון / טענות / משימות — upsert לפי מפתח</small></div>
+    <div class="step mw"><b>בלי טוקן</b><small>"skipped — NOTION_TOKEN missing" ביומן; שום דבר לא נעצר</small></div>
+  </div>
+  <ul>
+    <li><b><code>cli notion-init</code></b> — יוצר את חמשת המסדים פעם אחת ושומר את ה-id-ים ב-<code>.env</code>. הרצה חוזרת שומרת מסד שקיים ויוצרת מחדש רק מסד שנמחק.</li>
+    <li><b>עמוד ההרצאה</b> נשלח ב-Markdown של Notion (גרסת API <span class="num">2026-03-11</span>): callout כחול לסיכום המנהלים, toggle לסיכום המלא, callout צהוב ל-★, callout אדום לטענה שגויה, תיבות סימון למשימות, H2 לכל אחד מתשעת הפרקים. סנכרון חוזר מחליף את גוף העמוד במקום.</li>
+    <li><b><code>cli notion-sync</code></b> — דוחף הרצאות שכבר סוכמו מה-Digest השמור, בלי לקרוא למודל. כך גם הרצאות ישנות מגיעות ל-Notion אחרי שהטוקן נכנס.</li>
+    <li><b>הכל דרך <code>store/net.py</code></b>: כל קריאה נרשמת ב-<code>decisions</code> עם המארח, הבייטים והזמן; הטוקן לא מופיע ביומן. יוצא רק טקסט ה-Digest — אודיו ותמלול לא.</li>
+  </ul>
+</section>
+
+<section id="look">
+  <h2>איך זה נראה</h2>
+  <p>הרצאת הדגמה מומצאת (CAC, LTV, Churn) על מסד נפרד — אותו עמוד שהמוצר כותב ב"סיום". חומר הקורס האמיתי נשאר מחוץ לריפו.</p>
+  <div class="shots3">
+    <figure><img src="img/m6_page_top.jpg" alt="עמוד הרצאה ב-Notion: הכותרת, מפתח, דקות, טענות מהותיות, סטטוס, סיכום מנהלים בשדה"><figcaption>ראש העמוד: השדות</figcaption></figure>
+    <figure><img src="img/m6_page_body.jpg" alt="גוף העמוד: callout של סיכום המנהלים, toggle של הסיכום המלא, callout ★"><figcaption>סיכום מנהלים · סיכום מלא (toggle) · ★</figcaption></figure>
+    <figure><img src="img/m6_page_claims.jpg" alt="מושגים וטענות מסומנות, כולל callout אדום לטענה לא מדויקת עם מקור"><figcaption>מושגים · טענות — "לא מדויק" ב-callout אדום עם מקור</figcaption></figure>
+    <figure><img src="img/m6_page_tasks.jpg" alt="שאלות פתוחות, משימה עם תיבת סימון, הערות"><figcaption>שאלות · משימה עם ☐ · הערות</figcaption></figure>
+    <figure><img src="img/m6_root.jpg" alt="עמוד הלימודים עם חמשת המסדים"><figcaption>העמוד "לימודים" וחמשת המסדים</figcaption></figure>
+  </div>
+</section>
+
+<section id="numbers">
+  <h2>המספרים</h2>
+  <ul>
+    <li><b>סנכרון ראשון של הרצאה אמיתית</b> (התרגול, 20 דק', <span class="num" data-metric="sync.rows.concepts">47</span> שורות מושג שהן 23 מפתחות, <span class="num" data-metric="sync.rows.claims">6</span> טענות, <span class="num" data-metric="sync.rows.tasks">2</span> משימות): <span class="num" data-metric="sync.first_sync.calls">38</span> קריאות, <span class="num" data-metric="sync.first_sync.s">24.24</span> שנ'. עמוד הקורס: <span class="num" data-metric="sync.course_s">1.97</span> שנ'.</li>
+    <li><b>סנכרון חוזר</b> (<span class="num" data-metric="sync.resyncs.n">4</span> פעמים, כולל השער): עד <span class="num" data-metric="sync.resyncs.calls_max">39</span> קריאות ועד <span class="num" data-metric="sync.resyncs.s_max">24.9</span> שנ'; אף שורה לא הוכפלה — <span class="num">23→23</span> מילון, <span class="num">6→6</span> טענות, <span class="num">2→2</span> משימות, אותו עמוד.</li>
+    <li><b>"סיום" מלא על הרצאת ההדגמה:</b> Digest ב-<span class="num" data-metric="demo.digest_s">20.82</span> שנ', ואז Notion ב-<span class="num" data-metric="demo.first_sync.s">11.79</span> שנ' (<span class="num" data-metric="demo.first_sync.calls">17</span> קריאות) באותה ריצה.</li>
+    <li><b>סך הכל היום:</b> <span class="num" data-metric="sync.calls">194</span> קריאות ל-Notion על ההרצאה הזו, <span class="num" data-metric="sync.failed">0</span> נכשלו, <span class="num" data-metric="sync.bytes_out_kb">152.4</span> KB יצאו. עלות: <span class="num">0</span>.</li>
+    <li><b>השער:</b> חמשת המסדים עונים · עמוד ההרצאה עם <span class="num">9</span> פרקים · שורות המילון = המפתחות הייחודיים · סנכרון חוזר בלי כפילויות · דילוג עם סיבה כשאין טוקן · prompt cache · בדיקות · סריקת סודות. <b>PASS 8/8</b>.</li>
+  </ul>
+</section>
+
+<section id="caught">
+  <h2>מה נתפס בהרצה האמיתית</h2>
+  <ul>
+    <li><b><code>cli digest</code> לא ראה את הטוקן</b> — ה-Sinks נבחרו לפני טעינת <code>.env</code> (הדף ו-<code>replay</code> טענו, <code>digest</code> לא). תוקן עם בדיקה.</li>
+    <li><b>שורות שמתחילות באנגלית התהפכו</b> ("GitLab — פלטפורמה" יצא משמאל לימין): Notion קובע כיוון לפי התו החזק הראשון. בקורס בעברית כל שורה פותחת עכשיו בסימן RTL. אומת בדפדפן.</li>
+    <li><b>הגוון של ה-callout</b> צבע את הטקסט ולא את הרקע — עבר לצבעי רקע. <b>האימוג'י הוכפל</b> בכותרות המסדים (אייקון + כותרת) — הכותרת בלי.</li>
+    <li><b>בדיקת הסנכרון החוזר בשער קרסה</b> ("Event loop is closed"): שלוש ריצות של asyncio על לקוח HTTP אחד. ה-Notion המזויף לא תפס את זה. לולאה אחת, עם בדיקה שסופרת.</li>
+    <li><b>פרטי השער הדפיסו עברית</b> לטרמינל (שמות הפרקים) — מספרים בלבד עכשיו, עם בדיקה.</li>
+  </ul>
+</section>
+
+<section id="incident">
+  <h2>תקלה: הבדיקות כתבו ל-Notion האמיתי</h2>
+  <div class="inc"><p><b>מה קרה:</b> אחרי שהטוקן נכנס ל-<code>.env</code>, בדיקה שמריצה את <code>cli.main</code> טענה את הקובץ האמיתי לסביבת התהליך; בדיקות הדף שרצו אחריה בנו <code>NotionSink</code> אמיתי וכתבו <span class="num">42</span> שורות ניסיון למסדים שלך (קורס "AI Developers", הרצאות "W01"). המסדים היו ריקים, שום דבר שלך לא נפגע; השורות הועברו לפח באישורך.</p>
+  <p><b>מה תוקן:</b> כל בדיקה רצה עכשיו חתומה מ-<code>.env</code> (<code>tests/conftest.py</code> מסיר את הסודות מהסביבה ומצביע על קובץ שלא קיים), ו-<b>חוט מעידה</b>: בניית לקוח Notion אמיתי בתוך הבדיקות נכשלת. בהרצה הראשונה הוא תפס עוד שלוש בדיקות שהגיעו ל-Notion.</p>
+  <p><b>הלקח:</b> "הסוד קיים ב-.env" ו"הבדיקות לא רואות אותו" הם שני דברים שונים; מזויף בבדיקות לא מספיק בלי חומה בין הבדיקות לסביבה.</p></div>
+</section>
+
+<section id="decisions">
+  <h2>ההחלטות של M6</h2>
+  <div class="dec"><b><span class="id">D-M6-1</span> — גרסת API <span class="num">2026-03-11</span>, גוף העמוד ב-Markdown:</b> יצירה עם <code>markdown</code>, סנכרון חוזר עם <code>replace_content</code>. החלופה — API הבלוקים, המרה ידנית ו-100 ילדים לקריאה — בדיוק מה שהמפרט אמר לא לעשות.</div>
+  <div class="dec"><b><span class="id">D-M6-2</span> — מפתחות ה-upsert:</b> קורס, הרצאה, <code>course:canonical_key</code>, <code>lecture:claim_id</code>, <code>lecture:item_id</code> בשדה נסתר. "נראה לראשונה" ו-"בוצע" נקבעים כשהשורה נולדת ולא נוגעים בהם שוב — אתה מסמן משימות ב-Notion.</div>
+  <div class="dec"><b><span class="id">D-M6-3</span> — ה-Sinks נבחרים ברגע ה-Digest</b> לפי <code>.env</code>, לא בהפעלה. בלי טוקן: דילוג עם סיבה; Sink שנכשל לא עוצר את הבא.</div>
+  <div class="dec"><b><span class="id">D-M6-4</span> — <code>notion-sync</code> בלי המודל (לא היה בתוכנית):</b> נדרש לשער ולדחיפת הרצאות ישנות. המחיר: סכימה v7 שומרת את החלקים שרק המודל יוצר ליד ה-Markdown.</div>
+  <div class="dec"><b>לא דרך ה-API:</b> תצוגות (גלריה לפי קורס, "★ למבחן", "פסיקה ≠ נכון", לוח משימות) — אין להן נקודת קצה. בונים פעם אחת ביד.</div>
+</section>
+
+<section id="you">
+  <h2>אצלך</h2>
+  <div class="ask"><p><b>פעם אחת, ב-Notion:</b> התצוגות. במסד "הרצאות" — גלריה לפי קורס; במסד "מילון" — טבלה מקובצת לפי קורס ותצוגה מסוננת ★; במסד "טענות" — סינון "פסיקה ≠ נכון"; במסד "משימות" — לוח לפי "בוצע". ה-API לא יוצר תצוגות; המוצר ממלא אותן.</p>
+  <p><b>כשתרצה:</b> <code>python -m lecture_copilot.cli notion-sync</code> דוחף כל הרצאה שסוכמה (ההרצאות של 7/6 ו-9/6 צריכות קודם <code>cli digest --lecture …</code> אחת, כי סוכמו לפני סכימה v7).</p></div>
+</section>
+
+<section id="next">
+  <h2>מה הלאה</h2>
+  <ul>
+    <li><b>M7:</b> צ'קליסט להרצאה הראשונה, <code>copilot</code> מוכן מהפעלה קרה בפחות מדקה, ריצה מקצה לקצה לפי הצ'קליסט.</li>
+    <li><b>פתוח:</b> המילון ב-Notion מקבל שורה לכל <code>canonical_key</code> — כמו <code>course.html</code>, כל כתיב בנפרד (<span class="num">47</span> שורות מושג → <span class="num">23</span> מפתחות בהרצאה אחת). איחוד לפי משמעות בין הרצאות הוא המנוף הבא.</li>
+    <li><b>אצלך עדיין:</b> <code>miccheck</code> מ-Terminal; Google Drive for desktop; התיוגים ב-<code>eval/benchmark.json</code>.</li>
+  </ul>
+</section>
+</div>
+</body>
+</html>
