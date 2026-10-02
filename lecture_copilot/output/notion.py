@@ -133,19 +133,19 @@ def database_schemas(courses: str | None, lectures: str | None) -> dict[str, tup
     rel_lecture = {"relation": {"data_source_id": lectures, "type": "single_property", "single_property": {}}}
     key = {"rich_text": {}}
     return {
-        "courses": ("🎓 קורסים", "🎓", {"שם": {"title": {}}, "שפה": {"select": {"options": [
+        "courses": ("קורסים", "🎓", {"שם": {"title": {}}, "שפה": {"select": {"options": [
             {"name": "he", "color": "blue"}, {"name": "en", "color": "purple"}]}},
             "תיקייה": {"rich_text": {}}, "key": key}),
-        "lectures": ("📚 הרצאות", "📚", {"כותרת": {"title": {}}, "קורס": rel_course, "שבוע": {"number": {}},
+        "lectures": ("הרצאות", "📚", {"כותרת": {"title": {}}, "קורס": rel_course, "שבוע": {"number": {}},
                                         "תאריך": {"date": {}}, "סטטוס": {"select": {"options": [
                                             {"name": v, "color": "green" if k == "digested" else "yellow"}
                                             for k, v in STATUS_HE.items()]}},
                                         "סיכום מנהלים": {"rich_text": {}}, "טענות מהותיות": {"number": {}},
                                         "דקות": {"number": {}}, "key": key}),
-        "glossary": ("📖 מילון", "📖", {"מושג": {"title": {}}, "הסבר": {"rich_text": {}}, "קורס": rel_course,
+        "glossary": ("מילון", "📖", {"מושג": {"title": {}}, "הסבר": {"rich_text": {}}, "קורס": rel_course,
                                        "נראה לראשונה": rel_lecture, "canonical_key": {"rich_text": {}},
                                        "★": {"checkbox": {}}, "key": key}),
-        "claims": ("🔍 טענות", "🔍", {"המרצה אמר": {"title": {}}, "בפועל": {"rich_text": {}},
+        "claims": ("טענות", "🔍", {"המרצה אמר": {"title": {}}, "בפועל": {"rich_text": {}},
                                      "פסיקה": {"select": {"options": [
                                          {"name": VERDICT_HE["correct"], "color": "green"},
                                          {"name": VERDICT_HE["incorrect"], "color": "red"},
@@ -154,7 +154,7 @@ def database_schemas(courses: str | None, lectures: str | None) -> dict[str, tup
                                          {"name": UNCHECKED_HE, "color": "default"}]}},
                                      "מקור": {"url": {}}, "חשיבות": {"number": {}}, "קורס": rel_course,
                                      "הרצאה": rel_lecture, "key": key}),
-        "tasks": ("📌 משימות", "📌", {"משימה": {"title": {}}, "תאריך יעד": {"date": {}}, "בוצע": {"checkbox": {}},
+        "tasks": ("משימות", "📌", {"משימה": {"title": {}}, "תאריך יעד": {"date": {}}, "בוצע": {"checkbox": {}},
                                      "בעלים": {"rich_text": {}}, "קורס": rel_course, "הרצאה": rel_lecture,
                                      "key": key}),
     }

@@ -83,8 +83,10 @@ def test_init_creates_the_five_databases_under_the_root_page(world):
     fake, store, net, api, ids = world
     assert set(fake.databases) == {ids.courses, ids.lectures, ids.glossary, ids.claims, ids.tasks}
     assert all(d["parent"] == {"type": "page_id", "page_id": fake.root_page} for d in fake.databases.values())
-    assert [fake.databases[i]["title"][0] for i in (ids.courses, ids.lectures, ids.glossary, ids.claims, ids.tasks)
-            ] == ["🎓", "📚", "📖", "🔍", "📌"]
+    icons = [b["icon"]["emoji"] for m, path, b in fake.requests if path == "/v1/databases"]
+    assert icons == ["🎓", "📚", "📖", "🔍", "📌"]
+    assert [fake.databases[i]["title"] for i in (ids.courses, ids.lectures, ids.glossary, ids.claims, ids.tasks)
+            ] == ["קורסים", "הרצאות", "מילון", "טענות", "משימות"]          # the icon carries the emoji, not the title
 
 
 def test_every_database_relates_to_courses_and_carries_a_hidden_key(world):
