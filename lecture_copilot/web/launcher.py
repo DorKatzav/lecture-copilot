@@ -50,7 +50,7 @@ def ensure_ollama() -> bool:
         return p.returncode == 0
 
 
-def main(open_browser: bool = True, port: int = PORT) -> int:
+def main(open_browser: bool = True, port: int = PORT, db: Path | None = None, courses_root: Path | None = None) -> int:
     import uvicorn
 
     from lecture_copilot.web.app import create_app
@@ -62,7 +62,8 @@ def main(open_browser: bool = True, port: int = PORT) -> int:
         print(f"fix: {line}", file=sys.stderr)
     if not checks["ready"]:
         return 1
-    session = Session()
+    kwargs = {k: v for k, v in (("db", db), ("courses_root", courses_root)) if v is not None}
+    session = Session(**kwargs)
     session.checks = checks
     app = create_app(session)
     url = f"http://127.0.0.1:{port}/"
