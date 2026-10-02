@@ -831,3 +831,90 @@ def test_m4_outage_check_fails_when_nothing_was_retried(tmp_path):
 def test_m4_checks():
     assert [name for name, _ in gate.CHECKS[4]] == ["verdict_accuracy", "precision_at_5", "outage", "cost_per_lecture",
                                                     "cache_hit", "ci_offline", "prompt_cache", "tests", "secret_scan"]
+
+
+# ---------- M5 ----------
+
+def m5_store(tmp_path, *, minutes=21, via="web", pace="realtime", digest_s=40.0, failed=0, resumed=True):
+    from lecture_copilot.store.db import Store
+    s = Store(tmp_path / "copilot.sqlite")
+    course = s.upsert_course("AI Developers — Python", language="he")
+    lid = s.upsert_lecture(course, audio_path="/x/live.m4a", source="file", title="live", date="2026-10-02",
+                           fact_check=True)
+    s.end_lecture(lid)
+    s.save_digest(lid, bullets=["x"], digest_md="# d")
+    status = {"ok": 28 - failed, "empty": 0}
+    if failed:
+        status["failed"] = failed
+    s.log("run", lecture_id=lid, input_ref="R", output={"chunks": 28, "status": status, "counts": {},
+                                                       "audio_s": minutes * 60, "via": via, "source_kind": "file",
+                                                       "pace": pace, "timing": {}})
+    s.log("digest", lecture_id=lid, input_ref="R#digest", output={"status": "ok", "degraded": [], "minutes": minutes,
+                                                                 "total_s": digest_s, "blocks": 1})
+    if resumed:
+        other = s.upsert_lecture(course, audio_path="/x/crash.m4a", source="file", title="crash", date="2026-10-02",
+                                 fact_check=True)
+        s.end_lecture(other)
+        s.log("run", lecture_id=other, input_ref="resume", output={"status": "resumed", "chunks": 3, "via": "web"})
+        s.save_digest(other, bullets=["x"], digest_md="# d")
+    s.close()
+    return tmp_path / "copilot.sqlite"
+
+
+def test_m5_live_simulation_passes_for_a_real_time_run_of_20_minutes(tmp_path):
+    r = gate.check_live_simulation(m5_store(tmp_path))
+    assert r.status == "PASS" and "21 min" in r.detail and "40.0 s" in r.detail
+
+
+@pytest.mark.parametrize("kw", [dict(minutes=10), dict(pace="fast"), dict(via="cli"), dict(digest_s=130.0),
+                                dict(failed=1)])
+def test_m5_live_simulation_fails_when_short_fast_not_via_the_page_slow_or_failed(tmp_path, kw):
+    assert gate.check_live_simulation(m5_store(tmp_path, **kw)).status == "FAIL"
+
+
+def test_m5_crash_resume(tmp_path):
+    assert gate.check_crash_resume(m5_store(tmp_path)).status == "PASS"
+    assert gate.check_crash_resume(m5_store(tmp_path / "b", resumed=False)).status == "FAIL"
+
+
+def test_m5_mic_level_reads_dors_check_or_skips(tmp_path):
+    p = tmp_path / "mic_check.json"
+    assert gate.check_mic_level(p).status == "SKIP"
+    p.write_text(json.dumps({"peak_db": -22.5, "seconds_to_minus40": 1.2, "seconds": 10}), encoding="utf-8")
+    assert gate.check_mic_level(p).status == "PASS"
+    p.write_text(json.dumps({"peak_db": -55.0, "seconds_to_minus40": None, "seconds": 10}), encoding="utf-8")
+    assert gate.check_mic_level(p).status == "FAIL"
+
+
+def test_m5_course_html_lists_the_glossary_across_two_lectures(tmp_path):
+    course = tmp_path / "courses" / "AI Developers — Python"
+    course.mkdir(parents=True)
+    (course / "course.html").write_text(
+        '<html lang="he" dir="rtl"><section id="lectures" class="lectures"><a>W01</a><a>W02</a></section>'
+        '<div data-list="glossary"><div class="row">a</div><div class="row">b</div></div></html>', encoding="utf-8")
+    r = gate.check_course_html(courses_root=tmp_path / "courses")
+    assert r.status == "PASS" and "2 lectures" in r.detail
+    (course / "course.html").write_text('<html lang="he" dir="rtl"><section id="lectures"><a>W01</a></section>'
+                                        '<div data-list="glossary"></div></html>', encoding="utf-8")
+    assert gate.check_course_html(courses_root=tmp_path / "courses").status == "FAIL"
+
+
+def test_m5_page_rtl_needs_the_markup_and_three_screenshots(tmp_path):
+    img = tmp_path / "img"
+    img.mkdir()
+    assert gate.check_page_rtl(img_dir=img).status == "FAIL"
+    for name in ("m5_before.jpg", "m5_during.jpg", "m5_after.jpg"):
+        (img / name).write_bytes(b"\xff\xd8" + b"0" * 5000)
+    assert gate.check_page_rtl(img_dir=img).status == "PASS"
+
+
+def test_m5_checks():
+    assert [name for name, _ in gate.CHECKS[5]] == ["live_simulation", "crash_resume", "mic_level", "course_html",
+                                                    "page_rtl", "prompt_cache", "tests", "secret_scan"]
+
+
+def test_mic_report_from_levels():
+    from lecture_copilot.web.launcher import mic_report
+    r = mic_report([-70.0, -65.0, -38.0, -30.0, -42.0], block_s=0.25)
+    assert r == {"peak_db": -30.0, "seconds_to_minus40": 0.75, "seconds": 1.25, "readable": True}
+    assert mic_report([-70.0, -66.0], block_s=0.25)["seconds_to_minus40"] is None
