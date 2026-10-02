@@ -104,7 +104,7 @@ during a lecture.** No submission, no grade: this is a tool Dor uses from the fi
 - Ollama: `gemma3:12b`, `bge-m3` (`qwen3:8b` kept only from the stage-0 comparison) — stored in `~/Projects/_shared/models/ollama` (shared across projects;
   `~/.ollama/models` is a symlink to it). MacWhisper Pro with the CLI installed (`mw version` works).
 - Gemini key from aistudio.google.com in `.env` as `GEMINI_API_KEY`. Notion internal integration token as `NOTION_TOKEN`.
-- Run: `python -m lecture_copilot.cli copilot` (launcher) · replay: `python -m lecture_copilot.cli replay <audio|.vtt|.json> --course NAME [--week N] --pace fast` (ends with the Digest) · rebuild a Digest: `python -m lecture_copilot.cli digest` · fact-check a lecture later: `python -m lecture_copilot.cli verify` · eval: `python -m lecture_copilot.cli eval` (needs `eval/benchmark.json`, gitignored)
+- Run: `python -m lecture_copilot.cli copilot` (launcher: page on http://127.0.0.1:8770, `--no-browser` for scripts) · `cli miccheck` once from Terminal.app for the microphone permission · replay: `python -m lecture_copilot.cli replay <audio|.vtt|.json> --course NAME [--week N] --pace fast` (ends with the Digest) · rebuild a Digest: `python -m lecture_copilot.cli digest` · fact-check a lecture later: `python -m lecture_copilot.cli verify` · eval: `python -m lecture_copilot.cli eval` (needs `eval/benchmark.json`, gitignored)
   · tests: `pytest -q && ruff check .` · gate: `python scripts/gate.py --m N` · eval: `python -m lecture_copilot.cli eval`.
 - `gh` is logged in as DorKatzav. Own git repo in this folder; GitHub `DorKatzav/lecture-copilot` (public, recordings excluded).
 - Report viewer: `python -m http.server 8765` from the project folder, then open in Chrome.
