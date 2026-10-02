@@ -35,7 +35,7 @@ def make(tmp_path, replies, n_chunks=2, gemini=None):
         src.stop = released.set
         return src
     session = Session(db=tmp_path / "copilot.sqlite", courses_root=tmp_path / "courses", runs_dir=tmp_path / "runs",
-                      ollama_client_factory=fake.async_client, asr_factory=lambda: FakeASR(),
+                      ollama_client_factory=fake.async_client, asr_factory=lambda kind: FakeASR(),
                       source_factory=source_factory, gemini_factory=(lambda: gemini) if gemini else None,
                       course_name="AI Developers — Python", backoff_s=0)
     app = create_app(session)
@@ -137,7 +137,7 @@ def test_an_interrupted_lecture_shows_a_banner_and_can_be_resumed(tmp_path):
     # the process died: a new session over the same database
     fake2 = FakeOllama([SECTION, EXEC])
     session2 = Session(db=tmp_path / "copilot.sqlite", courses_root=tmp_path / "courses", runs_dir=tmp_path / "runs",
-                       ollama_client_factory=fake2.async_client, asr_factory=lambda: FakeASR(),
+                       ollama_client_factory=fake2.async_client, asr_factory=lambda kind: FakeASR(),
                        source_factory=lambda *a, **k: ListSource([]), gemini_factory=None,
                        course_name="AI Developers — Python", backoff_s=0)
     client2 = TestClient(create_app(session2))
@@ -160,3 +160,27 @@ def test_the_page_is_hebrew_rtl_and_never_pops_anything(tmp_path):
     assert '<html lang="he" dir="rtl">' in html
     for forbidden in ("alert(", "Notification", "confirm(", "<audio", "play()"):
         assert forbidden not in html
+
+
+def test_a_transcript_replay_reads_the_transcript_instead_of_calling_macwhisper(tmp_path):
+    """Found by the real run: the session sent a .vtt's pseudo-chunks to mw."""
+    seen = []
+
+    def asr_factory(kind):
+        seen.append(kind)
+        return FakeASR()
+    fake = FakeOllama([REPLY, SECTION, EXEC])
+    (tmp_path / "lecture.vtt").write_text("WEBVTT\n\n00:00:00.000 --> 00:00:30.000\nשלום\n", encoding="utf-8")
+    session = Session(db=tmp_path / "c.sqlite", courses_root=tmp_path / "courses", runs_dir=tmp_path / "runs",
+                      ollama_client_factory=fake.async_client, asr_factory=asr_factory,
+                      source_factory=lambda lid, kind, file=None, pace="fast": ListSource(
+                          [AudioChunk(lid, 1, tmp_path / "chunk_0001.json", 0.0, 30.0)]),
+                      gemini_factory=None, course_name="c", backoff_s=0)
+    client = TestClient(create_app(session))
+    with client:
+        r = client.post("/api/replay", json={"course": "c", "title": "t", "file": str(tmp_path / "lecture.vtt"),
+                                             "fact_check": False})
+        assert r.status_code == 200
+        wait_for(client, "digested")
+    assert seen == ["transcript"]
+    assert Session._default_asr("transcript").name == "transcript" and Session._default_asr("mic").name == "mw"

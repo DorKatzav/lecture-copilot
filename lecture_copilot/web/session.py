@@ -89,7 +89,11 @@ class Session:
         return httpx.AsyncClient(base_url=OLLAMA_URL)
 
     @staticmethod
-    def _default_asr():
+    def _default_asr(kind: str):
+        """The ASR follows the source: a transcript's pseudo-chunks are read back, audio goes to MacWhisper."""
+        if kind == "transcript":
+            from lecture_copilot.asr.transcript import TranscriptASR
+            return TranscriptASR()
         from lecture_copilot.asr.macwhisper import MacWhisperASR
         return MacWhisperASR()
 
@@ -212,7 +216,7 @@ class Session:
                     else None
                 ctx = Ctx(lecture_id=cur.lecture_id, course_id=cur.course_id, course_name=cur.course,
                           lecture_title=cur.title, profile=Profile(fact_check=bool(gemini), language=lang),
-                          store=self.store, asr=self.asr_factory(), ollama=client, run_id=new_id(),
+                          store=self.store, asr=self.asr_factory(source), ollama=client, run_id=new_id(),
                           runs_dir=self.runs_dir, backoff_s=self.backoff_s, verifier=verifier)
                 await warm_up(ctx)
                 src = self.source_factory(cur.lecture_id, source, file, pace)
