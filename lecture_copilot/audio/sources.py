@@ -89,9 +89,11 @@ class LiveSource:
             self._loop.call_soon_threadsafe(self._queue.put_nowait, None)
 
     async def __aiter__(self) -> AsyncIterator[AudioChunk]:
-        import sounddevice as sd
         self._loop, self._queue = asyncio.get_running_loop(), asyncio.Queue()
-        stream_cls = self.stream_cls or sd.InputStream
+        if self.stream_cls is None:
+            import sounddevice as sd  # only for the real microphone: CI has no PortAudio
+            self.stream_cls = sd.InputStream
+        stream_cls = self.stream_cls
         stream = stream_cls(samplerate=SR, channels=1, blocksize=SR // 4, callback=self._callback, device=self.device)
         stream.start()
         splitter, idx = Splitter(sr=SR), 0
