@@ -195,3 +195,56 @@ def test_html_claim_card_shows_verdict_explanation_and_source():
                                             explanation="בפועל Y", sources=["https://docs.python.org/3/"])]))
     assert 'class="pill no">לא נכון</span>' in html and "בפועל Y" in html
     assert '<a href="https://docs.python.org/3/"' in html
+
+
+# ---------- choosing the sinks (M6) ----------
+
+def test_without_a_token_notion_is_skipped_with_a_reason(tmp_path):
+    from lecture_copilot.output.sinks import SkippedSink, make_sinks
+    folder, notion = make_sinks(tmp_path, env={})
+    assert isinstance(folder, FolderSink) and folder.root == tmp_path
+    assert isinstance(notion, SkippedSink) and notion.name == "NotionSink" and "NOTION_TOKEN" in notion.reason
+
+
+def test_with_a_token_but_no_databases_notion_is_skipped_pointing_at_init(tmp_path):
+    from lecture_copilot.output.sinks import SkippedSink, make_sinks
+    _, notion = make_sinks(tmp_path, env={"NOTION_TOKEN": "t"})
+    assert isinstance(notion, SkippedSink) and "notion-init" in notion.reason
+
+
+def test_with_a_token_and_databases_notion_is_live(tmp_path):
+    from lecture_copilot.output.notion import NotionIds, NotionSink
+    from lecture_copilot.output.sinks import make_sinks
+    from lecture_copilot.store.db import Store
+    store = Store(tmp_path / "copilot.sqlite")
+    env = {"NOTION_TOKEN": "t", **NotionIds("c", "l", "g", "k", "t").as_env()}
+    _, notion = make_sinks(tmp_path, env=env, store=store)
+    assert isinstance(notion, NotionSink) and notion.ids.glossary == "g"
+    store.close()
+
+
+def test_a_skipped_sink_raises_its_reason():
+    from lecture_copilot.output.sinks import SinkSkipped, SkippedSink
+    with pytest.raises(SinkSkipped, match="because"):
+        SkippedSink("NotionSink", "because").write_lecture(doc())
+
+
+def test_a_notion_sink_made_without_a_store_binds_to_the_digest_store(tmp_path):
+    import asyncio
+
+    from lecture_copilot.cli import write_sink
+    from lecture_copilot.output.notion import NotionAPI, notion_init
+    from lecture_copilot.output.sinks import make_sinks
+    from lecture_copilot.store.db import Store
+    from lecture_copilot.store.net import Net
+    from tests.stubs import FakeNotion
+    fake = FakeNotion()
+    store = Store(tmp_path / "copilot.sqlite")
+    ids = asyncio.run(notion_init(NotionAPI("t", client=fake.async_client()), Net(store, 0.0), fake.root_page))
+    _, notion = make_sinks(tmp_path, env={"NOTION_TOKEN": "t", **ids.as_env()}, client=fake.async_client())
+    assert notion.net is None
+    _, log = asyncio.run(write_sink(notion, "write_lecture", doc(course_id="K1"), store, "L1"))
+    assert log["status"] == "ok" and log["calls"] > 0
+    n = store.con.execute("select count(*) from decisions where node = 'net' and lecture_id = 'L1'").fetchone()[0]
+    assert n == log["calls"]
+    store.close()

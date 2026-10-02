@@ -6,10 +6,11 @@
 
 import argparse
 import asyncio
+import inspect
 import os
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import date as date_cls
 from pathlib import Path
 
@@ -36,7 +37,7 @@ from lecture_copilot.config import (
 )
 from lecture_copilot.memprobe import MemoryProbe, total_gb
 from lecture_copilot.output.digest import digest, render_markdown, section_headings
-from lecture_copilot.output.sinks import FolderSink, Sink
+from lecture_copilot.output.sinks import Sink, make_sinks
 from lecture_copilot.pipeline import Ctx, run, warm_up
 from lecture_copilot.scriptcheck import terminal_text
 from lecture_copilot.store.db import Store, new_id
@@ -88,28 +89,59 @@ def fmt_summary(lecture_id: str, s: dict) -> list[str]:
     return lines
 
 
-async def make_digest(lecture_id: str, store: Store, client: httpx.AsyncClient, sink: Sink,
+async def make_digest(lecture_id: str, store: Store, client: httpx.AsyncClient, sink: Sink | Sequence[Sink],
                       echo: Callable[[str], None]) -> dict:
-    """ "סיום": the Digest, then the sink. A failing sink never loses the Digest — it is already in the database."""
+    """ "סיום": the Digest, then every sink in turn. A failing or skipped sink never loses the Digest — it is
+    already in the database — and never stops the next sink."""
     t = time.perf_counter()
     doc = await digest(lecture_id, store=store, client=client)
     digest_s = round(time.perf_counter() - t, 1)
-    out = {"folder": None, "digest_s": digest_s, "degraded": doc.degraded,
+    out = {"folder": None, "notion": None, "digest_s": digest_s, "degraded": doc.degraded,
            "sections": len(section_headings(render_markdown(doc)))}
-    t = time.perf_counter()
-    try:
-        folder = sink.write_lecture(doc)
-        out["folder"] = str(folder)
-        log = {"status": "ok", "folder": str(folder), "files": sum(1 for p in folder.iterdir() if p.is_file())}
-    except OSError as e:
-        log = {"status": "failed", "error": f"{type(e).__name__}: {e}"}
-    store.log("sink", lecture_id=lecture_id, input_ref=lecture_id, ms=(time.perf_counter() - t) * 1000,
-              output={"sink": type(sink).__name__, **log})
     over = f"  OVER BUDGET ({DIGEST_BUDGET_S} s)" if digest_s > DIGEST_BUDGET_S else ""
     degraded = f" · degraded: {', '.join(doc.degraded)}" if doc.degraded else ""
     echo(f"digest: {out['sections']} sections · {doc.minutes} min lecture · {digest_s} s{over}{degraded}")
-    echo(terminal_text(f"folder: {out['folder']}" if out["folder"] else f"sink failed: {log['error']}", 300))
+    for one in ([sink] if not isinstance(sink, Sequence) else sink):
+        result, log = await write_sink(one, "write_lecture", doc, store, lecture_id)
+        if isinstance(result, Path):
+            out["folder"] = str(result)
+            echo(terminal_text(f"folder: {result}", 300))
+        elif isinstance(result, str):
+            out["notion"] = result
+            echo(f"notion: {result}")
+        elif log["status"] == "skipped":
+            echo(f"{log['sink'].removesuffix('Sink').lower()}: skipped — {log['reason']}")
+        else:
+            echo(terminal_text(f"{log['sink'].removesuffix('Sink').lower()}: failed — {log['error']}", 300))
     return out
+
+
+async def write_sink(sink: Sink, method: str, arg, store: Store, lecture_id: str | None) -> tuple[object, dict]:
+    """Run one sink method (sync or async) and leave a `sink` row: ok with its call count, skipped with the
+    reason, or failed with the error. Returns (result or None, the row)."""
+    from lecture_copilot.output.sinks import SinkSkipped
+    from lecture_copilot.store.net import NetError
+    name = getattr(sink, "name", type(sink).__name__)
+    t = time.perf_counter()
+    calls = store.con.execute("select count(*) from decisions where node = 'net'").fetchone()[0]
+    result, log = None, {"sink": name}
+    try:
+        if hasattr(sink, "bind"):
+            sink.bind(store)
+        result = getattr(sink, method)(arg)
+        if inspect.isawaitable(result):
+            result = await result
+        log.update(status="ok", calls=store.con.execute("select count(*) from decisions where node = 'net'")
+                   .fetchone()[0] - calls)
+        if isinstance(result, Path) and result.is_dir():
+            log["files"] = sum(1 for p in result.iterdir() if p.is_file())
+    except SinkSkipped as e:
+        log.update(status="skipped", reason=str(e))
+    except (OSError, NetError, RuntimeError) as e:
+        log.update(status="failed", error=f"{type(e).__name__}: {e}")
+    store.log("sink", lecture_id=lecture_id, input_ref=f"{lecture_id or ''}:{method}",
+              ms=(time.perf_counter() - t) * 1000, output=log)
+    return result, log
 
 
 async def verify_lecture(lecture_id: str | None, *, db: Path, gemini: VerifierBackend, client: httpx.AsyncClient,
@@ -209,6 +241,40 @@ async def replay(file: Path, course: str, language: str, title: str | None, date
         store.close()
 
 
+def notion_init_cmd(env_file: Path, db: Path, *, client: httpx.AsyncClient | None = None,
+                    echo: Callable[[str], None] = print, environ=None) -> int:
+    """`cli notion-init`: the five databases under the root page, once; their ids go to `.env`. Running it again
+    keeps every database that still exists and recreates only a deleted one."""
+    from lecture_copilot.output.notion import NotionAPI, NotionIds, notion_init, page_id_from, save_env_keys
+    env = dict(os.environ if environ is None else environ)
+    if env_file.is_file():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                k, v = line.split("=", 1)
+                env.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    if not env.get("NOTION_TOKEN"):
+        echo("notion-init: NOTION_TOKEN is empty — create an internal integration at notion.so/profile/integrations, "
+             "paste its token into .env, and share the root page with it (PLAN §7)")
+        return 2
+    root = page_id_from(env.get("NOTION_ROOT_PAGE", ""))
+    if not root:
+        echo("notion-init: NOTION_ROOT_PAGE is not a Notion page URL or id — paste the link of the root page "
+             "(the one shared with the integration) into .env")
+        return 2
+    store = Store(db)
+    try:
+        api = NotionAPI(env["NOTION_TOKEN"], client=client)
+        ids = asyncio.run(notion_init(api, Net(store), root, existing=NotionIds.from_env(env)))
+    except RuntimeError as e:
+        echo(terminal_text(f"notion-init: failed — {e}", 300))
+        return 1
+    finally:
+        store.close()
+    save_env_keys(env_file, ids.as_env())
+    echo(f"notion-init: 5 databases under {root} · ids saved to {env_file.name}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m lecture_copilot.cli")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -228,12 +294,13 @@ def main(argv: list[str] | None = None) -> int:
     v = sub.add_parser("verify", help="fact-check a lecture's material claims (default: the last one), then its Digest")
     v.add_argument("--lecture")
     sub.add_parser("miccheck", help="10 s from the microphone: peak level, time to -40 dB (run from Terminal)")
+    n = sub.add_parser("notion-init", help="create the five Notion databases under NOTION_ROOT_PAGE once (M6)")
     c = sub.add_parser("copilot", help="the launcher: Ollama, MacWhisper check, the page in the browser")
     c.add_argument("--no-browser", action="store_true")
     c.add_argument("--port", type=int, default=8770)
     c.add_argument("--db", type=Path, default=DB_PATH)
     c.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
-    for p in (r, d, e, v):   # copilot has its own --db / --courses-root above
+    for p in (r, d, e, v, n):   # copilot has its own --db / --courses-root above
         p.add_argument("--db", type=Path, default=DB_PATH)
         p.add_argument("--courses-root", type=Path, default=COURSES_ROOT)
     a = ap.parse_args(argv)
@@ -246,8 +313,10 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "copilot":
         from lecture_copilot.web.launcher import main as launch
         return launch(open_browser=not a.no_browser, port=a.port, db=a.db, courses_root=a.courses_root)
+    if a.cmd == "notion-init":
+        return notion_init_cmd(ENV_FILE, a.db, echo=lambda line: print(line, file=sys.stderr))
     client = httpx.AsyncClient(base_url=OLLAMA_URL)
-    sink = FolderSink(a.courses_root)
+    sink = make_sinks(a.courses_root)      # Notion joins when `.env` has a token and the database ids
     gemini = None
     if a.cmd == "eval":
         from lecture_copilot.eval import run_eval

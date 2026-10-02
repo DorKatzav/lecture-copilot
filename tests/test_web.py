@@ -184,3 +184,44 @@ def test_a_transcript_replay_reads_the_transcript_instead_of_calling_macwhisper(
         wait_for(client, "digested")
     assert seen == ["transcript"]
     assert Session._default_asr("transcript").name == "transcript" and Session._default_asr("mic").name == "mw"
+
+
+def test_stop_syncs_to_notion_when_configured_and_logs_a_skip_otherwise(tmp_path, monkeypatch):
+    from lecture_copilot.output.notion import NotionAPI, notion_init
+    from lecture_copilot.store.db import Store
+    from lecture_copilot.store.net import Net
+    from tests.stubs import FakeNotion
+    monkeypatch.delenv("NOTION_TOKEN", raising=False)
+    (tmp_path / ".env").write_text("GEMINI_API_KEY=k\n", encoding="utf-8")
+    exec2 = json.dumps({"exec_summary": [f"נקודה {i}" for i in range(5)],
+                        "continuation": {"new": [], "repeated": ["CAC"], "contradicts": []}}, ensure_ascii=False)
+    client, session, fake = make(tmp_path, [REPLY, SECTION, EXEC, REPLY, SECTION, exec2], n_chunks=1,
+                                 gemini=FakeGemini([OK, OK]))
+    session.env_file = tmp_path / ".env"
+    with client:
+        client.post("/api/record", json={"course": "AI Developers — Python", "title": "W01", "fact_check": True})
+        wait_for(client, "recording")
+        client.post("/api/stop")
+        s = wait_for(client, "digested")
+        assert s["current"]["digest"]["notion"] is None
+        rows = [json.loads(r[0]) for r in session.store.con.execute(
+            "select output_json from decisions where node = 'sink' order by ts")]
+        assert [(r["sink"], r["status"]) for r in rows] == [("FolderSink", "ok"), ("NotionSink", "skipped"),
+                                                            ("FolderSink", "ok"), ("NotionSink", "skipped")]
+        assert "NOTION_TOKEN" in rows[1]["reason"]
+
+        # now a token and the five databases exist: the next "סיום" writes the lecture page and the course row
+        notion = FakeNotion()
+        api = NotionAPI("t", client=notion.async_client())
+        ids = asyncio.run(notion_init(api, Net(Store(tmp_path / "x.sqlite"), 0.0), notion.root_page))
+        session.notion_client = notion.async_client
+        (tmp_path / ".env").write_text("GEMINI_API_KEY=k\nNOTION_TOKEN=t\n" + "".join(
+            f"{k}={v}\n" for k, v in ids.as_env().items()), encoding="utf-8")
+        client.post("/api/record", json={"course": "AI Developers — Python", "title": "W02", "fact_check": True})
+        wait_for(client, "recording")
+        client.post("/api/stop")
+        s = wait_for(client, "digested")
+    assert s["current"]["digest"]["notion"].startswith("https://www.notion.so/")
+    assert len(notion.rows(ids.lectures)) == 1 and len(notion.rows(ids.courses)) == 1
+    course = notion.rows(ids.courses)[0]
+    assert "## הרצאות" in course["markdown"] and "W02" in course["markdown"]
