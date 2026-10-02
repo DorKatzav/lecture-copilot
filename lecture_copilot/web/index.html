@@ -100,7 +100,8 @@ textarea{width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);b
     <div class="box">
       <h3>הקלטה חדשה</h3>
       <label for="course">קורס</label>
-      <select id="course"></select>
+      <input type="text" id="course" list="courses" placeholder="שם הקורס (חדש או קיים)" autocomplete="off">
+      <datalist id="courses"></datalist>
       <label for="title">שם ההרצאה</label>
       <input type="text" id="title" placeholder="למשל: מודלים עסקיים ב'">
       <label><input type="checkbox" id="fact" checked> בדיקת עובדות (Gemini)</label>
@@ -170,7 +171,7 @@ function render(){
   $('status').textContent = s.current ? (s.current.status === 'recording' ? 'מקליט' : s.current.status === 'digesting' ? 'מכין Digest…' : s.current.status === 'failed' ? 'תקלה' : 'מוכן') : 'מוכן';
   $('banner').innerHTML = s.interrupted.map(i => `<div class="banner">ההרצאה <b>${esc(i.title)}</b> נקטעה (${i.chunks} קטעים נשמרו). <button class="btn small" data-resume="${i.lecture_id}">סיים והפק Digest</button></div>`).join('');
   document.querySelectorAll('[data-resume]').forEach(b => b.onclick = () => api('/api/resume', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({lecture_id: b.dataset.resume})}));
-  const sel = $('course'); if (sel.options.length !== s.courses.length) sel.innerHTML = s.courses.map(c => `<option>${esc(c)}</option>`).join('');
+  const dl = $('courses'); if (dl.options.length !== s.courses.length) { dl.innerHTML = s.courses.map(c => `<option value="${esc(c)}">`).join(''); if (!$('course').value && s.courses.length) $('course').value = s.courses[0]; }
   $('previous').innerHTML = s.previous.length ? `<b>${esc(s.previous[0].title)}</b><ul class="list">${s.previous[0].bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : 'אין עדיין הרצאה קודמת בקורס.';
   if (!s.current || s.current.status === 'idle') { show('before'); return; }
   const c = s.current;
