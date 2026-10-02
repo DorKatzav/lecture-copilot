@@ -218,7 +218,8 @@ def test_with_a_token_and_databases_notion_is_live(tmp_path):
     from lecture_copilot.store.db import Store
     store = Store(tmp_path / "copilot.sqlite")
     env = {"NOTION_TOKEN": "t", **NotionIds("c", "l", "g", "k", "t").as_env()}
-    _, notion = make_sinks(tmp_path, env=env, store=store)
+    from tests.stubs import FakeNotion
+    _, notion = make_sinks(tmp_path, env=env, store=store, client=FakeNotion().async_client())
     assert isinstance(notion, NotionSink) and notion.ids.glossary == "g"
     store.close()
 
@@ -248,3 +249,11 @@ def test_a_notion_sink_made_without_a_store_binds_to_the_digest_store(tmp_path):
     n = store.con.execute("select count(*) from decisions where node = 'net' and lecture_id = 'L1'").fetchone()[0]
     assert n == log["calls"]
     store.close()
+
+
+def test_tests_cannot_reach_the_real_notion(tmp_path):
+    """The conftest tripwire: a NotionSink built from the real environment raises inside the suite."""
+    from lecture_copilot.output.sinks import make_sinks
+    with pytest.raises(RuntimeError, match="real Notion"):
+        make_sinks(tmp_path, env={"NOTION_TOKEN": "t", "NOTION_DS_COURSES": "c", "NOTION_DS_LECTURES": "l",
+                                  "NOTION_DS_GLOSSARY": "g", "NOTION_DS_CLAIMS": "k", "NOTION_DS_TASKS": "t"})

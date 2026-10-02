@@ -345,3 +345,24 @@ def test_notion_sync_without_a_token_explains(tmp_path):
     lines = []
     assert cli.notion_sync_cmd(env, tmp_path / "copilot.sqlite", echo=lines.append, environ={}) == 2
     assert "NOTION_TOKEN" in lines[0]
+
+
+def test_main_loads_env_before_choosing_the_sinks(tmp_path, monkeypatch):
+    """`cli digest` once skipped Notion with "NOTION_TOKEN missing" although .env had the token (2.10)."""
+    import os
+    env = tmp_path / ".env"
+    env.write_text("NOTION_TOKEN=t-from-file\n", encoding="utf-8")
+    monkeypatch.setattr(cli, "ENV_FILE", env)
+    monkeypatch.delenv("NOTION_TOKEN", raising=False)
+    seen = {}
+
+    def fake_make_sinks(root, **kw):
+        seen["token"] = os.environ.get("NOTION_TOKEN")
+        return [FolderSink(root)]
+
+    async def fake_rebuild(lecture, *, db, client, sink, echo=print):
+        return {}
+    monkeypatch.setattr(cli, "make_sinks", fake_make_sinks)
+    monkeypatch.setattr(cli, "rebuild_digest", fake_rebuild)
+    assert cli.main(["digest", "--db", str(tmp_path / "c.sqlite"), "--courses-root", str(tmp_path)]) == 0
+    assert seen["token"] == "t-from-file"

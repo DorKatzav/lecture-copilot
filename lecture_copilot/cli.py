@@ -366,6 +366,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "notion-sync":
         return notion_sync_cmd(ENV_FILE, a.db, lecture=a.lecture, echo=lambda line: print(line, file=sys.stderr))
     client = httpx.AsyncClient(base_url=OLLAMA_URL)
+    load_env(ENV_FILE, fact_check=False)   # the Notion token and ids; the Gemini key is checked per command below
     sink = make_sinks(a.courses_root)      # Notion joins when `.env` has a token and the database ids
     gemini = None
     if a.cmd == "eval":

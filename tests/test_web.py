@@ -37,7 +37,7 @@ def make(tmp_path, replies, n_chunks=2, gemini=None):
     session = Session(db=tmp_path / "copilot.sqlite", courses_root=tmp_path / "courses", runs_dir=tmp_path / "runs",
                       ollama_client_factory=fake.async_client, asr_factory=lambda kind: FakeASR(),
                       source_factory=source_factory, gemini_factory=(lambda: gemini) if gemini else None,
-                      course_name="AI Developers — Python", backoff_s=0)
+                      course_name="AI Developers — Python", backoff_s=0, env_file=tmp_path / ".env")
     app = create_app(session)
     return TestClient(app), session, fake
 
@@ -139,7 +139,7 @@ def test_an_interrupted_lecture_shows_a_banner_and_can_be_resumed(tmp_path):
     session2 = Session(db=tmp_path / "copilot.sqlite", courses_root=tmp_path / "courses", runs_dir=tmp_path / "runs",
                        ollama_client_factory=fake2.async_client, asr_factory=lambda kind: FakeASR(),
                        source_factory=lambda *a, **k: ListSource([]), gemini_factory=None,
-                       course_name="AI Developers — Python", backoff_s=0)
+                       course_name="AI Developers — Python", backoff_s=0, env_file=tmp_path / ".env")
     client2 = TestClient(create_app(session2))
     with client2:
         s = client2.get("/api/state").json()
@@ -172,7 +172,7 @@ def test_a_transcript_replay_reads_the_transcript_instead_of_calling_macwhisper(
     fake = FakeOllama([REPLY, SECTION, EXEC])
     (tmp_path / "lecture.vtt").write_text("WEBVTT\n\n00:00:00.000 --> 00:00:30.000\nשלום\n", encoding="utf-8")
     session = Session(db=tmp_path / "c.sqlite", courses_root=tmp_path / "courses", runs_dir=tmp_path / "runs",
-                      ollama_client_factory=fake.async_client, asr_factory=asr_factory,
+                      ollama_client_factory=fake.async_client, asr_factory=asr_factory, env_file=tmp_path / ".env",
                       source_factory=lambda lid, kind, file=None, pace="fast": ListSource(
                           [AudioChunk(lid, 1, tmp_path / "chunk_0001.json", 0.0, 30.0)]),
                       gemini_factory=None, course_name="c", backoff_s=0)
@@ -197,7 +197,6 @@ def test_stop_syncs_to_notion_when_configured_and_logs_a_skip_otherwise(tmp_path
                         "continuation": {"new": [], "repeated": ["CAC"], "contradicts": []}}, ensure_ascii=False)
     client, session, fake = make(tmp_path, [REPLY, SECTION, EXEC, REPLY, SECTION, exec2], n_chunks=1,
                                  gemini=FakeGemini([OK, OK]))
-    session.env_file = tmp_path / ".env"
     with client:
         client.post("/api/record", json={"course": "AI Developers — Python", "title": "W01", "fact_check": True})
         wait_for(client, "recording")
