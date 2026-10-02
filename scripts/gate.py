@@ -942,7 +942,6 @@ def check_notion_init(env=None, client=None) -> Result:
     if isinstance(got, Result):
         return Result("notion_init", got.status, got.detail)
     sink, ids = got
-    import asyncio
 
     async def probe():
         missing = []
@@ -959,8 +958,6 @@ def check_notion_init(env=None, client=None) -> Result:
 
 
 def check_notion_lecture_page(db: Path = DB_PATH, env=None, client=None) -> Result:
-    import asyncio
-
     from lecture_copilot.output.digest import SECTIONS, section_headings
     from lecture_copilot.store.db import Store
     got = _notion(env, client)
@@ -991,8 +988,6 @@ def check_notion_lecture_page(db: Path = DB_PATH, env=None, client=None) -> Resu
 
 
 def check_notion_glossary(db: Path = DB_PATH, env=None, client=None) -> Result:
-    import asyncio
-
     from lecture_copilot.store.db import Store
     got = _notion(env, client)
     if isinstance(got, Result):
@@ -1005,8 +1000,9 @@ def check_notion_glossary(db: Path = DB_PATH, env=None, client=None) -> Result:
             return _fail("notion_glossary", "no lecture was synced to Notion yet")
         _, course_id = found
         synced = [r[0] for r in store.con.execute(
-            "select distinct d.lecture_id from decisions d join lectures l on l.id = d.lecture_id where l.course_id = ? "
-            "and d.node = 'sink' and d.output_json like '%\"NotionSink\"%' and d.output_json like '%\"ok\"%' "
+            "select distinct d.lecture_id from decisions d join lectures l on l.id = d.lecture_id "
+            "where l.course_id = ? and d.node = 'sink' and d.output_json like '%\"NotionSink\"%' "
+            "and d.output_json like '%\"ok\"%' "
             "and d.input_ref like '%:write_lecture'", (course_id,))]
         keys = {r[0] for r in store.con.execute(
             f"select distinct canonical_key from items where kind = 'concept' and canonical_key is not null "
@@ -1027,8 +1023,6 @@ def check_notion_glossary(db: Path = DB_PATH, env=None, client=None) -> Result:
 def check_notion_resync(db: Path = DB_PATH, env=None, client=None) -> Result:
     """Sync the latest synced lecture again from its saved Digest: every database must keep its row count and the
     lecture page must keep its id."""
-    import asyncio
-
     from lecture_copilot.cli import write_sink
     from lecture_copilot.output.digest import saved_digest
     from lecture_copilot.store.db import Store
