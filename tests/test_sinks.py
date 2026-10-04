@@ -127,7 +127,7 @@ def test_html_says_when_the_digest_is_degraded():
 
 
 def test_the_root_is_not_invented_when_its_parent_is_missing(tmp_path):
-    # COURSES_ROOT defaults to a Google Drive path: never create a fake "Google Drive" folder
+    # a COURSES_ROOT inside a folder that is gone (an unmounted Drive, a moved vault) must not be recreated
     sink = FolderSink(tmp_path / "Google Drive" / "My Drive" / "Lecture-Copilot")
     with pytest.raises(OSError, match="does not exist"):
         sink.write_lecture(doc())

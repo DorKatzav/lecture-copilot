@@ -1,5 +1,6 @@
-"""Sinks (PLAN.md §3.7): where a finished Digest lands. FolderSink writes plain files into the course folder that
-Google Drive for desktop syncs — no OAuth, no API. Another destination (Notion, M6) is another Sink.
+"""Sinks (PLAN.md §3.7): where a finished Digest lands. FolderSink writes plain files into the course folder —
+`~/Documents/Lecture Copilot` by default (D-M7-2); point COURSES_ROOT into Drive or an Obsidian vault and a sync
+tool does the rest, no OAuth, no API. Another destination (Notion, M6) is another Sink.
 
     COURSES_ROOT/<course>/W05_2026-11-04_<title>/{digest.md, digest.html, transcript.txt, claims.json}
     COURSES_ROOT/<course>/index.md
@@ -133,8 +134,8 @@ class FolderSink:
 
     def write_lecture(self, doc: DigestDoc) -> Path:
         if not self.root.parent.is_dir():
-            raise OSError(f"{self.root.parent} does not exist — is Google Drive for desktop installed? "
-                          "(COURSES_ROOT sets the course folder)")
+            raise OSError(f"{self.root.parent} does not exist — COURSES_ROOT (.env) must sit inside an existing "
+                          "folder (a missing Drive or vault would be silently recreated otherwise)")
         course = self.root / safe_name(doc.course_name)
         folder = course / folder_name(doc)
         folder.mkdir(parents=True, exist_ok=True)

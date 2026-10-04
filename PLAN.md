@@ -87,7 +87,7 @@ lecture-copilot/                      git root; GitHub: DorKatzav/lecture-copilo
 ```python
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "db" / "copilot.sqlite"; RUNS_DIR = ROOT / "runs"
-COURSES_ROOT = Path(os.getenv("COURSES_ROOT", "~/Google Drive/My Drive/Lecture-Copilot")).expanduser()  # Drive desktop syncs it
+COURSES_ROOT = Path(os.getenv("COURSES_ROOT", "~/Documents/Lecture Copilot")).expanduser()  # D-M7-2: a local folder; Drive dropped
 CHUNK_MIN_S, CHUNK_MAX_S, SILENCE_DB = 30, 60, -40          # VAD split window
 LIVE_MODEL, DIGEST_MODEL, EMBED_MODEL = "gemma3:12b", "gemma3:12b", "bge-m3"   # D-M0-10
 VERIFIER_MODEL = "gemini-3.7-flash"                          # google-genai, grounding on
@@ -249,7 +249,7 @@ failure is a logged row, never an exception that stops the lecture.
 - [ ] Suggested: MacWhisper → Settings → turn off automatic updates until 18.10 (it updated itself mid-run on 28.9).
 - [ ] Still open (1 min, D-M0-11): start any transcription in the MacWhisper app, then run `python scripts/stage0.py mw-bench --busy` while it runs.
 - [ ] Sukkot: label `eval/benchmark.json` from the two `.vtt` files (~3 h): 30 real claims + verdicts, 10 injected errors (5 contradicting 7/6), 30 concepts, shared-concept pairs. **Shared concepts (M3, ~15 min):** open `runs/m3/SHARED_CONCEPTS_HE.html`, prune `eval/benchmark_candidates.json`, save it as `eval/benchmark.json` (gitignored: course material).
-- [ ] M2: install Google Drive for desktop (not installed as of 2026-09-26); `COURSES_ROOT` inside its folder (current installs mount at `~/Library/CloudStorage/GoogleDrive-<account>/My Drive`, not the config default); create course "יזמות וחדשנות" (he) and any English course (en).
+- [x] ~~M2: Google Drive for desktop~~ — dropped 2026-10-04 (D-M7-2): the output folder is `~/Documents/Lecture Copilot` (local, in `.env`); Notion covers the phone. Point `COURSES_ROOT` into Drive or the Obsidian vault any time — same files.
 - [ ] M6 (5 min): notion.so/profile/integrations → New internal integration (read, update, insert) → token into `.env` as `NOTION_TOKEN`. Create a Notion page "🎓 לימודים" → `•••` → Connections → add the integration → paste the page link into `.env` as `NOTION_ROOT_PAGE`. Then once: `python -m lecture_copilot.cli notion-init` (creates the five databases, saves their ids in `.env`), and `python -m lecture_copilot.cli notion-sync` to push the lectures already digested. Views (gallery by course, ★, "verdict ≠ correct", tasks board) are made by hand in Notion — the API has no endpoint for views.
 - [ ] M7 (optional): install BlackHole 2ch; Audio MIDI Setup: Multi-Output (speakers + BlackHole), Aggregate (mic + BlackHole, drift correction on).
 - [ ] Before 18.10: run the first-lecture checklist.
