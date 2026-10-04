@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M7 · ההרצאה הראשונה</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;800&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F6F6F2; --panel:#FFFFFF; --panel2:#EEEFEA; --ink:#1C2030; --ink2:#4D5468; --mute:#7C8398; --line:#D9DBD3;
+  --accent:#C8412F; --accent-soft:#FBE9E5; --local:#1E6F80; --local-soft:#E1F0F2; --cloud:#7A4FA8; --cloud-soft:#EFE7F8;
+  --ok:#2E7D4F; --ok-soft:#E3F2E8; --warn:#B7791F; --warn-soft:#FBF1DC; --code:#F0F1EC;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 6px 20px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+    --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+    --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+  --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+  --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Assistant',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;margin:0;direction:rtl}
+.wrap{max-width:880px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;margin-block:0 12px;padding-top:6px}
+h3{font-size:1.05rem;font-weight:700;margin-block:20px 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--ink2);max-width:62ch}
+a{color:var(--local)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+header.hero{padding-block:36px 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--mute);font-size:.9rem;margin-top:14px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;margin-bottom:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--panel2);color:var(--ink2);text-decoration:none;font-size:.88rem;font-weight:600;margin-inline-end:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section{margin-bottom:48px;scroll-margin-top:64px}
+.callout{border-inline-start:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:6px;margin:16px 0}
+.callout.local{border-color:var(--local);background:var(--local-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:480px}
+th,td{padding:10px 12px;text-align:right;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-family:'Heebo',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:700;font-family:'Heebo',sans-serif;white-space:nowrap}
+.yes{background:var(--ok-soft);color:var(--ok)} .no{background:var(--accent-soft);color:var(--accent)} .maybe{background:var(--warn-soft);color:var(--warn)}
+.loc{background:var(--local-soft);color:var(--local)} .cld{background:var(--cloud-soft);color:var(--cloud)} .mw{background:var(--panel2);color:var(--ink2)}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em;direction:ltr;unicode-bidi:embed}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;direction:ltr;text-align:left;font-size:.85rem;line-height:1.55;margin:12px 0 18px}
+pre.rtl{direction:rtl;text-align:right;font-family:'Assistant',sans-serif;font-size:.95rem;white-space:pre-wrap}
+pre code{background:none;padding:0}
+ul,ol{padding-inline-start:22px;margin:0 0 12px}
+li{margin-bottom:6px}
+.flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:14px 0 20px}
+.step{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;box-shadow:var(--shadow)}
+.step b{display:block;font-family:'Heebo',sans-serif;font-size:.95rem}
+.step small{display:block;color:var(--mute);font-size:.82rem;line-height:1.4;margin-top:4px}
+.step.local{border-top:3px solid var(--local)} .step.cloud{border-top:3px solid var(--cloud)} .step.hot{border-top:3px solid var(--accent)} .step.mw{border-top:3px solid var(--mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--mute);margin-top:-8px;margin-bottom:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-inline-end:5px}
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow);margin:14px 0 20px}
+.mock .bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font-size:.85rem;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.mock .title{font-family:'Heebo',sans-serif;font-size:1.05rem;font-weight:700;color:var(--ink)}
+.mock .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media (max-width:600px){.mock .grid{grid-template-columns:1fr}}
+.mock .box{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--paper)}
+.mock .box h4{margin:0 0 10px;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--mute);font-weight:600;letter-spacing:.04em}
+.field{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.95rem}
+.field span.in{flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--panel)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.seg span{border:1px solid var(--line);border-radius:6px;padding:5px 12px;color:var(--mute);font-size:.9rem;background:var(--panel)}
+.seg span.on{border-color:var(--local);color:var(--local);background:var(--local-soft);font-weight:700}
+.recbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--accent);color:#fff;border-radius:10px;padding:16px;font-family:'Heebo',sans-serif;font-size:1.2rem;font-weight:800;margin:6px 0 8px}
+.recbtn i{width:14px;height:14px;border-radius:50%;background:#fff;display:inline-block}
+.mock .hint{color:var(--mute);font-size:.82rem}
+.mock .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.mock .row:last-child{border:0}
+.wk{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.wk .w{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.wk .w.off{background:var(--panel2);box-shadow:none;color:var(--mute)}
+.wk h4{margin:0 0 4px;font-family:'Heebo',sans-serif;font-size:1rem}
+.wk .d{color:var(--mute);font-size:.82rem;font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
+.wk ul{padding-inline-start:18px;font-size:.92rem;margin:0}
+.wk .goal{margin-top:8px;font-size:.88rem;color:var(--local);font-weight:700}
+.sources{font-size:.9rem;color:var(--ink2)}
+.sources li{margin-bottom:4px}
+.diff{font-size:.9rem;color:var(--ink2)}
+.diff b{color:var(--ink)}
+.dec{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.95rem}
+.dec b{color:var(--warn)}
+</style>
+</head>
+<body>
+<style>
+.num{font-family:'IBM Plex Mono',monospace;font-weight:500;direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.ask{border:2px solid var(--local);background:var(--local-soft);border-radius:10px;padding:14px 18px;margin:18px 0}
+.ask b{color:var(--local)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:16px 0 8px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);border-top:3px solid var(--ok)}
+.kpi b{display:block;font-family:'Heebo',sans-serif;font-size:1.35rem}
+.kpi small{color:var(--mute);font-size:.82rem}
+.id{direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.shots{display:grid;grid-template-columns:2.4fr 1fr;gap:14px;align-items:start;margin:14px 0}
+.shots img{width:100%;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.shots figure{margin:0}
+<style>
+.inc{background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;padding:12px 16px;margin:14px 0}
+.inc b{color:var(--accent)}
+</style>
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">docs/reports · M7 · 4.10.2026</div>
+  <h1 style="margin-top:8px">M7 — ההרצאה הראשונה, בחזרה כללית</h1>
+  <p class="lead" style="margin-top:12px">השלב האחרון בתוכנית: לא פיצ'ר אלא חזרה. דף צ'קליסט אחד ל-18.10, מדידה של <code>copilot</code> מהפעלה קרה (Ollama כבוי) עד "ready", ומעבר על כל הצעדים דרך הדף האמיתי — על הרצאת הדגמה מומצאת, בקצב אמיתי, עם Gemini ו-Notion דלוקים. החזרה הראשונה מצאה בעיה אמיתית; השנייה עברה נקי.</p>
+  <div class="meta"><span>ענף <code>feat/m7-first-lecture</code></span><span>המספרים מ-<code>eval/m7.json</code></span><span>נבנה לפני המועד (תוכנן ל-<span class="num">17.10</span>)</span></div>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><b class="num">6/6</b><small>שער M7</small></div>
+  <div class="kpi"><b><span class="num" data-metric="cold_boot.ready_s">0.8</span> שנ'</b><small>מהפעלה קרה ל"ready" · יעד 60</small></div>
+  <div class="kpi"><b><span class="num" data-metric="walk.ok">11</span>/<span class="num" data-metric="walk.n">11</span></b><small>צעדי הצ'קליסט שעברו</small></div>
+  <div class="kpi"><b class="num">597</b><small>בדיקות (היו 584), ruff נקי</small></div>
+</div>
+
+<section id="what">
+  <h2>מה נבנה</h2>
+  <ul>
+    <li><b>הצ'קליסט</b> — <a href="../notes/FIRST_LECTURE_HE.html">docs/notes/FIRST_LECTURE_HE.html</a>: יום לפני, בכיתה, בזמן ההרצאה, בסיום, ואם משהו נשבר. ירוק = <code>copilot</code> עושה ונבדק בחזרה; כחול = אתה. המספרים בדף מגיעים מהחזרה האחרונה.</li>
+    <li><b>החזרה הכללית</b> — <code>scripts/m7.py cold-boot</code>: מכבה את Ollama (ומוודא שהוא כבוי), מפעיל <code>copilot</code>, מודד את "ready", ואז דרך ה-API של הדף: הקלטה (replay בקצב אמיתי), הקטע הראשון, ★, הערה, "מה פספסתי", סיום, התיקייה, Notion, העלות. הכל ל-<code>eval/m7.json</code>; השער קורא משם.</li>
+    <li><b>שלוש תוספות קטנות שהצ'קליסט דרש:</b> המפעיל והדף אומרים אם Notion פעיל; הדף אומר בסוף מה קרה עם Notion (קישור, "דולג" עם סיבה, או "נכשל" עם הפקודה); והמחשב לא נרדם באמצע הרצאה (למטה).</li>
+  </ul>
+</section>
+
+<section id="numbers">
+  <h2>המספרים (החזרה השנייה, <span class="num" data-metric="ran_at">2026-10-04 11:25</span>)</h2>
+  <ul>
+    <li><b>הפעלה קרה → "ready":</b> <span class="num" data-metric="cold_boot.ready_s">0.8</span> שנ'. Ollama עולה בפחות משנייה; טעינת Gemma (~10 שנ') קורית בתחילת ההרצאה ולא בהפעלה.</li>
+    <li><b>הקטע הראשון:</b> עיבוד <span class="num" data-metric="walk.first_chunk_s">12.63</span> שנ' (תקציב 30). במציאות הוא מופיע כדקה אחרי "הקלט" — 45 שניות אודיו ועוד העיבוד.</li>
+    <li><b>סיום → "סוכם":</b> <span class="num" data-metric="walk.digest_s">31.01</span> שנ' להרצאה של 3 דקות, כולל התיקייה, דף הקורס ועמוד ה-Notion.</li>
+    <li><b>כל הצעדים:</b> <span class="num" data-metric="walk.ok">11</span>/<span class="num" data-metric="walk.n">11</span> — ★, הערה, "מה פספסתי" (3 שורות), תיקייה עם חמשת הקבצים, עמוד Notion, עלות מתחת ל-$0.20.</li>
+  </ul>
+</section>
+
+<section id="found">
+  <h2>מה החזרה הראשונה מצאה</h2>
+  <div class="inc"><p><b>המחשב נרדם באמצע.</b> בחזרה הראשונה (2.10 בערב) כל הצעדים עברו — ואז פער של <span class="num">15</span> דקות באמצע הסנכרון ל-Notion, שנגמר ב-"offline". חותמות הזמן ביומן הראו שבין שתי קריאות עוקבות המחשב פשוט ישן; מדי הזמן של הצעדים לא הרגישו, כי שעון הביצועים לא מתקדם בשינה. התיקייה כבר הייתה כתובה; <code>notion-sync</code> משלים — אבל בהרצאה אמיתית זה היה קורה באמצע ההקלטה.</p>
+  <p><b>התיקון (D-M7-1):</b> <code>copilot</code> מחזיק את המחשב ער (<code>caffeinate -i</code>, קשור לתהליך) מ"הקלט" ועד שה-Digest וה-Sinks נגמרו. המסך יכול לכבות; המחשב לא נרדם. בלי <code>caffeinate</code> — נרשם ביומן, ההרצאה רצה. החזרה השנייה: <span class="num" data-metric="walk.ok">11</span>/<span class="num" data-metric="walk.n">11</span>.</p></div>
+  <ul>
+    <li><b>חשד שהתברר כשגוי:</b> נראה היה ש"משהו מפעיל את Ollama מחדש" מיד אחרי הכיבוי. זה היה המפעיל של עצמי מהריצה הקודמת; <code>ollama serve</code> באמת עולה בפחות משנייה. "ready" תוך פחות משנייה הוא אמיתי.</li>
+    <li><b>המדד הראשון של "הקטע הראשון" היה שגוי:</b> מדדתי זמן קיר מתחילת ההקלטה (71 שנ') — רובו המתנה ל-45 שניות אודיו. המדד הנכון הוא זמן העיבוד מול התקציב.</li>
+    <li><b>השער נכשל פעם אחת על ייבוא</b> (<code>scripts.m7</code> לא נמצא כשהשער רץ כסקריפט) — תוקן.</li>
+  </ul>
+</section>
+
+<section id="decisions">
+  <h2>ההחלטות של M7</h2>
+  <div class="dec"><b><span class="id">D-M7-1</span> — המחשב לא נרדם בזמן הרצאה:</b> power assertion לכל אורך ההרצאה והסיום. החלופה — שורה בצ'קליסט "אל תיתן לו להירדם" — כלל ששוכחים.</div>
+</section>
+
+<section id="you">
+  <h2>אצלך לפני 18.10</h2>
+  <div class="ask"><p>הכל ב-<a href="../notes/STATUS_HE.html">דף המצב</a> ובצ'קליסט: <code>miccheck</code> מ-Terminal · Google Drive for desktop ו-<code>COURSES_ROOT</code> · תצוגות ב-Notion · לכבות עדכונים ב-MacWhisper · לקרוא את הצ'קליסט פעם אחת.</p></div>
+</section>
+
+<section id="next">
+  <h2>אחרי M7</h2>
+  <ul>
+    <li>המוצר שלם לפי התוכנית (M0–M7). מה שנשאר פתוח הוא איכות, לא תשתית: איחוד מושגים לפי משמעות בין הרצאות (המילון מתנפח), והטענות הרועשות — שתיהן נמדדות על התיוגים שלך כשיגיעו.</li>
+    <li>ההרצאה הראשונה היא המדידה הבאה: ה-Digest האמיתי הראשון יגיד מה לתקן.</li>
+  </ul>
+</section>
+</div>
+</body>
+</html>
