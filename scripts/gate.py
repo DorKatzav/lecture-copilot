@@ -19,7 +19,9 @@ from pathlib import Path
 
 import httpx
 
-from lecture_copilot.config import (
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # `scripts.m7` when run as a script (M7)
+
+from lecture_copilot.config import (  # noqa: E402
     BUDGET_S,
     CHUNK_BUDGET_S,
     COST_BUDGET_USD,

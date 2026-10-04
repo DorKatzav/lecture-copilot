@@ -88,9 +88,9 @@ section{margin-bottom:36px}
 </header>
 
 <div class="kpis">
-  <div class="kpi"><b><span class="num" data-metric="cold_boot.ready_s">0.84</span> שנ'</b><small>מהקלדת <code>copilot</code> ל"ready" (Ollama כבוי)</small></div>
-  <div class="kpi"><b><span class="num" data-metric="walk.ok">10</span>/<span class="num" data-metric="walk.n">11</span></b><small>צעדים אוטומטיים שעברו בחזרה הכללית</small></div>
-  <div class="kpi"><b><span class="num" data-metric="ran_at">—</span></b><small>החזרה הכללית האחרונה</small></div>
+  <div class="kpi"><b><span class="num" data-metric="cold_boot.ready_s">0.8</span> שנ'</b><small>מהקלדת <code>copilot</code> ל"ready" (Ollama כבוי)</small></div>
+  <div class="kpi"><b><span class="num" data-metric="walk.ok">11</span>/<span class="num" data-metric="walk.n">11</span></b><small>צעדים אוטומטיים שעברו בחזרה הכללית</small></div>
+  <div class="kpi"><b><span class="num" data-metric="ran_at">2026-10-04 11:25</span></b><small>החזרה הכללית האחרונה</small></div>
 </div>
 
 <section id="before">
@@ -108,7 +108,7 @@ section{margin-bottom:36px}
   <h2>בכיתה, לפני שהמרצה מתחיל (2 דקות)</h2>
   <ul class="steps">
     <li class="dor" data-step="seat"><div><b>המושב הרגיל.</b><small>עד 5 מטר מהמרצה, בלי מיקרופון חיצוני. המחשב פתוח — מכסה סגור עוצר את ההקלטה.</small></div><span class="who dor">אתה</span></li>
-    <li class="copilot" data-step="ready"><div><b><code>python -m lecture_copilot.cli copilot</code></b><small>מרים את Ollama עם ה-cache כבוי, בודק MacWhisper, Gemini ו-Notion, ומדפיס "ready" — בחזרה הכללית תוך <span class="num" data-metric="cold_boot.ready_s">0.84</span> שנ'. אם מודפס "fix: …" — זו ההוראה.</small></div><span class="who copilot">copilot</span></li>
+    <li class="copilot" data-step="ready"><div><b><code>python -m lecture_copilot.cli copilot</code></b><small>מרים את Ollama עם ה-cache כבוי, בודק MacWhisper, Gemini ו-Notion, ומדפיס "ready" — בחזרה הכללית תוך <span class="num" data-metric="cold_boot.ready_s">0.8</span> שנ'. אם מודפס "fix: …" — זו ההוראה.</small></div><span class="who copilot">copilot</span></li>
     <li class="copilot" data-step="page"><div><b>הדף נפתח ואומר "מוכן".</b><small>מתחת לסטטוס שורה אחת: Ollama, MacWhisper, בדיקת עובדות, Notion מופעל/כבוי. Notion כבוי? ההרצאה רצה כרגיל; <code>notion-sync</code> משלים אחר כך.</small></div><span class="who copilot">copilot</span></li>
     <li class="dor" data-step="course"><div><b>קורס ושם.</b><small>בוחרים קורס מהרשימה (או מקלידים חדש — השפה נקבעת פעם אחת לקורס), שם להרצאה, בדיקת עובדות דלוקה. לוחצים <b>● הקלט</b>, מקטינים את החלון.</small></div><span class="who dor">אתה</span></li>
     <li class="copilot" data-step="start"><div><b>הסטטוס: "מקליט".</b><small>המד זז כשמדברים. המחשב לא יירדם בזמן ההרצאה — <code>copilot</code> מחזיק אותו ער עד שה-Digest מוכן.</small></div><span class="who copilot">copilot</span></li>
@@ -118,7 +118,7 @@ section{margin-bottom:36px}
 <section id="during">
   <h2>בזמן ההרצאה</h2>
   <ul class="steps">
-    <li class="copilot" data-step="first_chunk"><div><b>הקטע הראשון מגיע ללוח אחרי כדקה.</b><small>45 שניות של אודיו ואז עיבוד — בחזרה הכללית <span class="num" data-metric="walk.first_chunk_s">12.64</span> שנ' לקטע (תקציב 30). משם הלוח מתעדכן בשקט: מושגים, ★, טענות, שאלות, משימות.</small></div><span class="who copilot">copilot</span></li>
+    <li class="copilot" data-step="first_chunk"><div><b>הקטע הראשון מגיע ללוח אחרי כדקה.</b><small>45 שניות של אודיו ואז עיבוד — בחזרה הכללית <span class="num" data-metric="walk.first_chunk_s">12.63</span> שנ' לקטע (תקציב 30). משם הלוח מתעדכן בשקט: מושגים, ★, טענות, שאלות, משימות.</small></div><span class="who copilot">copilot</span></li>
     <li class="copilot" data-step="mark"><div><b>"★ סמן את זה"</b><small>כשהמרצה אומר משהו ששווה לזכור — ההדגשה שלך נכנסת ללוח, ל-Digest ולדף הקורס.</small></div><span class="who copilot">copilot</span></li>
     <li class="copilot" data-step="note"><div><b>הערה</b><small>שורה חופשית עם חותמת זמן. "לשאול על X", "לבדוק Y".</small></div><span class="who copilot">copilot</span></li>
     <li class="copilot" data-step="recap"><div><b>"מה פספסתי"</b><small>התנתקת לחמש דקות? עד שלוש שורות בעברית על מה שנאמר. לוקח כעשר שניות.</small></div><span class="who copilot">copilot</span></li>
@@ -129,7 +129,7 @@ section{margin-bottom:36px}
 <section id="after">
   <h2>בסיום</h2>
   <ul class="steps">
-    <li class="copilot" data-step="stop"><div><b>"סיום" — ולא סוגרים את המחשב עד שכתוב "סוכם".</b><small>Digest תוך עד שתי דקות (בחזרה הכללית <span class="num" data-metric="walk.digest_s">25.84</span> שנ' להרצאה קצרה; הרצאה של ארבע שעות — כשתי דקות). בזמן הזה המסך יכול לכבות, המחשב לא יירדם.</small></div><span class="who copilot">copilot</span></li>
+    <li class="copilot" data-step="stop"><div><b>"סיום" — ולא סוגרים את המחשב עד שכתוב "סוכם".</b><small>Digest תוך עד שתי דקות (בחזרה הכללית <span class="num" data-metric="walk.digest_s">31.01</span> שנ' להרצאה קצרה; הרצאה של ארבע שעות — כשתי דקות). בזמן הזה המסך יכול לכבות, המחשב לא יירדם.</small></div><span class="who copilot">copilot</span></li>
     <li class="copilot" data-step="folder"><div><b>התיקייה.</b><small><code>COURSES_ROOT/&lt;קורס&gt;/W05_&lt;תאריך&gt;_&lt;שם&gt;/</code>: <code>digest.md</code>, <code>digest.html</code>, <code>transcript.txt</code>, <code>claims.json</code>; ו-<code>course.html</code> של הקורס מתעדכן. הנתיב מופיע בדף.</small></div><span class="who copilot">copilot</span></li>
     <li class="copilot" data-step="notion"><div><b>Notion.</b><small>הדף מראה קישור לעמוד ההרצאה — או "דולג" עם סיבה, או "נכשל" עם ההוראה <code>python -m lecture_copilot.cli notion-sync</code>. Notion לעולם לא עוצר את ה-Digest.</small></div><span class="who copilot">copilot</span></li>
     <li class="copilot" data-step="cost"><div><b>העלות.</b><small>בדף: כמה טענות נבדקו, כמה לא, והעלות (תקציב $0.20 להרצאה). שום אודיו לא יצא מהמחשב — רק טקסט של טענות ל-Gemini וה-Digest ל-Notion.</small></div><span class="who copilot">copilot</span></li>
@@ -147,7 +147,7 @@ section{margin-bottom:36px}
 
 <section id="rehearsal">
   <h2>החזרה הכללית</h2>
-  <p>הצעדים הירוקים נבדקו ב-<code>scripts/m7.py cold-boot</code>: Ollama נסגר, <code>copilot</code> מופעל, והצ'קליסט נעבר דרך הדף האמיתי על הרצאת הדגמה בקצב אמיתי. התוצאה האחרונה: <span class="num" data-metric="walk.ok">10</span>/<span class="num" data-metric="walk.n">11</span> צעדים תקינים (<span class="num" data-metric="ran_at">—</span>). השער <code>python scripts/gate.py --m 7</code> קורא את אותו קובץ.</p>
+  <p>הצעדים הירוקים נבדקו ב-<code>scripts/m7.py cold-boot</code>: Ollama נסגר, <code>copilot</code> מופעל, והצ'קליסט נעבר דרך הדף האמיתי על הרצאת הדגמה בקצב אמיתי. התוצאה האחרונה: <span class="num" data-metric="walk.ok">11</span>/<span class="num" data-metric="walk.n">11</span> צעדים תקינים (<span class="num" data-metric="ran_at">2026-10-04 11:25</span>). השער <code>python scripts/gate.py --m 7</code> קורא את אותו קובץ.</p>
 </section>
 </div>
 </body>
