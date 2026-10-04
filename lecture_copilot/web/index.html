@@ -90,7 +90,7 @@ textarea{width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);b
 <body>
 <div class="wrap">
 <header class="hero" style="padding-block:22px 14px">
-  <div class="bar"><div><span class="eyebrow">Lecture Copilot</span></div><div id="status" class="quiet">מתחבר…</div></div>
+  <div class="bar"><div><span class="eyebrow">Lecture Copilot</span></div><div><div id="status" class="quiet">מתחבר…</div><div id="checks" class="quiet" style="font-size:.8rem"></div></div></div>
 </header>
 
 <div id="banner"></div>
@@ -169,6 +169,7 @@ async function api(path, opts){ const r = await fetch(path, opts); return r.json
 function render(){
   const s = state; if (!s) return;
   $('status').textContent = s.current ? (s.current.status === 'recording' ? 'מקליט' : s.current.status === 'digesting' ? 'מכין Digest…' : s.current.status === 'failed' ? 'תקלה' : 'מוכן') : 'מוכן';
+  if (s.checks && s.checks.ollama) $('checks').textContent = `Ollama ${s.checks.ollama} · ${s.checks.mw || 'MacWhisper?'} · בדיקת עובדות ${s.checks.gemini ? 'פעילה' : 'כבויה'} · Notion ${s.checks.notion === 'on' ? 'מופעל' : 'כבוי'}`;
   $('banner').innerHTML = s.interrupted.map(i => `<div class="banner">ההרצאה <b>${esc(i.title)}</b> נקטעה (${i.chunks} קטעים נשמרו). <button class="btn small" data-resume="${i.lecture_id}">סיים והפק Digest</button></div>`).join('');
   document.querySelectorAll('[data-resume]').forEach(b => b.onclick = () => api('/api/resume', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({lecture_id: b.dataset.resume})}));
   const dl = $('courses'); if (dl.options.length !== s.courses.length) { dl.innerHTML = s.courses.map(c => `<option value="${esc(c)}">`).join(''); if (!$('course').value && s.courses.length) $('course').value = s.courses[0]; }
@@ -193,8 +194,17 @@ function render(){
       c.status === 'failed' ? `<p>תקלה: <span class="num">${esc(c.error)}</span>. הקטעים שנשמרו נמצאים במסד.</p>` :
       `<p><b>${esc(c.title)}</b> · <span class="num">${c.chunks}</span> קטעים · Digest ב-<span class="num">${dg ? dg.digest_s : '?'}</span> שנ'${dg && dg.degraded && dg.degraded.length ? ' · חלקים חסרים: ' + esc(dg.degraded.join(', ')) : ''}</p>
        <p class="quiet">תיקייה: <span class="num">${esc(dg ? dg.folder : '')}</span></p>
+       <p class="quiet">Notion: ${notionLine(dg)}</p>
        ${v ? `<p class="quiet">בדיקת עובדות: ${v.verified} נבדקו · ${v.unchecked} לא נבדקו · עלות <span class="num">$${c.cost_usd}</span></p>` : '<p class="quiet">בדיקת עובדות כבויה.</p>'}`;
   }
+}
+function notionLine(dg){
+  if (!dg) return '—';
+  if (dg.notion) return `<a href="${esc(dg.notion)}" target="_blank" rel="noopener">עמוד ההרצאה</a>`;
+  const n = (dg.sinks || {}).NotionSink;
+  if (!n) return 'לא הוגדר';
+  if (n.status === 'skipped') return `דולג — <span class="num">${esc(n.reason || '')}</span>`;
+  return `נכשל — <span class="num">${esc(n.error || '')}</span>. להשלים: <span class="num">python -m lecture_copilot.cli notion-sync</span>`;
 }
 async function refresh(){ state = await api('/api/state'); render(); }
 function connect(){

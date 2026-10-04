@@ -1037,3 +1037,55 @@ def test_m6_details_carry_no_hebrew(tmp_path):
     for check in (gate.check_notion_lecture_page, gate.check_notion_glossary, gate.check_notion_resync):
         detail = check(db=db, env=env, client=fake.async_client()).detail
         assert not re.search(r"[֐-׿]", detail), detail
+
+
+# ---------- M7 ----------
+
+def m7_results(tmp_path, *, ready_s=0.84, first=12.6, digest=25.8, notion="ok", fail=None, days_old=0):
+    import time
+    steps = [{"id": "ready", "status": "ok", "s": ready_s}, {"id": "page", "status": "ok"},
+             {"id": "start", "status": "ok"}, {"id": "first_chunk", "status": "ok", "s": first},
+             {"id": "mark", "status": "ok"}, {"id": "note", "status": "ok"}, {"id": "recap", "status": "ok"},
+             {"id": "stop", "status": "ok", "s": digest}, {"id": "folder", "status": "ok"},
+             {"id": "notion", "status": notion}, {"id": "cost", "status": "ok", "cost_usd": 0.004}]
+    if fail:
+        next(s for s in steps if s["id"] == fail)["status"] = "failed"
+    from scripts.m7 import walk_summary
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    path = tmp_path / "m7.json"
+    ran = time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time() - 86400 * days_old))
+    path.write_text(json.dumps({"ran_at": ran, "cold_boot": {"ready_s": ready_s},
+                                "walk": {"steps": steps, **walk_summary(steps)}}), encoding="utf-8")
+    return path
+
+
+def test_m7_cold_boot_under_a_minute(tmp_path):
+    assert gate.check_cold_boot(m7_results(tmp_path)).status == "PASS"
+    assert gate.check_cold_boot(m7_results(tmp_path / "b", ready_s=61)).status == "FAIL"
+    assert gate.check_cold_boot(tmp_path / "missing.json").status == "FAIL"
+
+
+def test_m7_walk_needs_every_automated_step_ok_or_notion_skipped(tmp_path):
+    assert gate.check_checklist_walk(m7_results(tmp_path)).status == "PASS"
+    assert gate.check_checklist_walk(m7_results(tmp_path / "b", notion="skipped")).status == "PASS"
+    r = gate.check_checklist_walk(m7_results(tmp_path / "c", fail="recap"))
+    assert r.status == "FAIL" and "recap" in r.detail
+    assert gate.check_checklist_walk(m7_results(tmp_path / "d", first=31)).status == "FAIL"
+    assert gate.check_checklist_walk(m7_results(tmp_path / "e", digest=121)).status == "FAIL"
+
+
+def test_m7_checklist_page_lists_every_step_and_is_rtl(tmp_path):
+    page = tmp_path / "FIRST_LECTURE_HE.html"
+    from scripts.m7 import STEPS
+    page.write_text('<html lang="he" dir="rtl"><body>' + "".join(f'<li data-step="{s["id"]}"></li>' for s in STEPS)
+                    + '<span data-metric="walk.ok">10</span></body></html>', encoding="utf-8")
+    assert gate.check_checklist_page(page).status == "PASS"
+    page.write_text(page.read_text(encoding="utf-8").replace('data-step="recap"', ""), encoding="utf-8")
+    r = gate.check_checklist_page(page)
+    assert r.status == "FAIL" and "recap" in r.detail
+    assert gate.check_checklist_page(tmp_path / "none.html").status == "FAIL"
+
+
+def test_m7_checks():
+    assert [name for name, _ in gate.CHECKS[7]] == ["cold_boot", "checklist_walk", "checklist_page", "prompt_cache",
+                                                    "tests", "secret_scan"]

@@ -38,6 +38,7 @@ def make(tmp_path, replies, n_chunks=2, gemini=None):
                       ollama_client_factory=fake.async_client, asr_factory=lambda kind: FakeASR(),
                       source_factory=source_factory, gemini_factory=(lambda: gemini) if gemini else None,
                       course_name="AI Developers — Python", backoff_s=0, env_file=tmp_path / ".env")
+    session.awake_factory = lambda: None            # no real caffeinate in tests
     app = create_app(session)
     return TestClient(app), session, fake
 
@@ -224,3 +225,59 @@ def test_stop_syncs_to_notion_when_configured_and_logs_a_skip_otherwise(tmp_path
     assert len(notion.rows(ids.lectures)) == 1 and len(notion.rows(ids.courses)) == 1
     course = notion.rows(ids.courses)[0]
     assert "## הרצאות" in course["markdown"] and "W02" in course["markdown"]
+
+
+def test_the_page_shows_the_launcher_checks_quietly(tmp_path):
+    """M7 checklist: one line under the status says where the output goes (Notion on/off, fact-checking)."""
+    client, session, fake = make(tmp_path, [])
+    session.checks = {"ollama": "0.34.2", "mw": "MacWhisper 15.2.1 (1521)", "gemini": True, "notion": "on",
+                      "ready": True, "fix": []}
+    with client:
+        html = client.get("/").text
+        s = client.get("/api/state").json()
+    assert 'id="checks"' in html and "s.checks.notion" in html
+    assert s["checks"]["notion"] == "on"
+
+
+def test_the_mac_is_kept_awake_from_record_to_digested(tmp_path):
+    """M7 rehearsal: the Mac slept mid-sync. A power assertion (caffeinate -i) is held for the whole lecture —
+    recording, Digest and sinks — and released after."""
+    events = []
+
+    class FakeAwake:
+        def __init__(self):
+            events.append("start")
+
+        def terminate(self):
+            events.append("stop")
+
+        def wait(self, timeout=None):
+            return 0
+    client, session, fake = make(tmp_path, [REPLY, SECTION, EXEC], n_chunks=1, gemini=FakeGemini([OK]))
+    session.awake_factory = FakeAwake
+    with client:
+        client.post("/api/record", json={"course": "AI Developers — Python", "title": "W01", "fact_check": True})
+        wait_for(client, "recording")
+        assert events == ["start"]
+        client.post("/api/stop")
+        wait_for(client, "digested")
+    assert events == ["start", "stop"]
+
+
+def test_a_missing_caffeinate_never_stops_a_lecture(tmp_path):
+    def broken():
+        raise FileNotFoundError("caffeinate")
+    client, session, fake = make(tmp_path, [REPLY, SECTION, EXEC], n_chunks=1, gemini=FakeGemini([OK]))
+    session.awake_factory = broken
+    with client:
+        client.post("/api/record", json={"course": "AI Developers — Python", "title": "W01", "fact_check": True})
+        wait_for(client, "recording")
+        client.post("/api/stop")
+        s = wait_for(client, "digested")
+    assert s["current"]["digest"]["sections"] == 9
+
+
+def test_the_after_view_renders_the_notion_outcome():
+    from lecture_copilot.web.app import INDEX
+    html = INDEX.read_text(encoding="utf-8")
+    assert "dg.sinks" in html and "notion-sync" in html and "dg.notion" in html

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>צ'קליסט · ההרצאה הראשונה</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;800&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F6F6F2; --panel:#FFFFFF; --panel2:#EEEFEA; --ink:#1C2030; --ink2:#4D5468; --mute:#7C8398; --line:#D9DBD3;
+  --accent:#C8412F; --accent-soft:#FBE9E5; --local:#1E6F80; --local-soft:#E1F0F2; --cloud:#7A4FA8; --cloud-soft:#EFE7F8;
+  --ok:#2E7D4F; --ok-soft:#E3F2E8; --warn:#B7791F; --warn-soft:#FBF1DC; --code:#F0F1EC;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 6px 20px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+    --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+    --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171E; --panel:#1D2029; --panel2:#252935; --ink:#ECEDF1; --ink2:#B8BCCB; --mute:#8A90A4; --line:#333846;
+  --accent:#F0604B; --accent-soft:#3A2320; --local:#4FB3C6; --local-soft:#16333A; --cloud:#B693E0; --cloud-soft:#2C2340;
+  --ok:#6CC58C; --ok-soft:#1D3327; --warn:#E3A94A; --warn-soft:#3A2E17; --code:#11131A;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:'Assistant',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;margin:0;direction:rtl}
+.wrap{max-width:880px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;margin-block:0 12px;padding-top:6px}
+h3{font-size:1.05rem;font-weight:700;margin-block:20px 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--ink2);max-width:62ch}
+a{color:var(--local)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+header.hero{padding-block:36px 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--mute);font-size:.9rem;margin-top:14px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;margin-bottom:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--panel2);color:var(--ink2);text-decoration:none;font-size:.88rem;font-weight:600;margin-inline-end:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section{margin-bottom:48px;scroll-margin-top:64px}
+.callout{border-inline-start:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:6px;margin:16px 0}
+.callout.local{border-color:var(--local);background:var(--local-soft)}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.callout p:last-child{margin:0}
+.tablewrap{overflow-x:auto;margin:12px 0 18px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:480px}
+th,td{padding:10px 12px;text-align:right;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-family:'Heebo',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:700;font-family:'Heebo',sans-serif;white-space:nowrap}
+.yes{background:var(--ok-soft);color:var(--ok)} .no{background:var(--accent-soft);color:var(--accent)} .maybe{background:var(--warn-soft);color:var(--warn)}
+.loc{background:var(--local-soft);color:var(--local)} .cld{background:var(--cloud-soft);color:var(--cloud)} .mw{background:var(--panel2);color:var(--ink2)}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font-size:.88em;direction:ltr;unicode-bidi:embed}
+.num{font-family:'IBM Plex Mono',monospace;font-weight:500;direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+.steps{list-style:none;padding:0;margin:10px 0 0;counter-reset:s}
+.steps li{counter-increment:s;display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow)}
+.steps li::before{content:counter(s);font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--mute);background:var(--panel2);border-radius:999px;width:28px;height:28px;display:grid;place-items:center;font-size:.85rem}
+.steps li.dor{border-inline-start:4px solid var(--local)}
+.steps li.copilot{border-inline-start:4px solid var(--ok)}
+.steps small{display:block;color:var(--mute);font-size:.84rem;margin-top:2px}
+.who{font-family:'Heebo',sans-serif;font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.who.dor{background:var(--local-soft);color:var(--local)} .who.copilot{background:var(--ok-soft);color:var(--ok)}
+.ask{border:2px solid var(--local);background:var(--local-soft);border-radius:10px;padding:12px 16px;margin:14px 0}
+.ask b{color:var(--local)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0 6px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);border-top:3px solid var(--ok)}
+.kpi b{display:block;font-family:'Heebo',sans-serif;font-size:1.25rem}
+.kpi small{color:var(--mute);font-size:.8rem}
+.fix{background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:8px 0;font-size:.95rem}
+.fix b{color:var(--warn)}
+section{margin-bottom:36px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">docs/notes · ההרצאה הראשונה · 18.10.2026</div>
+  <h1 style="margin-top:8px">צ'קליסט להרצאה הראשונה</h1>
+  <p class="lead" style="margin-top:12px">דף אחד, מודפס או פתוח בטלפון. ירוק — <code>copilot</code> עושה לבד ונבדק בחזרה הכללית; כחול — אתה, פעם אחת או בכל הרצאה. שום דבר כאן לא קופץ בזמן ההרצאה; אם משהו לא עובד, בודקים בסוף.</p>
+</header>
+
+<div class="kpis">
+  <div class="kpi"><b><span class="num" data-metric="cold_boot.ready_s">0.8</span> שנ'</b><small>מהקלדת <code>copilot</code> ל"ready" (Ollama כבוי)</small></div>
+  <div class="kpi"><b><span class="num" data-metric="walk.ok">11</span>/<span class="num" data-metric="walk.n">11</span></b><small>צעדים אוטומטיים שעברו בחזרה הכללית</small></div>
+  <div class="kpi"><b><span class="num" data-metric="ran_at">2026-10-04 11:25</span></b><small>החזרה הכללית האחרונה</small></div>
+</div>
+
+<section id="before">
+  <h2>יום לפני (10 דקות)</h2>
+  <ul class="steps">
+    <li class="dor" data-step="power"><div><b>חשמל ו-wifi.</b><small>המחשב מחובר לחשמל או מעל 60% סוללה; wifi דולק (בלי wifi Gemini לא בודק — הטענות יסומנו "לא נבדק" וייבדקו ב-<code>cli verify</code> אחר כך).</small></div><span class="who dor">אתה</span></li>
+    <li class="dor" data-step="mic"><div><b>המיקרופון, פעם אחת.</b><small>מ-Terminal.app: <code>python -m lecture_copilot.cli miccheck</code>. macOS שואל על המיקרופון — אשר. הפקודה מדפיסה אם הרמה קריאה.</small></div><span class="who dor">אתה</span></li>
+    <li class="dor" data-step="views"><div><b>Notion, פעם אחת.</b><small>בעמוד "לימודים": גלריית הרצאות לפי קורס, מילון מקובץ לפי קורס + תצוגת ★, טענות עם סינון "פסיקה ≠ נכון", משימות כלוח לפי "בוצע". ה-API לא יוצר תצוגות.</small></div><span class="who dor">אתה</span></li>
+    <li class="dor"><div><b>מקום לפלט.</b><small>Google Drive for desktop מותקן ו-<code>COURSES_ROOT</code> ב-<code>.env</code> מצביע לתיקייה בתוכו. בלי זה הפלט נכתב רק מקומית.</small></div><span class="who dor">אתה</span></li>
+    <li class="dor"><div><b>MacWhisper שקט.</b><small>Settings → לכבות עדכונים אוטומטיים עד אחרי ההרצאה (הוא עדכן את עצמו באמצע ריצה ב-28.9).</small></div><span class="who dor">אתה</span></li>
+  </ul>
+</section>
+
+<section id="class">
+  <h2>בכיתה, לפני שהמרצה מתחיל (2 דקות)</h2>
+  <ul class="steps">
+    <li class="dor" data-step="seat"><div><b>המושב הרגיל.</b><small>עד 5 מטר מהמרצה, בלי מיקרופון חיצוני. המחשב פתוח — מכסה סגור עוצר את ההקלטה.</small></div><span class="who dor">אתה</span></li>
+    <li class="copilot" data-step="ready"><div><b><code>python -m lecture_copilot.cli copilot</code></b><small>מרים את Ollama עם ה-cache כבוי, בודק MacWhisper, Gemini ו-Notion, ומדפיס "ready" — בחזרה הכללית תוך <span class="num" data-metric="cold_boot.ready_s">0.8</span> שנ'. אם מודפס "fix: …" — זו ההוראה.</small></div><span class="who copilot">copilot</span></li>
+    <li class="copilot" data-step="page"><div><b>הדף נפתח ואומר "מוכן".</b><small>מתחת לסטטוס שורה אחת: Ollama, MacWhisper, בדיקת עובדות, Notion מופעל/כבוי. Notion כבוי? ההרצאה רצה כרגיל; <code>notion-sync</code> משלים אחר כך.</small></div><span class="who copilot">copilot</span></li>
+    <li class="dor" data-step="course"><div><b>קורס ושם.</b><small>בוחרים קורס מהרשימה (או מקלידים חדש — השפה נקבעת פעם אחת לקורס), שם להרצאה, בדיקת עובדות דלוקה. לוחצים <b>● הקלט</b>, מקטינים את החלון.</small></div><span class="who dor">אתה</span></li>
+    <li class="copilot" data-step="start"><div><b>הסטטוס: "מקליט".</b><small>המד זז כשמדברים. המחשב לא יירדם בזמן ההרצאה — <code>copilot</code> מחזיק אותו ער עד שה-Digest מוכן.</small></div><span class="who copilot">copilot</span></li>
+  </ul>
+</section>
+
+<section id="during">
+  <h2>בזמן ההרצאה</h2>
+  <ul class="steps">
+    <li class="copilot" data-step="first_chunk"><div><b>הקטע הראשון מגיע ללוח אחרי כדקה.</b><small>45 שניות של אודיו ואז עיבוד — בחזרה הכללית <span class="num" data-metric="walk.first_chunk_s">12.63</span> שנ' לקטע (תקציב 30). משם הלוח מתעדכן בשקט: מושגים, ★, טענות, שאלות, משימות.</small></div><span class="who copilot">copilot</span></li>
+    <li class="copilot" data-step="mark"><div><b>"★ סמן את זה"</b><small>כשהמרצה אומר משהו ששווה לזכור — ההדגשה שלך נכנסת ללוח, ל-Digest ולדף הקורס.</small></div><span class="who copilot">copilot</span></li>
+    <li class="copilot" data-step="note"><div><b>הערה</b><small>שורה חופשית עם חותמת זמן. "לשאול על X", "לבדוק Y".</small></div><span class="who copilot">copilot</span></li>
+    <li class="copilot" data-step="recap"><div><b>"מה פספסתי"</b><small>התנתקת לחמש דקות? עד שלוש שורות בעברית על מה שנאמר. לוקח כעשר שניות.</small></div><span class="who copilot">copilot</span></li>
+  </ul>
+  <div class="fix"><b>משהו נראה תקוע?</b> לא נוגעים. "הקטע האחרון" בתחתית הלוח אומר מתי הגיע הקטע האחרון ומה גודל התור. הקטעים נשמרים לדיסק גם אם התור גדל; ה-Digest משלים בסוף.</div>
+</section>
+
+<section id="after">
+  <h2>בסיום</h2>
+  <ul class="steps">
+    <li class="copilot" data-step="stop"><div><b>"סיום" — ולא סוגרים את המחשב עד שכתוב "סוכם".</b><small>Digest תוך עד שתי דקות (בחזרה הכללית <span class="num" data-metric="walk.digest_s">31.01</span> שנ' להרצאה קצרה; הרצאה של ארבע שעות — כשתי דקות). בזמן הזה המסך יכול לכבות, המחשב לא יירדם.</small></div><span class="who copilot">copilot</span></li>
+    <li class="copilot" data-step="folder"><div><b>התיקייה.</b><small><code>COURSES_ROOT/&lt;קורס&gt;/W05_&lt;תאריך&gt;_&lt;שם&gt;/</code>: <code>digest.md</code>, <code>digest.html</code>, <code>transcript.txt</code>, <code>claims.json</code>; ו-<code>course.html</code> של הקורס מתעדכן. הנתיב מופיע בדף.</small></div><span class="who copilot">copilot</span></li>
+    <li class="copilot" data-step="notion"><div><b>Notion.</b><small>הדף מראה קישור לעמוד ההרצאה — או "דולג" עם סיבה, או "נכשל" עם ההוראה <code>python -m lecture_copilot.cli notion-sync</code>. Notion לעולם לא עוצר את ה-Digest.</small></div><span class="who copilot">copilot</span></li>
+    <li class="copilot" data-step="cost"><div><b>העלות.</b><small>בדף: כמה טענות נבדקו, כמה לא, והעלות (תקציב $0.20 להרצאה). שום אודיו לא יצא מהמחשב — רק טקסט של טענות ל-Gemini וה-Digest ל-Notion.</small></div><span class="who copilot">copilot</span></li>
+  </ul>
+</section>
+
+<section id="broken">
+  <h2>אם משהו נשבר</h2>
+  <div class="fix"><b>המחשב קרס / נסגר באמצע.</b> מריצים שוב <code>copilot</code>: בראש הדף באנר "ההרצאה נקטעה (N קטעים נשמרו)" וכפתור "סיים והפק Digest". הקטעים עד הרגע ההוא בפנים.</div>
+  <div class="fix"><b>לא היה wifi.</b> הטענות מסומנות "לא נבדק". אחר כך, עם רשת: <code>python -m lecture_copilot.cli verify</code> בודק אותן ובונה את ה-Digest מחדש.</div>
+  <div class="fix"><b>Notion נכשל או היה כבוי.</b> <code>python -m lecture_copilot.cli notion-sync</code> דוחף כל הרצאה שסוכמה, בלי לקרוא למודל. סנכרון חוזר לא מכפיל.</div>
+  <div class="fix"><b>"fix: Ollama is not running".</b> <code>scripts/ollama_serve.sh</code> (לא <code>ollama serve</code> רגיל — ה-cache חייב להיות כבוי, אחרת הזיכרון מתמלא תוך הרצאה).</div>
+  <div class="fix"><b>"fix: mw not on PATH".</b> MacWhisper → Settings → Advanced → Install CLI, ואז <code>mw version</code>.</div>
+</section>
+
+<section id="rehearsal">
+  <h2>החזרה הכללית</h2>
+  <p>הצעדים הירוקים נבדקו ב-<code>scripts/m7.py cold-boot</code>: Ollama נסגר, <code>copilot</code> מופעל, והצ'קליסט נעבר דרך הדף האמיתי על הרצאת הדגמה בקצב אמיתי. התוצאה האחרונה: <span class="num" data-metric="walk.ok">11</span>/<span class="num" data-metric="walk.n">11</span> צעדים תקינים (<span class="num" data-metric="ran_at">2026-10-04 11:25</span>). השער <code>python scripts/gate.py --m 7</code> קורא את אותו קובץ.</p>
+</section>
+</div>
+</body>
+</html>

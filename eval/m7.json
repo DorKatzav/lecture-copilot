@@ -1,0 +1,85 @@
+{
+  "ran_at": "2026-10-04 11:25",
+  "cold_boot": {
+    "ready_s": 0.8
+  },
+  "walk": {
+    "steps": [
+      {
+        "id": "ready",
+        "status": "ok",
+        "s": 0.8,
+        "detail": "ready · ollama 0.34.2 · MacWhisper 15.2.1 (1521) · fact-checking on · notion on · http://127.0.0.1:8772/"
+      },
+      {
+        "id": "page",
+        "status": "ok",
+        "s": 0.51,
+        "detail": "notion on · gemini True"
+      },
+      {
+        "id": "start",
+        "status": "ok",
+        "s": 0.01
+      },
+      {
+        "id": "first_chunk",
+        "status": "ok",
+        "s": 12.63,
+        "wall_s": 73.23,
+        "detail": "processing of chunk 1 (budget 30 s); wall-clock 73.23 s includes waiting for 56.0 s of audio at real-time pace"
+      },
+      {
+        "id": "mark",
+        "status": "ok"
+      },
+      {
+        "id": "note",
+        "status": "ok"
+      },
+      {
+        "id": "recap",
+        "status": "ok",
+        "detail": "3 bullets"
+      },
+      {
+        "id": "stop",
+        "status": "ok",
+        "s": 31.01,
+        "detail": "3 chunks · digested"
+      },
+      {
+        "id": "folder",
+        "status": "ok",
+        "detail": "claims.json, digest.html, digest.md, meta.json, transcript.txt"
+      },
+      {
+        "id": "notion",
+        "status": "ok",
+        "detail": "https://app.notion.com/p/3ef0f7ff07428187a8a3f43c31c16cee"
+      },
+      {
+        "id": "cost",
+        "status": "ok",
+        "cost_usd": 0.0018,
+        "calls": 17,
+        "hosts": "generativelanguage.googleapis.com,api.notion.com"
+      }
+    ],
+    "n": 11,
+    "ok": 11,
+    "skipped": 0,
+    "failed": 0,
+    "failed_ids": [],
+    "all_ok": true,
+    "first_chunk_s": 12.63,
+    "digest_s": 31.01
+  },
+  "manual": [
+    "power",
+    "seat",
+    "mic",
+    "course",
+    "views"
+  ]
+}

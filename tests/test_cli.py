@@ -366,3 +366,13 @@ def test_main_loads_env_before_choosing_the_sinks(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "rebuild_digest", fake_rebuild)
     assert cli.main(["digest", "--db", str(tmp_path / "c.sqlite"), "--courses-root", str(tmp_path)]) == 0
     assert seen["token"] == "t-from-file"
+
+
+def test_the_digest_summary_carries_each_sink_outcome(tmp_path):
+    """M7: the page's "after" view must say what happened with Notion — link, skipped with reason, or failed."""
+    from lecture_copilot.output.sinks import SkippedSink
+    summary, _ = replay(tmp_path, sink=[FolderSink(tmp_path / "courses"),
+                                        SkippedSink("NotionSink", "NOTION_TOKEN missing (.env)")])
+    sinks = summary["digest"]["sinks"]
+    assert sinks["FolderSink"]["status"] == "ok"
+    assert sinks["NotionSink"] == {"status": "skipped", "reason": "NOTION_TOKEN missing (.env)"}
