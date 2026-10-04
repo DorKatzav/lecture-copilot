@@ -9,6 +9,7 @@ that reached the disk.
 
 import asyncio
 import os
+import subprocess
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -69,6 +70,7 @@ class Session:
         self.store = Store(db)
         self.courses_root = Path(courses_root)
         self.notion_client: Callable | None = None   # tests hand in a fake Notion transport
+        self.awake_factory: Callable = self._default_awake   # tests hand in a fake power assertion
         self.runs_dir = Path(runs_dir)
         self.ollama_client_factory = ollama_client_factory or self._default_client
         self.asr_factory = asr_factory or self._default_asr
@@ -210,7 +212,20 @@ class Session:
         self._notify("changed")
         return lecture_id
 
+    @staticmethod
+    def _default_awake():
+        """A macOS power assertion for the length of the lecture (D-M7-1): the Mac must not idle-sleep while it
+        records or writes the Digest. `-w` ties it to this process, so a crash releases it."""
+        return subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())], stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL)
+
     async def _run(self, cur: Current, lang: str, gemini, source: str, file: Path | None, pace: str) -> None:
+        awake = None
+        try:
+            awake = self.awake_factory()
+        except OSError as e:                          # no caffeinate: the lecture runs, the log says so
+            self.store.log("run", lecture_id=cur.lecture_id, input_ref="awake", output={"status": "unavailable",
+                                                                                         "error": str(e)})
         try:
             async with self.ollama_client_factory() as client:
                 verifier = VerifierWorker(Verifier(self.store, Net(self.store), gemini), cur.lecture_id) if gemini \
@@ -239,6 +254,8 @@ class Session:
             self.store.log("run", lecture_id=cur.lecture_id, input_ref="session", output={"status": "failed",
                                                                                            "error": cur.error})
         finally:
+            if awake is not None:
+                awake.terminate()
             self._notify("changed")
 
     async def stop(self) -> None:
