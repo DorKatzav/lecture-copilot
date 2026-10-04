@@ -275,3 +275,9 @@ def test_a_missing_caffeinate_never_stops_a_lecture(tmp_path):
         client.post("/api/stop")
         s = wait_for(client, "digested")
     assert s["current"]["digest"]["sections"] == 9
+
+
+def test_the_after_view_renders_the_notion_outcome():
+    from lecture_copilot.web.app import INDEX
+    html = INDEX.read_text(encoding="utf-8")
+    assert "dg.sinks" in html and "notion-sync" in html and "dg.notion" in html

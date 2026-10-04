@@ -96,13 +96,14 @@ async def make_digest(lecture_id: str, store: Store, client: httpx.AsyncClient, 
     t = time.perf_counter()
     doc = await digest(lecture_id, store=store, client=client)
     digest_s = round(time.perf_counter() - t, 1)
-    out = {"folder": None, "notion": None, "digest_s": digest_s, "degraded": doc.degraded,
+    out = {"folder": None, "notion": None, "sinks": {}, "digest_s": digest_s, "degraded": doc.degraded,
            "sections": len(section_headings(render_markdown(doc)))}
     over = f"  OVER BUDGET ({DIGEST_BUDGET_S} s)" if digest_s > DIGEST_BUDGET_S else ""
     degraded = f" · degraded: {', '.join(doc.degraded)}" if doc.degraded else ""
     echo(f"digest: {out['sections']} sections · {doc.minutes} min lecture · {digest_s} s{over}{degraded}")
     for one in ([sink] if not isinstance(sink, Sequence) else sink):
         result, log = await write_sink(one, "write_lecture", doc, store, lecture_id)
+        out["sinks"][log["sink"]] = {k: v for k, v in log.items() if k in ("status", "reason", "error")}
         if isinstance(result, Path):
             out["folder"] = str(result)
             echo(terminal_text(f"folder: {result}", 300))

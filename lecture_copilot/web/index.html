@@ -194,8 +194,17 @@ function render(){
       c.status === 'failed' ? `<p>תקלה: <span class="num">${esc(c.error)}</span>. הקטעים שנשמרו נמצאים במסד.</p>` :
       `<p><b>${esc(c.title)}</b> · <span class="num">${c.chunks}</span> קטעים · Digest ב-<span class="num">${dg ? dg.digest_s : '?'}</span> שנ'${dg && dg.degraded && dg.degraded.length ? ' · חלקים חסרים: ' + esc(dg.degraded.join(', ')) : ''}</p>
        <p class="quiet">תיקייה: <span class="num">${esc(dg ? dg.folder : '')}</span></p>
+       <p class="quiet">Notion: ${notionLine(dg)}</p>
        ${v ? `<p class="quiet">בדיקת עובדות: ${v.verified} נבדקו · ${v.unchecked} לא נבדקו · עלות <span class="num">$${c.cost_usd}</span></p>` : '<p class="quiet">בדיקת עובדות כבויה.</p>'}`;
   }
+}
+function notionLine(dg){
+  if (!dg) return '—';
+  if (dg.notion) return `<a href="${esc(dg.notion)}" target="_blank" rel="noopener">עמוד ההרצאה</a>`;
+  const n = (dg.sinks || {}).NotionSink;
+  if (!n) return 'לא הוגדר';
+  if (n.status === 'skipped') return `דולג — <span class="num">${esc(n.reason || '')}</span>`;
+  return `נכשל — <span class="num">${esc(n.error || '')}</span>. להשלים: <span class="num">python -m lecture_copilot.cli notion-sync</span>`;
 }
 async function refresh(){ state = await api('/api/state'); render(); }
 function connect(){
