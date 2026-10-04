@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "db" / "copilot.sqlite"
 RUNS_DIR = ROOT / "runs"
 PROMPTS_DIR = ROOT / "prompts"
-COURSES_ROOT = Path(os.getenv("COURSES_ROOT", "~/Google Drive/My Drive/Lecture-Copilot")).expanduser()
+COURSES_ROOT = Path(os.getenv("COURSES_ROOT", "~/Documents/Lecture Copilot")).expanduser()   # D-M7-2: local, no Drive
 
 CHUNK_MIN_S, CHUNK_MAX_S, SILENCE_DB = 30, 60, -40
 # one local LLM for live extraction and the Digest (D-M0-10: qwen3:8b leaked foreign scripts into Hebrew)
