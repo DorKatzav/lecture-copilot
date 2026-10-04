@@ -1076,7 +1076,78 @@ def check_notion_skipped(db: Path = DB_PATH) -> Result:
     return _ok("notion_skipped", f"lecture {row[0]}: Notion skipped — \"{out['reason']}\"; the folder sink wrote")
 
 
+# ---------- M7: the first lecture, rehearsed ----------
+
+M7_RESULTS = ROOT / "eval" / "m7.json"
+CHECKLIST = ROOT / "docs" / "notes" / "FIRST_LECTURE_HE.html"
+
+
+def _m7(path: Path) -> dict | None:
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+
+def check_cold_boot(path: Path = M7_RESULTS, max_s: float = 60.0) -> Result:
+    data = _m7(path)
+    if data is None:
+        return _fail("cold_boot", f"no {path.name} — python scripts/m7.py cold-boot")
+    ready = data.get("cold_boot", {}).get("ready_s")
+    detail = f"copilot said ready {ready} s after a cold boot (Ollama killed first) — {data.get('ran_at')}"
+    if ready is None or ready > max_s:
+        return _fail("cold_boot", detail)
+    return _ok("cold_boot", detail)
+
+
+def check_checklist_walk(path: Path = M7_RESULTS) -> Result:
+    """Every automated step ok (Notion may be skipped with a reason), the first chunk inside its budget, the
+    Digest inside its budget."""
+    from lecture_copilot.config import CHUNK_BUDGET_S, DIGEST_BUDGET_S
+    from scripts.m7 import STEPS
+    data = _m7(path)
+    if data is None:
+        return _fail("checklist_walk", f"no {path.name} — python scripts/m7.py cold-boot")
+    walk = data.get("walk", {})
+    by = {s["id"]: s for s in walk.get("steps", [])}
+    wanted = [s["id"] for s in STEPS if s["who"] == "copilot"]
+    bad = [i for i in wanted if by.get(i, {}).get("status") not in ("ok", "skipped")]
+    bad += [i for i in wanted if i != "notion" and by.get(i, {}).get("status") == "skipped"]
+    first, dig = by.get("first_chunk", {}).get("s"), by.get("stop", {}).get("s")
+    if first is None or first > CHUNK_BUDGET_S:
+        bad.append(f"first_chunk {first} s > {CHUNK_BUDGET_S}")
+    if dig is None or dig > DIGEST_BUDGET_S:
+        bad.append(f"digest {dig} s > {DIGEST_BUDGET_S}")
+    detail = (f"{walk.get('ok')}/{walk.get('n')} steps ok · first chunk {first} s · Digest {dig} s · "
+              f"notion {by.get('notion', {}).get('status')}")
+    if bad:
+        return _fail("checklist_walk", f"{detail} · not ok: {', '.join(map(str, bad))}")
+    return _ok("checklist_walk", detail)
+
+
+def check_checklist_page(path: Path = CHECKLIST) -> Result:
+    import re
+
+    from scripts.m7 import STEPS
+    if not path.is_file():
+        return _fail("checklist_page", f"no {path}")
+    html = path.read_text(encoding="utf-8")
+    present = set(re.findall(r'data-step="([a-z_]+)"', html))
+    missing = [s["id"] for s in STEPS if s["id"] not in present]
+    rtl = 'lang="he"' in html and 'dir="rtl"' in html
+    unfilled = len(re.findall(r'data-metric="[^"]+">—<', html))
+    detail = f"{path.name}: {len(present)} steps, rtl {rtl}, unfilled metrics {unfilled}"
+    if missing or not rtl or unfilled:
+        return _fail("checklist_page", detail + (f" · missing steps: {', '.join(missing)}" if missing else ""))
+    return _ok("checklist_page", detail)
+
+
 CHECKS: dict[int, list[tuple[str, Callable[[], Result]]]] = {
+    7: [
+        ("cold_boot", check_cold_boot),
+        ("checklist_walk", check_checklist_walk),
+        ("checklist_page", check_checklist_page),
+        ("prompt_cache", check_prompt_cache),
+        ("tests", check_tests),
+        ("secret_scan", check_secret_scan),
+    ],
     0: [
         ("mw_version", check_mw_version),
         ("ollama_models", check_ollama_models),

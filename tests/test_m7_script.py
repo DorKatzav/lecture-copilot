@@ -14,7 +14,10 @@ def test_walk_summary_counts_automated_steps_and_names_the_failures():
              {"id": "notion", "status": "skipped", "detail": "NOTION_TOKEN missing"},
              {"id": "recap", "status": "failed", "detail": "no bullets"}]
     out = walk_summary(steps)
-    assert out == {"n": 4, "ok": 2, "skipped": 1, "failed": 1, "failed_ids": ["recap"], "all_ok": False}
+    assert out == {"n": 4, "ok": 2, "skipped": 1, "failed": 1, "failed_ids": ["recap"], "all_ok": False,
+                   "first_chunk_s": None, "digest_s": None}
+    assert walk_summary([{"id": "first_chunk", "status": "ok", "s": 12.6}, {"id": "stop", "status": "ok", "s": 25.8}]
+                        )["first_chunk_s"] == 12.6
     assert walk_summary([{"id": "ready", "status": "ok"}])["all_ok"] is True
     assert json.dumps(out)
 
